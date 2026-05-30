@@ -1,3 +1,4 @@
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { access, constants, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -59,7 +60,7 @@ const readConfigValue = async <T>(
  * @returns The API key, as defined by the auth.json file
  */
 export const resolveApiKey = async (): Promise<string> => {
-  const authPath = join(process.env.HOME || ".", ".pi", "agent", "auth.json");
+  const authPath = join(getAgentDir(), "settings.json");
   if (!(await fileExists(authPath))) return API_KEY_PLACEHOLDER;
 
   const cfg = await readConfigValue<AuthFile>(authPath, PROVIDER_ID);
@@ -71,13 +72,7 @@ export const resolveApiKey = async (): Promise<string> => {
  * @returns The URL, if found.
  */
 const resolveGlobalUrl = async (): Promise<string | null> => {
-  const globalPath = join(
-    process.env.HOME || ".",
-    ".pi",
-    "agent",
-    "settings.json",
-  );
-
+  const globalPath = join(getAgentDir(), "settings.json");
   if (!(await fileExists(globalPath))) return null;
 
   return readConfigValue<Record<string, string>>(globalPath, "llamaServerUrl");
