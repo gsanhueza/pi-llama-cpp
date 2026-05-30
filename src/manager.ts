@@ -72,6 +72,9 @@ export class CommandManager {
       return await notFoundCommand(ctx);
     }
 
+    // Refresh the model list from the server
+    await this.update();
+
     // Command: `/models info`
     if (args === "info") {
       const info = await Promise.all(this.serverModels.map((m) => m.getInfo()));
