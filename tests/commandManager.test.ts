@@ -95,7 +95,8 @@ describe("CommandManager", () => {
     } as any);
 
     expect(notifyFn).toHaveBeenCalledWith("Model info for test-model", "info");
-    expect(listModels).toHaveBeenCalledOnce();
+    // Called once in initialize() and once in run() to refresh the model list
+    expect(listModels).toHaveBeenCalledTimes(2);
   });
 
   it("should unload all models when args is 'unload'", async () => {
