@@ -1,4 +1,5 @@
 import { access, constants, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   API_KEY_PLACEHOLDER,
@@ -59,7 +60,12 @@ const readConfigValue = async <T>(
  * @returns The API key, as defined by the auth.json file
  */
 export const resolveApiKey = async (): Promise<string> => {
-  const authPath = join(process.env.HOME || ".", ".pi", "agent", "auth.json");
+  // const authPath = join(process.env.HOME || ".", ".pi", "agent", "auth.json");
+  const authPath = join(
+    process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi"),
+    "agent",
+    "auth.json",
+  );
   if (!(await fileExists(authPath))) return API_KEY_PLACEHOLDER;
 
   const cfg = await readConfigValue<AuthFile>(authPath, PROVIDER_ID);
@@ -72,8 +78,7 @@ export const resolveApiKey = async (): Promise<string> => {
  */
 const resolveGlobalUrl = async (): Promise<string | null> => {
   const globalPath = join(
-    process.env.HOME || ".",
-    ".pi",
+    process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi"),
     "agent",
     "settings.json",
   );

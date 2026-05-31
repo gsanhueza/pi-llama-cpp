@@ -83,6 +83,27 @@ describe("URL resolution fallback chain", () => {
     expect(result).toBe("http://global:8080");
   });
 
+  it("should use global settings from explicitly specified path from PI_CODING_AGENT_DIR if exist", async () => {
+    process.env.PI_CODING_AGENT_DIR = "/tmp/test-project/.config";
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockImplementation(async (path: string) => {
+        if (path.includes("settings.json")) return undefined;
+        throw new Error("ENOENT");
+      }),
+      constants: { F_OK: 0 },
+      readFile: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          llamaServerUrl: "http://global:8088",
+        }),
+      ),
+    }));
+
+    const { resolveUrl } = await import("../src/tools/resolver");
+    const result = await resolveUrl("/tmp/test-project/.config");
+
+    expect(result).toBe("http://global:8088");
+  });
+
   it("should strip trailing slashes from resolved URL", async () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockImplementation(async (path: string) => {
