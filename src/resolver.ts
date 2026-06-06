@@ -1,15 +1,12 @@
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { access, constants, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  API_KEY_PLACEHOLDER,
-  DEFAULT_LLAMA_SERVER_URL,
-  PROVIDER_ID,
-} from "./constants";
+import { API_KEY_PLACEHOLDER, DEFAULT_LLAMA_SERVER_URL } from "./constants";
 import { AuthFile } from "./interfaces/auth";
 
 export class ConfigResolver {
-  private cachedUrl: string | undefined;
+  private cachedUrls: string[] = [];
+  private cachedAuth: AuthFile | null = null;
 
   /**
    * Detects if a particular file is present
@@ -75,9 +72,9 @@ export class ConfigResolver {
   }
 
   /**
-   * Tries all possible ways to retrieve the llama-server URL
+   * Tries all possible ways to retrieve the llama-server URL(s)
    */
-  private async resolveUrlWithFallbacks(cwd: string): Promise<string> {
+  private async extractJoinedUrls(cwd: string): Promise<string> {
     // 1. per-project config
     let response = await this.resolveProjectUrl(cwd);
     if (response) return response;
@@ -95,23 +92,34 @@ export class ConfigResolver {
   }
 
   /**
-   * Resolves the URL where llama-server is running (cached)
+   * Resolves URLs where llama-servers are running (cached)
    */
-  async resolveUrl(cwd: string): Promise<string> {
-    if (this.cachedUrl) return this.cachedUrl;
-    const result = await this.resolveUrlWithFallbacks(cwd);
-    this.cachedUrl = result.replace(/\/+$/, "");
-    return this.cachedUrl;
+  async resolveUrls(cwd: string): Promise<string[]> {
+    if (this.cachedUrls.length > 0) return this.cachedUrls;
+
+    const raw = await this.extractJoinedUrls(cwd);
+    const urls = raw
+      .split(";")
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0)
+      .map((u) => u.replace(/\/+$/, ""));
+
+    this.cachedUrls = urls;
+    return this.cachedUrls;
   }
 
   /**
-   * Resolves the API key from Pi's settings.json
+   * Resolves API key for the provider ID using Pi's auth.json
    */
-  async resolveApiKey(): Promise<string> {
+  async resolveApiKey(providerId: string): Promise<string> {
+    if (this.cachedAuth?.[providerId]) return this.cachedAuth[providerId].key;
+
     const authPath = join(getAgentDir(), "auth.json");
     if (!(await this.fileExists(authPath))) return API_KEY_PLACEHOLDER;
 
-    const cfg = await this.readConfigValue<AuthFile>(authPath, PROVIDER_ID);
-    return cfg?.key ?? API_KEY_PLACEHOLDER;
+    this.cachedAuth = await this.readJson<AuthFile>(authPath);
+    const apiKey = this.cachedAuth?.[providerId]?.key ?? API_KEY_PLACEHOLDER;
+
+    return apiKey;
   }
 }

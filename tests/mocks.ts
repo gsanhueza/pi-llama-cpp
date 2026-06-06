@@ -8,15 +8,26 @@ import { BaseModel } from "../src/models/baseModel";
 export const mockRpc = vi.fn();
 
 /** Default mock server that assumes everything works */
-export const createMockServer = (overrides = {}) => ({
-  rpc: mockRpc,
-  baseUrl: "http://127.0.0.1:8080",
-  apiKey: undefined,
-  models: [],
-  isReady: () => Promise.resolve(true),
-  initialize: () => Promise.resolve(),
-  ...overrides,
-});
+export const createMockServer = (overrides: Record<string, unknown> = {}) => {
+  const models: unknown[] = [];
+  const server: Record<string, unknown> = {
+    rpc: mockRpc,
+    baseUrl: "http://127.0.0.1:8080",
+    apiKey: undefined,
+    get models() {
+      return models;
+    },
+    getApiKey: () => Promise.resolve(overrides.apiKey ?? ""),
+    isReady: () => Promise.resolve(true),
+    initialize: async () => {
+      const { data } = (await mockRpc("/models")) as { data: unknown[] };
+      models.length = 0;
+      models.push(...(data ?? []));
+    },
+    ...overrides,
+  };
+  return server as unknown as import("../src/server").Server;
+};
 
 /** Helper to create a mock BaseModel */
 export const createMockModel = (
@@ -27,6 +38,7 @@ export const createMockModel = (
     name,
     id: name,
     mode: Mode.ROUTER,
+    serverUrl: "http://127.0.0.1:8080",
     capabilities: ["text"] as ["text"],
     getStatus: vi.fn().mockResolvedValue(Status.LOADED),
     getContextSize: vi.fn().mockResolvedValue(4096),

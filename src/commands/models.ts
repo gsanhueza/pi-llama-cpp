@@ -2,18 +2,17 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { PROVIDER_ID, PROVIDER_NAME } from "../constants";
+import { PROVIDER_NAME } from "../constants";
 import { Action } from "../enums/action";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { EventManager } from "../managers/events";
 import { BaseModel } from "../models/baseModel";
-import { ConfigResolver } from "../resolver";
 
 /**
  * Select a model from the list. Returns null if user cancels.
  *
- * @param ctx Pi context
+ * @param ctx The context used by Pi
  * @param models A list of models
  * @returns The selected model
  */
@@ -21,10 +20,24 @@ const selectModel = async (
   ctx: ExtensionCommandContext,
   models: BaseModel[],
 ): Promise<BaseModel | null> => {
-  const labels = await Promise.all(models.map((m) => m.getLabel()));
-  const choice = await ctx.ui.select(`${PROVIDER_NAME} models:`, labels);
+  const labels = await Promise.all(
+    models.map(async (model) => ({
+      label: (await model.getLabel()).trim(),
+      serverUrl: model.serverUrl,
+    })),
+  );
+
+  // Decorate the label so the spacing makes it seem more like a table
+  const maxLength = Math.max(...labels.map(({ label }) => label.length));
+  const choices = labels.map(
+    ({ label, serverUrl }) =>
+      `${label.padEnd(maxLength)} [Server: ${serverUrl}]`,
+  );
+
+  const choice = await ctx.ui.select(`${PROVIDER_NAME} models:`, choices);
   if (!choice) return null;
-  const idx = labels.indexOf(choice);
+  const idx = choices.indexOf(choice);
+
   return models[idx];
 };
 
@@ -35,8 +48,11 @@ const selectModel = async (
  * @returns The array of available actions for the given model status
  */
 const getActionsForModel = async (model: BaseModel): Promise<Array<Action>> => {
-  const routerModeActions: Record<Status, Array<Action>> = {
-    [Status.LOADED]: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
+  const allActions: Record<Status, Array<Action>> = {
+    [Status.LOADED]:
+      model.mode === Mode.ROUTER
+        ? [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL]
+        : [Action.SWITCH, Action.INFO, Action.CANCEL],
     [Status.LOADING]: [Action.INFO, Action.CANCEL],
     [Status.FAILED]: [Action.RETRY, Action.CANCEL],
     [Status.SLEEPING]: [
@@ -48,17 +64,6 @@ const getActionsForModel = async (model: BaseModel): Promise<Array<Action>> => {
     [Status.UNLOADED]: [Action.LOAD, Action.CANCEL],
   };
 
-  const singleModeActions: Record<Status, Array<Action>> = {
-    [Status.LOADED]: [Action.INFO, Action.CANCEL],
-    [Status.LOADING]: [Action.CANCEL],
-    [Status.FAILED]: [Action.CANCEL],
-    [Status.SLEEPING]: [Action.INFO, Action.CANCEL],
-    [Status.UNLOADED]: [Action.CANCEL],
-  };
-
-  const allActions =
-    model.mode === Mode.ROUTER ? routerModeActions : singleModeActions;
-
   const status = await model.getStatus();
   return allActions[status];
 };
@@ -66,7 +71,7 @@ const getActionsForModel = async (model: BaseModel): Promise<Array<Action>> => {
 /**
  * Selects an action for a model.
  *
- * @param ctx Pi context
+ * @param ctx The context used by Pi
  * @param model The selected model
  * @param actions Possible actions to execute
  * @returns The action, or null if user cancels
@@ -85,14 +90,15 @@ const selectAction = async (
 };
 
 /**
- * Handles the menu for model selection
+ * Handles the menu for model selection.
  * Loops: select model → select action → handle action.
  *
  * Escape on actions menu goes back to model selection.
  * Escape on model selection exits.
  *
- * @param ctx Pi context
- * @returns The action and model, if detected
+ * @param ctx The context used by Pi
+ * @param models List of available models
+ * @returns The selected action and model, or null if the user cancels
  */
 const modelSelectionHandler = async (
   ctx: ExtensionCommandContext,
@@ -120,21 +126,21 @@ const modelSelectionHandler = async (
  * Handles the /models command when the server is unreachable.
  *
  * @param ctx The context used by Pi
+ * @param url The URL of the unreachable server
  */
 export const notFoundCommand = async (
   ctx: ExtensionCommandContext,
+  url: string,
 ): Promise<void> => {
-  const url = await new ConfigResolver().resolveUrl(ctx.cwd);
   ctx.ui.notify(`${PROVIDER_NAME} unreachable at ${url}`, "error");
 };
 
 /**
- * Handles the /models command
+ * Handles the /models command across multiple servers.
  *
- * @param args Arguments passed to the command
  * @param ctx The context used by Pi
  * @param pi The Pi extension
- * @param models List of available models
+ * @param models List of models with their server URLs and provider IDs
  */
 export const modelsCommand = async (
   ctx: ExtensionCommandContext,
@@ -142,9 +148,8 @@ export const modelsCommand = async (
   models: BaseModel[],
 ): Promise<void> => {
   const event = await modelSelectionHandler(ctx, models);
-  if (!event) return;
 
-  // Detect the model
+  if (!event) return;
   const { action, model } = event;
 
   // Action: Cancel
@@ -171,7 +176,8 @@ export const modelsCommand = async (
     EventManager.inflightModel = model;
 
     const onSuccess = async () => {
-      const piModel = ctx.modelRegistry.find(PROVIDER_ID, model.id);
+      const { serverId } = model;
+      const piModel = ctx.modelRegistry.find(serverId, model.id);
       if (!piModel) {
         throw new Error(`Cannot find model ${model.name} in pi registry`);
       }

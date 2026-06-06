@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PROVIDER_ID, PROVIDER_NAME } from "../src/constants";
 import { CommandManager } from "../src/managers/command";
 import { BaseModel } from "../src/models/baseModel";
+import { Server } from "../src/server";
 import { createMockServer, mockRpc } from "./mocks";
 
 const mockPi = {
@@ -15,141 +15,106 @@ beforeEach(() => {
 });
 
 describe("CommandManager", () => {
-  it("should register empty models when server is not ready", async () => {
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      isReady: () => Promise.resolve(false),
-    };
-    const manager = new CommandManager(mockPi as any, server as any);
-    await manager.initialize();
-
-    expect(mockPi.registerProvider).toHaveBeenCalledWith(PROVIDER_ID, {
-      name: PROVIDER_NAME,
-      baseUrl: "http://127.0.0.1:8080",
-      api: "openai-completions",
-      apiKey: "test-key",
-      models: [],
-    });
+  it("should generate provider IDs from URLs", () => {
+    const server1 = new Server("http://127.0.0.1:8080");
+    expect(server1.providerId).toBe("llama-server=http://127.0.0.1:8080");
+    const server2 = new Server("http://10.0.0.5:8080");
+    expect(server2.providerId).toBe("llama-server=http://10.0.0.5:8080");
+    const server3 = new Server("http://127.0.0.1");
+    expect(server3.providerId).toBe("llama-server=http://127.0.0.1");
+    const server4 = new Server("http://127.0.0.1:80");
+    expect(server4.providerId).toBe("llama-server=http://127.0.0.1:80");
+    const server5 = new Server("https://127.0.0.1:443");
+    expect(server5.providerId).toBe("llama-server=https://127.0.0.1:443");
   });
 
-  it("should update and register models when server is ready", async () => {
+  it("should generate provider names from URLs", () => {
+    const server1 = new Server("http://127.0.0.1:8080");
+    expect(server1.providerName).toBe("Llama.cpp (http://127.0.0.1:8080)");
+    const server2 = new Server("http://10.0.0.5:8080");
+    expect(server2.providerName).toBe("Llama.cpp (http://10.0.0.5:8080)");
+  });
+
+  it("should register providers for all servers", async () => {
     const mockModel = {
       name: "test-model",
       id: "test-model",
-      toProviderConfig: vi
-        .fn()
-        .mockResolvedValue({ id: "test-model", maxTokens: 32000 }),
-    } as unknown as BaseModel;
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      models: [mockModel],
-    };
-
-    const manager = new CommandManager(mockPi as any, server as any);
-    await manager.initialize();
-
-    expect(mockPi.registerProvider).toHaveBeenCalledWith(PROVIDER_ID, {
-      name: PROVIDER_NAME,
-      baseUrl: "http://127.0.0.1:8080",
-      api: "openai-completions",
-      apiKey: "test-key",
-      models: [{ id: "test-model", maxTokens: 32000 }],
-    });
-  });
-
-  it("should call notFoundCommand when server is not ready in run()", async () => {
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      isReady: () => Promise.resolve(false),
-    };
-    const manager = new CommandManager(mockPi as any, server as any);
-    const cmd = manager.setupModelsCommand();
-    await cmd.handler("", {
-      cwd: "/tmp/test",
-      ui: { notify: vi.fn() } as any,
-    } as any);
-
-    expect(mockPi.registerProvider).not.toHaveBeenCalled();
-  });
-
-  it("should show info for all models when args is 'info'", async () => {
-    const mockModel = {
-      name: "test-model",
-      id: "test-model",
-      getInfo: vi.fn().mockResolvedValue("Model info for test-model"),
       toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
     } as unknown as BaseModel;
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      models: [mockModel],
-    };
+    mockRpc.mockResolvedValue({
+      data: [mockModel],
+      object: "list",
+    });
 
-    const notifyFn = vi.fn();
-    const manager = new CommandManager(mockPi as any, server as any);
-    await manager.initialize();
-    const cmd = manager.setupModelsCommand();
-    await cmd.handler("info", {
-      ui: { notify: notifyFn, theme: { fg: (_c: string, t: string) => t } },
-    } as any);
+    const server1 = createMockServer({
+      baseUrl: "http://127.0.0.1:8080",
+      apiKey: "key-1",
+      providerId: "llama-server=http://127.0.0.1:8080",
+      providerName: "Llama.cpp (http://127.0.0.1:8080)",
+    });
+    const server2 = createMockServer({
+      baseUrl: "http://127.0.0.1:8081",
+      apiKey: "key-2",
+      providerId: "llama-server=http://127.0.0.1:8081",
+      providerName: "Llama.cpp (http://127.0.0.1:8081)",
+    });
+    const manager = new CommandManager(
+      mockPi as any,
+      [server1, server2] as any,
+    );
 
-    expect(notifyFn).toHaveBeenCalledWith("Model info for test-model", "info");
+    await manager.registerAllProviders();
+
+    expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
+    expect(mockPi.registerProvider).toHaveBeenCalledWith(
+      "llama-server=http://127.0.0.1:8080",
+      {
+        name: "Llama.cpp (http://127.0.0.1:8080)",
+        baseUrl: "http://127.0.0.1:8080",
+        api: "openai-completions",
+        apiKey: "key-1",
+        models: [{ id: "test-model" }],
+      },
+    );
+    expect(mockPi.registerProvider).toHaveBeenCalledWith(
+      "llama-server=http://127.0.0.1:8081",
+      {
+        name: "Llama.cpp (http://127.0.0.1:8081)",
+        baseUrl: "http://127.0.0.1:8081",
+        api: "openai-completions",
+        apiKey: "key-2",
+        models: [{ id: "test-model" }],
+      },
+    );
   });
 
-  it("should unload all models when args is 'unload'", async () => {
+  it("should return all models from all servers", () => {
     const mockModel1 = {
       name: "model-1",
       id: "model-1",
-      unload: vi.fn().mockResolvedValue(undefined),
-      toProviderConfig: vi.fn().mockResolvedValue({ id: "model-1" }),
     } as unknown as BaseModel;
     const mockModel2 = {
       name: "model-2",
       id: "model-2",
-      unload: vi.fn().mockResolvedValue(undefined),
-      toProviderConfig: vi.fn().mockResolvedValue({ id: "model-2" }),
     } as unknown as BaseModel;
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      models: [mockModel1, mockModel2],
-    };
-
-    const notifyFn = vi.fn();
-    const manager = new CommandManager(mockPi as any, server as any);
-    await manager.initialize();
-    const cmd = manager.setupModelsCommand();
-    await cmd.handler("unload", {
-      ui: { notify: notifyFn },
-    } as any);
-
-    expect(mockModel1.unload).toHaveBeenCalled();
-    expect(mockModel2.unload).toHaveBeenCalled();
-    expect(notifyFn).toHaveBeenCalledWith(
-      "Unloaded all Llama.cpp models",
-      "info",
+    const server1 = createMockServer({
+      baseUrl: "http://127.0.0.1:8080",
+    });
+    const server2 = createMockServer({
+      baseUrl: "http://127.0.0.1:8081",
+    });
+    const manager = new CommandManager(
+      mockPi as any,
+      [
+        { ...server1, models: [mockModel1] } as any,
+        { ...server2, models: [mockModel2] } as any,
+      ] as any,
     );
-  });
 
-  it("should dispatch modelsCommand when args is empty", async () => {
-    const mockModel = {
-      name: "test-model",
-      id: "test-model",
-      getLabel: vi.fn().mockResolvedValue("test-model"),
-      toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
-    } as unknown as BaseModel;
-    const server = {
-      ...createMockServer({ apiKey: "test-key" }),
-      models: [mockModel],
-    };
+    const allModels = manager.getAllModels();
 
-    const selectFn = vi.fn().mockReturnValue(null); // cancel immediately
-    const manager = new CommandManager(mockPi as any, server as any);
-    await manager.initialize();
-    const cmd = manager.setupModelsCommand();
-    await cmd.handler("", {
-      ui: { notify: vi.fn(), select: selectFn },
-    } as any);
-
-    // modelsCommand was called (select is invoked for model picking)
-    expect(selectFn).toHaveBeenCalled();
+    expect(allModels).toHaveLength(2);
+    expect(allModels[0]).toBe(mockModel1);
+    expect(allModels[1]).toBe(mockModel2);
   });
 });

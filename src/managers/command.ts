@@ -1,115 +1,83 @@
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-  ProviderModelConfig,
 } from "@earendil-works/pi-coding-agent";
 import { AutocompleteItem } from "@earendil-works/pi-tui";
 import { modelsCommand, notFoundCommand } from "../commands/models";
-import { PROVIDER_ID, PROVIDER_NAME } from "../constants";
+import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 
 export class CommandManager {
   static inflightModel: BaseModel | null = null;
+  readonly failedUrls: string[] = [];
 
   constructor(
     private readonly pi: ExtensionAPI,
-    private readonly server: Server,
+    private readonly servers: Server[],
   ) {}
 
   /**
-   * Sets up the initial state of the provider
+   * Registers one provider per server in Pi with their model configurations.
+   * Call this after the servers have been initialized.
+   * The manual awaiting per-server is deliberate (we want them in order)
    */
-  async initialize() {
-    if (await this.server.isReady()) {
-      await this.update();
-    } else {
-      await this.register([]);
+  async registerAllProviders() {
+    for (const server of this.servers) {
+      await this.registerProvider(server);
     }
   }
 
   /**
-   * Ensures the models are up-to-date with the server
+   * Creates a Pi provider for the given server
+   *
+   * @param server The server
    */
-  async update() {
-    await this.server.initialize();
+  private async registerProvider(server: Server) {
+    try {
+      await server.initialize();
+    } catch {
+      this.failedUrls.push(server.baseUrl);
+      return;
+    }
 
+    // Setup the Pi registration
+    const { baseUrl, models, providerId, providerName } = server;
+    const apiKey = await server.getApiKey();
     const modelConfigs = await Promise.all(
-      this.server.models.map((m) => m.toProviderConfig()),
+      models.map((m) => m.toProviderConfig()),
     );
 
-    await this.register(modelConfigs);
-  }
-
-  /**
-   * Registers the provider in Pi with the given configurations
-   * Note: Registrations overload previous provider
-   *
-   * @param models Provider configurations for the models
-   */
-  async register(models: ProviderModelConfig[]) {
-    this.pi.registerProvider(PROVIDER_ID, {
-      name: PROVIDER_NAME,
-      baseUrl: this.server.baseUrl,
-      api: "openai-completions",
-      apiKey: this.server.apiKey,
-      models,
+    this.pi.registerProvider(providerId, {
+      name: providerName,
+      baseUrl: baseUrl,
+      api: API_TYPE,
+      apiKey: apiKey,
+      models: modelConfigs,
     });
   }
 
   /**
-   * Sets up the behavior of the `/models` command
+   * Returns all models from all servers.
    *
-   * @returns The object used by Pi to setup the command
+   * @returns Flat array of all models across all servers
    */
-  setupModelsCommand() {
-    return {
-      description: `Browse ${PROVIDER_NAME} models`,
-      getArgumentCompletions: this.getArgumentCompletions,
-      handler: async (args: string, ctx: ExtensionCommandContext) =>
-        await this.run(args, ctx),
-    };
+  getAllModels(): BaseModel[] {
+    const response = [];
+
+    for (const { models } of this.servers) {
+      for (const model of models) {
+        response.push(model);
+      }
+    }
+
+    return response;
   }
 
   /**
-   * Dispatches the /models command
-   *
-   * @param args Arguments passed to the command
-   * @param ctx The context used by Pi
-   * @param pi The Pi extension
-   */
-  async run(args: string, ctx: ExtensionCommandContext) {
-    if (!(await this.server.isReady())) return await notFoundCommand(ctx);
-
-    // Updates the available models
-    await this.update();
-
-    // Command: `/models info`
-    if (args === "info") {
-      const info = await Promise.all(
-        this.server.models.map((m) => m.getInfo()),
-      );
-      const message = ctx.ui.theme.fg("accent", info.join("\n"));
-      ctx.ui.notify(message, "info");
-      return;
-    }
-
-    // Command: `/models unload`
-    if (args === "unload") {
-      await Promise.all(this.server.models.map((m) => m.unload()));
-      ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
-      return;
-    }
-
-    // Command: `/models` (interactive menu)
-    return await modelsCommand(ctx, this.pi, this.server.models);
-  }
-
-  /**
-   * Sets up the autocomplete for the `/models` command
-   *
-   * @param prefix The prefix to filter completions
-   * @returns An array of AutocompleteItem objects or null
+   * Sets up the argument completions for the `/models` command
+   * @param prefix Prefix written by the user
+   * @returns Completions with that prefix
    */
   getArgumentCompletions(prefix: string): AutocompleteItem[] | null {
     const available = [
@@ -124,8 +92,47 @@ export class CommandManager {
         description: "Unload all models",
       },
     ];
-
     const filtered = available.filter((a) => a.value.startsWith(prefix));
     return filtered.length > 0 ? filtered : null;
+  }
+
+  /**
+   * Executes the action for the `/models` command
+   *
+   * @param args Arguments of the command
+   * @param ctx The context used by Pi
+   * @param pi The Pi extension
+   */
+  async handleCommand(
+    args: string,
+    ctx: ExtensionCommandContext,
+    pi: ExtensionAPI,
+  ) {
+    // Re-register providers so Pi sees updated model states
+    await this.registerAllProviders();
+
+    // Notify about unreachable servers
+    for (const url of this.failedUrls) {
+      await notFoundCommand(ctx, url);
+    }
+    this.failedUrls.length = 0; // Clear for next run
+
+    if (args === "unload") {
+      await Promise.all(this.getAllModels().map((model) => model.unload()));
+      ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
+      return;
+    }
+
+    if (args === "info") {
+      const infos = await Promise.all(
+        this.getAllModels().map((model) => model.getInfo()),
+      );
+      ctx.ui.notify(ctx.ui.theme.fg("accent", infos.join("\n")), "info");
+      return;
+    }
+
+    // Interactive menu: show <name> (<server_url>)
+    const allModels = this.getAllModels();
+    await modelsCommand(ctx, pi, allModels);
   }
 }

@@ -1,8 +1,5 @@
-import type {
-  ExtensionContext,
-  SessionBeforeSwitchEvent,
-} from "@earendil-works/pi-coding-agent";
-import { PROVIDER_ID, READABLE_TIMEOUT } from "../constants";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { READABLE_TIMEOUT } from "../constants";
 import { ModelSelectEvent } from "../interfaces/events";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
@@ -10,7 +7,7 @@ import { Server } from "../server";
 export class EventManager {
   static inflightModel: BaseModel | null = null;
 
-  constructor(private readonly server: Server) {}
+  constructor(private readonly servers: Server[]) {}
 
   /**
    * Reacts to a new model event triggered by Pi
@@ -19,31 +16,30 @@ export class EventManager {
    * @param ctx Pi context
    */
   async onModelSelect(event: ModelSelectEvent, ctx: ExtensionContext) {
-    if (event.model.provider !== PROVIDER_ID) return;
+    for (const { providerId, models } of this.servers) {
+      if (event.model.provider !== providerId) continue;
 
-    const model = this.server.models.find((m) => m.id === event.model.id);
-    if (!model) return;
+      const model = models.find((m) => m.id === event.model.id);
+      if (!model) continue;
 
-    ctx.ui.notify(`Loading ${model.name}...`, "info");
-    await model
-      .load()
-      .then(() => ctx.ui.notify(`Model ${model.name} ready`, "info"))
-      .catch(() =>
-        ctx.ui.notify(`Failed to load model ${model.name}`, "error"),
-      );
+      ctx.ui.notify(`Loading ${model.name}...`, "info");
+      await model
+        .load()
+        .then(() => ctx.ui.notify(`Model ${model.name} ready`, "info"))
+        .catch(() =>
+          ctx.ui.notify(`Failed to load model ${model.name}`, "error"),
+        );
+      return;
+    }
   }
 
   /**
    * Session-switch handler. Registered once at extension init.
    * Only notifies if a model load is actually in-flight.
    *
-   * @param event Before switch event
    * @param ctx Pi context
    */
-  async onSessionBeforeSwitch(
-    _event: SessionBeforeSwitchEvent,
-    ctx: ExtensionContext,
-  ) {
+  async onSessionBeforeSwitch(ctx: ExtensionContext) {
     if (!EventManager.inflightModel) return;
 
     const messages = [

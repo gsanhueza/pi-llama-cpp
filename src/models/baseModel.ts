@@ -35,16 +35,39 @@ export abstract class BaseModel {
 
   abstract get mode(): Mode;
 
+  /**
+   * Returns the server URL associated with this model
+   */
+  get serverUrl(): string {
+    return this.server.baseUrl;
+  }
+
+  /**
+   * Returns the provider id associated with this model
+   */
+  get serverId(): string {
+    return this.server.providerId;
+  }
+
+  /**
+   * Returns the model's unique identifier
+   */
   get id(): string {
     return this.model.id;
   }
 
+  /**
+   * Returns the model's display name (first alias, or id as fallback)
+   */
   get name(): string {
     return this.model.aliases?.[0] || this.model.id;
   }
 
+  /**
+   * Whether the model is a reasoning model.
+   * Currently always returns true since there's no way to detect this from llama-server.
+   */
   get reasoning(): boolean {
-    // We don't have a way to detect this, so we'll fallback to true
     return true;
   }
 
@@ -58,7 +81,7 @@ export abstract class BaseModel {
   /**
    * Gets the load status of the model
    *
-   * @returns The current status
+   * @returns The current {@link Status}
    */
   public async getStatus(): Promise<Status> {
     try {
@@ -79,9 +102,10 @@ export abstract class BaseModel {
   }
 
   /**
-   * Gets the context size of a particular model
+   * Gets the context size of a particular model.
+   * In router mode, falls back to parsing CLI args when the model is unloaded.
    *
-   * @returns The detected context size
+   * @returns The context size in tokens
    */
   async getContextSize(): Promise<number> {
     const { data } = await this.server.rpc<ModelsEndpoint>("/models");
@@ -91,7 +115,7 @@ export abstract class BaseModel {
   }
 
   /**
-   * Sets up a label for the model selection screen
+   * Returns a label for the model selection screen
    * @returns A label structured as "<icon> <name>"
    */
   async getLabel(): Promise<string> {
@@ -100,11 +124,12 @@ export abstract class BaseModel {
   }
 
   /**
-   * Returns a human-readable information about the model
+   * Returns human-readable information about the model
    * @returns A string with the model information
    */
   async getInfo(): Promise<string> {
     const messages = [
+      `Server       : ${this.serverUrl}`,
       `ID           : ${this.id}`,
       `Model        : ${this.name}`,
       `Reasoning    : ${this.reasoning}`,

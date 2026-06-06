@@ -24,6 +24,8 @@ afterEach(() => {
 });
 
 describe("modelsCommand", () => {
+  const CHOICE = "model-a [Server: http://127.0.0.1:8080]";
+
   it("should return early on cancel (null model selection)", async () => {
     const models = [createMockModel("model-a")];
     const ctx = createMockCtx(() => null);
@@ -37,8 +39,10 @@ describe("modelsCommand", () => {
   it("should show info when INFO action is selected", async () => {
     const model = createMockModel("model-a");
     const models = [model];
-    const ctx = createMockCtx((prompt) => {
-      if (prompt.includes("models")) return "model-a";
+    let selectCallCount = 0;
+    const ctx = createMockCtx(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) return CHOICE;
       return Action.INFO;
     });
     const pi = createMockPi();
@@ -54,8 +58,10 @@ describe("modelsCommand", () => {
   it("should unload model when UNLOAD action is selected", async () => {
     const model = createMockModel("model-a");
     const models = [model];
-    const ctx = createMockCtx((prompt) => {
-      if (prompt.includes("models")) return "model-a";
+    let selectCallCount = 0;
+    const ctx = createMockCtx(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) return CHOICE;
       return Action.UNLOAD;
     });
     const pi = createMockPi();
@@ -68,12 +74,15 @@ describe("modelsCommand", () => {
 
   it("should load model when LOAD action is selected", async () => {
     const loadFn = vi.fn().mockResolvedValue(undefined);
-    const model = createMockModel("model-a");
-    (model.load as any) = loadFn;
-    (model.getStatus as any).mockResolvedValue(Status.UNLOADED);
+    const model = createMockModel("model-a", {
+      load: loadFn,
+      getStatus: vi.fn().mockResolvedValue(Status.UNLOADED),
+    });
     const models = [model];
-    const ctx = createMockCtx((prompt) => {
-      if (prompt.includes("models")) return "model-a";
+    let selectCallCount = 0;
+    const ctx = createMockCtx(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) return CHOICE;
       return Action.LOAD;
     });
     const pi = createMockPi();
@@ -99,7 +108,7 @@ describe("modelsCommand", () => {
     const ctx = createMockCtx(() => {
       selectCallCount++;
       // 1st: select model, 2nd: select LOAD
-      if (selectCallCount === 1) return "model-a";
+      if (selectCallCount === 1) return CHOICE;
       if (selectCallCount === 2) return Action.LOAD;
       return null;
     });
@@ -112,9 +121,8 @@ describe("modelsCommand", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     // Create EventManager instance and call onSessionBeforeSwitch
-    const eventManager = new EventManager(createMockServer() as any);
+    const eventManager = new EventManager([createMockServer()] as any);
     const switchPromise = eventManager.onSessionBeforeSwitch(
-      {} as any,
       createMockPiContext(ctx.ui.notify as any),
     );
     await vi.advanceTimersByTimeAsync(15000);
@@ -137,10 +145,10 @@ describe("modelsCommand", () => {
 
   it("should not warn when no model is loading", async () => {
     const notifyFn = vi.fn();
-    const eventManager = new EventManager(createMockServer() as any);
+    const eventManager = new EventManager([createMockServer()] as any);
     const ctx = createMockPiContext(notifyFn);
 
-    await eventManager.onSessionBeforeSwitch({} as any, ctx);
+    await eventManager.onSessionBeforeSwitch(ctx);
 
     expect(notifyFn).not.toHaveBeenCalled();
     // No timers should be scheduled
@@ -154,8 +162,10 @@ describe("modelsCommand", () => {
       getStatus: vi.fn().mockResolvedValue(Status.UNLOADED),
     });
     const models = [model];
-    const ctx = createMockCtx((prompt) => {
-      if (prompt.includes("models")) return "model-a";
+    let selectCallCount = 0;
+    const ctx = createMockCtx(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) return CHOICE;
       return Action.LOAD;
     });
     const pi = createMockPi();
@@ -168,11 +178,8 @@ describe("modelsCommand", () => {
     // (verified indirectly: calling onSessionBeforeSwitch should not warn)
     await vi.advanceTimersByTimeAsync(0);
     const notifyFn = vi.fn();
-    const eventManager = new EventManager(createMockServer() as any);
-    await eventManager.onSessionBeforeSwitch(
-      {} as any,
-      createMockPiContext(notifyFn),
-    );
+    const eventManager = new EventManager([createMockServer()] as any);
+    await eventManager.onSessionBeforeSwitch(createMockPiContext(notifyFn));
     expect(notifyFn).not.toHaveBeenCalled();
   });
 
@@ -183,8 +190,10 @@ describe("modelsCommand", () => {
       getStatus: vi.fn().mockResolvedValue(Status.FAILED),
     });
     const models = [model];
-    const ctx = createMockCtx((prompt) => {
-      if (prompt.includes("models")) return "model-a";
+    let selectCallCount = 0;
+    const ctx = createMockCtx(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) return CHOICE;
       return Action.RETRY;
     });
     const pi = createMockPi();
@@ -195,11 +204,8 @@ describe("modelsCommand", () => {
     // inflightModel should be cleared after failure
     await vi.advanceTimersByTimeAsync(0);
     const notifyFn = vi.fn();
-    const eventManager = new EventManager(createMockServer() as any);
-    await eventManager.onSessionBeforeSwitch(
-      {} as any,
-      createMockPiContext(notifyFn),
-    );
+    const eventManager = new EventManager([createMockServer()] as any);
+    await eventManager.onSessionBeforeSwitch(createMockPiContext(notifyFn));
     expect(notifyFn).not.toHaveBeenCalled();
   });
 
@@ -211,7 +217,7 @@ describe("modelsCommand", () => {
     const ctx = createMockCtx(() => {
       selectCallCount++;
       // 1st: select model-a, 2nd: cancel action, 3rd: cancel model => exit
-      if (selectCallCount === 1) return "model-a";
+      if (selectCallCount === 1) return CHOICE;
       return null;
     });
     const pi = createMockPi();

@@ -15,19 +15,6 @@ export class RouterModel extends BaseModel {
     return Mode.ROUTER;
   }
 
-  async getStatus(): Promise<Status> {
-    const { data } = await this.server.rpc<ModelsEndpoint>("/models");
-    const model = data.find((m) => m.id === this.id);
-    if (!model) return Status.FAILED;
-
-    const status = this.statusMapper[model.status!.value];
-    if (status === Status.UNLOADED || status === Status.LOADING) {
-      return super.getStatus();
-    }
-
-    return status;
-  }
-
   /**
    * Workaround for the currently-bugged /models status detection
    * (I suspect it was introduced in PR #22683 of llama.cpp)

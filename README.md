@@ -1,6 +1,6 @@
 # pi-llama-cpp
 
-A [Pi Coding Agent](https://pi.dev/) extension that integrates with a running [llama.cpp server](https://github.com/ggml-org/llama.cpp) to provide live model browsing, loading, and switching directly from Pi.
+A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [llama.cpp servers](https://github.com/ggml-org/llama.cpp) to provide live model browsing, loading, and switching directly from Pi.
 
 ## Features
 
@@ -10,20 +10,21 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with a running [l
 - **Multi-model router support** — works with both single-model and multi-model llama.cpp server configurations
 - **Image capabilities detection** — detects multimodal models automatically
 - **Flexible URL resolution** — configures the server URL via project config, environment variable, or global settings
+- **Multiple server support** — connect to multiple llama.cpp servers simultaneously by separating URLs with semicolons
 
 ### Status Indicators
 
-| Icon | Status | Description |
-|------|--------|-------------|
-| 🟢 | Loaded | Model is active and ready to use |
-| 🟡 | Loading | Model is currently being loaded |
-| 🔴 | Failed | Model failed to load |
-| 🔵 | Sleeping | Model is available, but inactive |
-| ⚪ | Unloaded | Model is not loaded on the server |
+| Icon | Status   | Description                       |
+| ---- | -------- | --------------------------------- |
+| 🟢   | Loaded   | Model is active and ready to use  |
+| 🟡   | Loading  | Model is currently being loaded   |
+| 🔴   | Failed   | Model failed to load              |
+| 🔵   | Sleeping | Model is available, but inactive  |
+| ⚪   | Unloaded | Model is not loaded on the server |
 
 > **Note**: The `Sleeping` status only shows when you start your server with `llama-server --sleep-idle-seconds <n> ...`.
-This is a **llama.cpp server flag** that tells the server to put idle models to sleep after `n` seconds.
-The model awakens automatically when you send a message.
+> This is a **llama.cpp server flag** that tells the server to put idle models to sleep after `n` seconds.
+> The model awakens automatically when you send a message.
 
 ## Installation
 
@@ -41,7 +42,7 @@ pi install https://github.com/gsanhueza/pi-llama-cpp
 
 ## Configuration
 
-The extension resolves the llama.cpp server URL using the following priority order:
+The extension resolves the llama.cpp server URL(s) using the following priority order:
 
 1. **Per-project config** — `.pi/llama-server.json` in your project root:
 
@@ -63,19 +64,34 @@ The extension resolves the llama.cpp server URL using the following priority ord
 
 4. **Default** — `http://127.0.0.1:8080`
 
+### Multiple Servers
+
+To connect to multiple llama.cpp servers simultaneously, add your URLs as a single string **separated with semicolons** in any of the examples above:
+
+```bash
+# Example for env, but you can use any of the other methods
+LLAMA_SERVER_URL="http://127.0.0.1:8080;http://127.0.0.1:8081;http://10.0.0.5:8080"
+```
+
+Each server gets its own provider (e.g., **Llama.cpp (http://127.0.0.1:8080)**) and its own set of models. The `/models` command lists all models from all servers, labeled with their server URL.
+
 ### API Key
 
-If your llama.cpp server requires authentication, use `/login` in Pi, select the "API key" option, and choose the `Llama.cpp` provider from the list.
+If your llama.cpp server requires authentication, use `/login` in Pi, select the "API key" option, and choose the provider from the list that correlates with the server needing the API key.
+Then run `/reload` to update the API key resolver of this extension.
 
-Alternatively, configure the API key in `~/.pi/agent/auth.json` using the provider ID `llama-server`:
-
-> **Note**: The provider is displayed as **Llama.cpp** in the Pi UI, but its internal identifier is `llama-server` — use this ID when configuring `auth.json` or other programmatic access.
+Alternatively, configure the API key in `~/.pi/agent/auth.json`:
+Use the provider ID `llama-server=<url>`:
 
 ```json
 {
-  "llama-server": {
+  "llama-server=http://127.0.0.1:8080": {
     "type": "api_key",
-    "key": "<your-api-key-here>"
+    "key": "<key-for-server-1>"
+  },
+  "llama-server=https://some-url-for-llama-cpp": {
+    "type": "api_key",
+    "key": "<key-for-server-2>"
   }
 }
 ```
@@ -99,6 +115,7 @@ llama-server --model path/to/model.gguf ...
 ```
 
 The extension determines the context size as follows:
+
 - **Router mode**
   - When loaded, reads `meta.n_ctx` from the `/models` endpoint
   - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments, or `ctx-size` and/or `fit-ctx` keys from the **presets.ini** file.
@@ -107,13 +124,15 @@ The extension determines the context size as follows:
 
 ### Commands
 
-| Command          | Description                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `/models`        | Browse your models with live status. Select a model to load, switch, or unload it.         |
-| `/models info`   | Show detailed information for all available models at once.                                |
-| `/models unload` | Unload all loaded models at once (Note: this only makes sense in router mode).             |
+| Command          | Description                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `/models`        | Browse your models with live status. Select a model to load, switch, or unload it. |
+| `/models info`   | Show detailed information for all available models at once.                        |
+| `/models unload` | Unload all loaded models at once.                                                  |
 
-> **Note:** When the llama.cpp server is unreachable, `/models` displays an error notification with the configured server URL.
+> **Note:** When a llama.cpp server is unreachable, `/models` displays an error notification with the configured server URL, but healthy servers continue to show their models.
+
+> **Note:** The `/models unload` command only makes sense in router mode.
 
 ### Model Actions
 
@@ -126,7 +145,7 @@ When browsing models via the `/models` command, you can:
 - **Info** — View model details (ID, capabilities, context size)
 - **Cancel** — Cancel the current operation
 
-> **Note:** In single-model mode, only **Info** and **Cancel** are available, since there is only one model loaded on the server.
+> **Note:** In single-model mode, **Unload** is not available, since there is only one model on the server.
 
 ### Model Selection Event
 
@@ -137,6 +156,7 @@ This keeps the server in sync with the active model in Pi, regardless of how the
 ### Loading Models
 
 When you trigger a load, switch, or retry action, the extension polls the server to track progress. If a model takes longer than **60 seconds** to load, the polling times out with an error.
+
 > **Note:** The timeout is only for the polling. The model might still be loading.
 
 ### Model Configuration
@@ -149,6 +169,7 @@ Each model exposed to Pi includes the following defaults:
 
 ## Dependencies
 
-| Dependency                        | Purpose                               |
-| --------------------------------- | ------------------------------------- |
-| `@earendil-works/pi-coding-agent` | Pi Coding Agent SDK (peer dependency) |
+| Peer dependency                   | Purpose             |
+| --------------------------------- | ------------------- |
+| `@earendil-works/pi-coding-agent` | Pi Coding Agent SDK |
+| `@earendil-works/pi-tui`          | Pi TUI SDK          |

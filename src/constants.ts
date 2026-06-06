@@ -1,7 +1,7 @@
 /**
- * This provider's id
+ * This provider's base ID
  */
-export const PROVIDER_ID = "llama-server";
+export const PROVIDER_PREFIX = "llama-server";
 
 /**
  * This provider's name
@@ -9,14 +9,19 @@ export const PROVIDER_ID = "llama-server";
 export const PROVIDER_NAME = "Llama.cpp";
 
 /**
- * The default URL if the resolver couldn't find it
+ * The default API type used in Pi
  */
-export const DEFAULT_LLAMA_SERVER_URL = "http://127.0.0.1:8080";
+export const API_TYPE = "openai-completions";
 
 /**
  * The placeholder api-key if it couldn't be resolved
  */
 export const API_KEY_PLACEHOLDER = "sk-placeholder";
+
+/**
+ * The default URL if the resolver couldn't find it
+ */
+export const DEFAULT_LLAMA_SERVER_URL = "http://127.0.0.1:8080";
 
 /**
  * The default context if the server didn't expose it

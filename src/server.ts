@@ -1,19 +1,40 @@
+import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
 import { BaseModel } from "./models/baseModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
+import { ConfigResolver } from "./resolver";
 
 export class Server {
   readonly models: BaseModel[] = [];
 
-  constructor(
-    readonly baseUrl: string,
-    readonly apiKey?: string,
-  ) {}
+  constructor(readonly baseUrl: string) {}
 
   /**
-   * Instantiates a list of models available to this server
+   * Generates a unique provider ID from a server URL.
+   */
+  get providerId(): string {
+    return `${PROVIDER_PREFIX}=${this.baseUrl}`;
+  }
+
+  /**
+   * Generates a human-readable provider name from a server URL.
+   */
+  get providerName(): string {
+    return `${PROVIDER_NAME} (${this.baseUrl})`;
+  }
+
+  /**
+   * Retrieves the API key from the resolver
+   * @returns The API key
+   */
+  async getApiKey(): Promise<string> {
+    return await new ConfigResolver().resolveApiKey(this.providerId);
+  }
+
+  /**
+   * Fetches models from the server and populates {@link models}
    */
   async initialize() {
     this.models.length = 0;
@@ -52,6 +73,7 @@ export class Server {
    */
   async rpc<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const apiKey = await this.getApiKey();
 
     const data = {
       method: body ? "POST" : "GET",
@@ -63,7 +85,7 @@ export class Server {
       ...data,
       headers: {
         ...data.headers,
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
     });
 
