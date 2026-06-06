@@ -22,7 +22,7 @@ describe("CommandManager", () => {
 
   beforeEach(() => {
     mockPi = createMockPi();
-    serverManager = new ServerManager(mockPi as any, []);
+    serverManager = new ServerManager([]);
     commandManager = new CommandManager(serverManager);
   });
 
@@ -53,7 +53,7 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager(mockPi as any, [server] as any);
+      serverManager = new ServerManager([server] as any);
       commandManager = new CommandManager(serverManager);
 
       const ctx = {
@@ -80,7 +80,7 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager(mockPi as any, [server] as any);
+      serverManager = new ServerManager([server] as any);
       commandManager = new CommandManager(serverManager);
 
       const ctx = {
@@ -113,7 +113,7 @@ describe("CommandManager", () => {
           models: [model],
         }),
       );
-      const serverManager = new ServerManager(mockPi as any, servers as any);
+      const serverManager = new ServerManager(servers as any);
       return {
         commandManager: new CommandManager(serverManager),
         serverManager,

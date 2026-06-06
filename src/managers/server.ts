@@ -6,21 +6,20 @@ import { Server } from "../server";
 export class ServerManager {
   readonly failedUrls: string[] = [];
 
-  constructor(
-    private readonly pi: ExtensionAPI,
-    private readonly servers: Server[],
-  ) {}
+  constructor(private readonly servers: Server[]) {}
 
   /**
    * Registers one provider per server in Pi with their model configurations.
    * Call this after the servers have been initialized.
    * The manual awaiting per-server is deliberate (we want them in order)
+   *
+   * @param pi The Pi extension
    */
-  async registerAllProviders() {
+  async registerAllProviders(pi: ExtensionAPI) {
     this.failedUrls.length = 0;
 
     for (const server of this.servers) {
-      await this.registerProvider(server);
+      await this.registerProvider(server, pi);
     }
   }
 
@@ -29,7 +28,7 @@ export class ServerManager {
    *
    * @param server The server
    */
-  private async registerProvider(server: Server) {
+  private async registerProvider(server: Server, pi: ExtensionAPI) {
     try {
       await server.initialize();
     } catch {
@@ -44,7 +43,7 @@ export class ServerManager {
       models.map((m) => m.toProviderConfig()),
     );
 
-    this.pi.registerProvider(providerId, {
+    pi.registerProvider(providerId, {
       name: providerName,
       baseUrl: baseUrl,
       api: API_TYPE,

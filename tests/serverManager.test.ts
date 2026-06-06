@@ -7,6 +7,7 @@ import { createMockServer, mockRpc } from "./mocks";
 const mockPi = {
   registerProvider: vi.fn(),
   registerCommand: vi.fn(),
+  setModel: vi.fn(),
 };
 
 beforeEach(() => {
@@ -60,9 +61,9 @@ describe("ServerManager", () => {
       providerId: "llama-server=http://127.0.0.1:8081",
       providerName: "Llama.cpp (http://127.0.0.1:8081)",
     });
-    const manager = new ServerManager(mockPi as any, [server1, server2] as any);
+    const manager = new ServerManager([server1, server2] as any);
 
-    await manager.registerAllProviders();
+    await manager.registerAllProviders(mockPi as any);
 
     expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
@@ -102,13 +103,10 @@ describe("ServerManager", () => {
     const server2 = createMockServer({
       baseUrl: "http://127.0.0.1:8081",
     });
-    const manager = new ServerManager(
-      mockPi as any,
-      [
-        { ...server1, models: [mockModel1] } as any,
-        { ...server2, models: [mockModel2] } as any,
-      ] as any,
-    );
+    const manager = new ServerManager([
+      { ...server1, models: [mockModel1] } as any,
+      { ...server2, models: [mockModel2] } as any,
+    ] as any);
 
     const allModels = manager.getAllModels();
 

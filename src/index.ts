@@ -18,11 +18,11 @@ export default async function (pi: ExtensionAPI) {
   const servers = urls.map((url) => new Server(url));
 
   const eventManager = new EventManager(servers);
-  const serverManager = new ServerManager(pi, servers);
+  const serverManager = new ServerManager(servers);
   const commandManager = new CommandManager(serverManager);
 
   // Register providers once at startup
-  await serverManager.registerAllProviders();
+  await serverManager.registerAllProviders(pi);
 
   // Single global /models command
   pi.registerCommand("models", {
