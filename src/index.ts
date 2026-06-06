@@ -8,27 +8,28 @@ import { PROVIDER_NAME } from "./constants";
 import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
+import { ServerManager } from "./managers/server";
 import { ConfigResolver } from "./resolver";
 import { Server } from "./server";
 
 export default async function (pi: ExtensionAPI) {
   const resolver = new ConfigResolver();
   const urls = await resolver.resolveUrls(process.cwd());
-
   const servers = urls.map((url) => new Server(url));
-  const events = new EventManager(servers);
-  const manager = new CommandManager(pi, servers);
 
-  // Register providers once at startup (clears failedUrls for the first /models run)
-  await manager.registerAllProviders();
-  manager.failedUrls.length = 0;
+  const eventManager = new EventManager(servers);
+  const serverManager = new ServerManager(pi, servers);
+  const commandManager = new CommandManager(serverManager);
+
+  // Register providers once at startup
+  await serverManager.registerAllProviders();
 
   // Single global /models command
   pi.registerCommand("models", {
     description: `Browse ${PROVIDER_NAME} models`,
-    getArgumentCompletions: manager.getArgumentCompletions,
+    getArgumentCompletions: commandManager.getArgumentCompletions,
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      await manager.handleCommand(args, ctx, pi);
+      await commandManager.handleCommand(args, ctx, pi);
     },
   });
 
@@ -36,11 +37,11 @@ export default async function (pi: ExtensionAPI) {
   pi.on(
     "model_select",
     async (event: ModelSelectEvent, ctx: ExtensionContext) =>
-      await events.onModelSelect(event, ctx),
+      await eventManager.onModelSelect(event, ctx),
   );
   pi.on(
     "session_before_switch",
     async (_: SessionBeforeSwitchEvent, ctx: ExtensionContext) =>
-      await events.onSessionBeforeSwitch(ctx),
+      await eventManager.onSessionBeforeSwitch(ctx),
   );
 }

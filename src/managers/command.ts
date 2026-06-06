@@ -4,74 +4,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { AutocompleteItem } from "@earendil-works/pi-tui";
 import { modelsCommand, notFoundCommand } from "../commands/models";
-import { API_TYPE, PROVIDER_NAME } from "../constants";
-import { BaseModel } from "../models/baseModel";
-import { Server } from "../server";
+import { PROVIDER_NAME } from "../constants";
+import { ServerManager } from "./server";
 
 export class CommandManager {
-  readonly failedUrls: string[] = [];
-
-  constructor(
-    private readonly pi: ExtensionAPI,
-    private readonly servers: Server[],
-  ) {}
-
-  /**
-   * Registers one provider per server in Pi with their model configurations.
-   * Call this after the servers have been initialized.
-   * The manual awaiting per-server is deliberate (we want them in order)
-   */
-  async registerAllProviders() {
-    for (const server of this.servers) {
-      await this.registerProvider(server);
-    }
-  }
-
-  /**
-   * Creates a Pi provider for the given server
-   *
-   * @param server The server
-   */
-  private async registerProvider(server: Server) {
-    try {
-      await server.initialize();
-    } catch {
-      this.failedUrls.push(server.baseUrl);
-      return;
-    }
-
-    // Setup the Pi registration
-    const { baseUrl, models, providerId, providerName } = server;
-    const apiKey = await server.getApiKey();
-    const modelConfigs = await Promise.all(
-      models.map((m) => m.toProviderConfig()),
-    );
-
-    this.pi.registerProvider(providerId, {
-      name: providerName,
-      baseUrl: baseUrl,
-      api: API_TYPE,
-      apiKey: apiKey,
-      models: modelConfigs,
-    });
-  }
-
-  /**
-   * Returns all models from all servers.
-   *
-   * @returns Flat array of all models across all servers
-   */
-  getAllModels(): BaseModel[] {
-    const response = [];
-
-    for (const { models } of this.servers) {
-      for (const model of models) {
-        response.push(model);
-      }
-    }
-
-    return response;
-  }
+  constructor(private readonly serverManager: ServerManager) {}
 
   /**
    * Sets up the argument completions for the `/models` command
@@ -108,30 +45,31 @@ export class CommandManager {
     pi: ExtensionAPI,
   ) {
     // Re-register providers so Pi sees updated model states
-    await this.registerAllProviders();
+    await this.serverManager.registerAllProviders();
 
     // Notify about unreachable servers
-    for (const url of this.failedUrls) {
+    for (const url of this.serverManager.failedUrls) {
       await notFoundCommand(ctx, url);
     }
-    this.failedUrls.length = 0; // Clear for next run
 
     if (args === "unload") {
-      await Promise.all(this.getAllModels().map((model) => model.unload()));
+      await Promise.all(
+        this.serverManager.getAllModels().map((model) => model.unload()),
+      );
       ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
       return;
     }
 
     if (args === "info") {
       const infos = await Promise.all(
-        this.getAllModels().map((model) => model.getInfo()),
+        this.serverManager.getAllModels().map((model) => model.getInfo()),
       );
       ctx.ui.notify(ctx.ui.theme.fg("accent", infos.join("\n")), "info");
       return;
     }
 
     // Interactive menu: show <name> (<server_url>)
-    const allModels = this.getAllModels();
+    const allModels = this.serverManager.getAllModels();
     await modelsCommand(ctx, pi, allModels);
   }
 }
