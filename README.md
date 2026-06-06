@@ -117,12 +117,19 @@ llama-server --models-preset path/to/presets.ini ...
 llama-server --model path/to/model.gguf ...
 ```
 
+- For legacy-model mode (e.g., [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp)), the extension auto-detects and handles it transparently.
+
+> **Note:** This extension is focused on llama.cpp, not on ik_llama.cpp. Nonetheless, since I found a way to make it work with this extension, I added the option.
+
+> **Note:** The ik_llama.cpp fork is not legacy at all, but it uses an old way of describing models compared to llama.cpp.
+
 The extension determines the context size as follows:
 
 - **Router mode**
   - When loaded, reads `meta.n_ctx` from the `/models` endpoint
   - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments, or `ctx-size` and/or `fit-ctx` keys from the **presets.ini** file.
 - **Single mode** — reads `meta.n_ctx` from the `/models` endpoint
+- **Legacy mode** — reads `max_model_len` from `/models`, falling back to `n_ctx` from `/props`
 - Falls back to `128000` if not available
 
 ### Commands
@@ -148,7 +155,7 @@ When browsing models via the `/models` command, you can:
 - **Info** — View model details (ID, capabilities, context size)
 - **Cancel** — Cancel the current operation
 
-> **Note:** In single-model mode, **Unload** is not available, since there is only one model on the server.
+> **Note:** In single-model and legacy-model mode, **Unload** is not available, since there is only one model on the server.
 
 ### Model Selection Event
 
