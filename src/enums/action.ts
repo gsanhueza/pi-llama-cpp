@@ -1,9 +1,10 @@
 /** The possible actions for the /models command */
 export enum Action {
+  LOAD_AND_SWITCH = "Load & switch",
   SWITCH = "Switch model",
-  RETRY = "Retry",
-  LOAD = "Load & switch",
+  LOAD = "Load only",
   UNLOAD = "Unload",
+  RETRY = "Retry",
   INFO = "Info",
   CANCEL = "Cancel",
 }

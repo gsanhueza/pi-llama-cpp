@@ -72,7 +72,7 @@ describe("modelsCommand", () => {
     expect(ctx.ui.notify).toHaveBeenCalledWith("Unloaded model-a", "info");
   });
 
-  it("should load model when LOAD action is selected", async () => {
+  it("should load model when LOAD_AND_SWITCH action is selected", async () => {
     const loadFn = vi.fn().mockResolvedValue(undefined);
     const model = createMockModel("model-a", {
       load: loadFn,
@@ -83,7 +83,7 @@ describe("modelsCommand", () => {
     const ctx = createMockCtx(() => {
       selectCallCount++;
       if (selectCallCount === 1) return CHOICE;
-      return Action.LOAD;
+      return Action.LOAD_AND_SWITCH;
     });
     const pi = createMockPi();
 
@@ -166,7 +166,7 @@ describe("modelsCommand", () => {
     const ctx = createMockCtx(() => {
       selectCallCount++;
       if (selectCallCount === 1) return CHOICE;
-      return Action.LOAD;
+      return Action.LOAD_AND_SWITCH;
     });
     const pi = createMockPi();
 

@@ -44,18 +44,23 @@ const createModel = (mode: Mode, status: Status) => new TestModel(mode, status);
  */
 const getActionsForModel = async (model: TestModel): Promise<Array<Action>> => {
   const routerModeActions: Record<Status, Array<Action>> = {
-    [Status.LOADED]: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
+    [Status.LOADED]: [
+      Action.LOAD_AND_SWITCH,
+      Action.UNLOAD,
+      Action.INFO,
+      Action.CANCEL,
+    ],
     [Status.LOADING]: [Action.INFO, Action.CANCEL],
     [Status.FAILED]: [Action.RETRY, Action.CANCEL],
     [Status.SLEEPING]: [
-      Action.SWITCH,
+      Action.LOAD_AND_SWITCH,
       Action.UNLOAD,
       Action.INFO,
       Action.CANCEL,
     ],
     [Status.UNLOADED]: [Action.LOAD, Action.CANCEL],
     [Status.UNAUTHORIZED]: [
-      Action.SWITCH,
+      Action.LOAD_AND_SWITCH,
       Action.UNLOAD,
       Action.INFO,
       Action.CANCEL,
@@ -88,7 +93,12 @@ describe("Action availability", () => {
     {
       mode: Mode.ROUTER,
       status: Status.LOADED,
-      expected: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
+      expected: [
+        Action.LOAD_AND_SWITCH,
+        Action.UNLOAD,
+        Action.INFO,
+        Action.CANCEL,
+      ],
     },
     {
       mode: Mode.ROUTER,
@@ -103,7 +113,12 @@ describe("Action availability", () => {
     {
       mode: Mode.ROUTER,
       status: Status.SLEEPING,
-      expected: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
+      expected: [
+        Action.LOAD_AND_SWITCH,
+        Action.UNLOAD,
+        Action.INFO,
+        Action.CANCEL,
+      ],
     },
     {
       mode: Mode.ROUTER,
@@ -113,7 +128,12 @@ describe("Action availability", () => {
     {
       mode: Mode.ROUTER,
       status: Status.UNAUTHORIZED,
-      expected: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
+      expected: [
+        Action.LOAD_AND_SWITCH,
+        Action.UNLOAD,
+        Action.INFO,
+        Action.CANCEL,
+      ],
     },
     // Single mode
     {
@@ -157,7 +177,9 @@ describe("Action availability", () => {
 
   it("should not include mode-exclusive actions", async () => {
     const singleLoaded = createModel(Mode.SINGLE, Status.LOADED);
-    expect(await getActionsForModel(singleLoaded)).not.toContain(Action.SWITCH);
+    expect(await getActionsForModel(singleLoaded)).not.toContain(
+      Action.LOAD_AND_SWITCH,
+    );
     expect(await getActionsForModel(singleLoaded)).not.toContain(Action.LOAD);
 
     const singleFailed = createModel(Mode.SINGLE, Status.FAILED);

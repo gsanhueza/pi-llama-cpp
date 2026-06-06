@@ -68,7 +68,7 @@ const getActionsForModel = async (model: BaseModel): Promise<Array<Action>> => {
       Action.INFO,
       Action.CANCEL,
     ],
-    [Status.UNLOADED]: [Action.LOAD, Action.CANCEL],
+    [Status.UNLOADED]: [Action.LOAD_AND_SWITCH, Action.LOAD, Action.CANCEL],
     [Status.UNAUTHORIZED]: [Action.INFO, Action.CANCEL],
   };
 
@@ -177,8 +177,20 @@ export const modelsCommand = async (
     return;
   }
 
-  // Actions: Load/Switch/Retry
-  const loadActions = [Action.LOAD, Action.SWITCH, Action.RETRY];
+  // Action: Switch
+  if (action === Action.SWITCH) {
+    const { serverId } = model;
+    const piModel = ctx.modelRegistry.find(serverId, model.id);
+    if (!piModel)
+      throw new Error(`Cannot find model ${model.name} in pi registry`);
+
+    await pi.setModel(piModel);
+    ctx.ui.notify(`Model ${model.name} ready`, "info");
+    return;
+  }
+
+  // Actions: Load / Load & Switch / Retry
+  const loadActions = [Action.LOAD, Action.LOAD_AND_SWITCH, Action.RETRY];
   if (loadActions.includes(action)) {
     ctx.ui.notify(`Loading ${model.name}...`, "info");
     EventManager.inflightModel = model;
@@ -186,9 +198,8 @@ export const modelsCommand = async (
     const onSuccess = async () => {
       const { serverId } = model;
       const piModel = ctx.modelRegistry.find(serverId, model.id);
-      if (!piModel) {
+      if (!piModel)
         throw new Error(`Cannot find model ${model.name} in pi registry`);
-      }
 
       // Verify auth
       if ((await model.getStatus()) === Status.UNAUTHORIZED)
@@ -200,7 +211,9 @@ export const modelsCommand = async (
       if ((await model.getStatus()) === Status.FAILED)
         throw new Error(`Failed to load model ${model.name}`);
 
-      await pi.setModel(piModel);
+      // Select the model if asked
+      if (action === Action.LOAD_AND_SWITCH) await pi.setModel(piModel);
+
       ctx.ui.notify(`Model ${model.name} ready`, "info");
     };
 
