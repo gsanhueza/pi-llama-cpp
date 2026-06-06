@@ -4,6 +4,7 @@ import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
 import { PropsEndpoint } from "./interfaces/endpoints/props";
 import { BaseModel } from "./models/baseModel";
+import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { ConfigResolver } from "./resolver";
@@ -43,16 +44,17 @@ export class Server {
     const mode = await this.detectServerMode();
 
     // Setup models
+    const modelCtor = {
+      [Mode.ROUTER]: RouterModel,
+      [Mode.LEGACY]: LegacyModel,
+      [Mode.SINGLE]: SingleModel,
+    }[mode];
+
+    const models: BaseModel[] = data
+      .map((m) => new modelCtor(m, this))
+      .sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1));
+
     this.models.length = 0;
-    let models: BaseModel[] = [];
-
-    if (mode === Mode.ROUTER) {
-      models = data.map((m) => new RouterModel(m, this));
-    } else {
-      models = data.map((m) => new SingleModel(m, this));
-    }
-
-    models.sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1));
     this.models.push(...models);
   }
 
@@ -63,13 +65,11 @@ export class Server {
    */
   private async detectServerMode(): Promise<Mode> {
     const { role } = await this.fetchServerProps();
+    const { data } = await this.fetchModels();
 
-    switch (true) {
-      case role === "router":
-        return Mode.ROUTER;
-      default:
-        return Mode.SINGLE;
-    }
+    if (role === "router") return Mode.ROUTER;
+    if ("max_model_len" in data[0]) return Mode.LEGACY;
+    return Mode.SINGLE;
   }
 
   /**

@@ -2,4 +2,5 @@
 export enum Mode {
   ROUTER = "router",
   SINGLE = "single",
+  LEGACY = "legacy",
 }
