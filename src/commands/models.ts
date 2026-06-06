@@ -69,6 +69,7 @@ const getActionsForModel = async (model: BaseModel): Promise<Array<Action>> => {
       Action.CANCEL,
     ],
     [Status.UNLOADED]: [Action.LOAD, Action.CANCEL],
+    [Status.UNAUTHORIZED]: [Action.INFO, Action.CANCEL],
   };
 
   const status = await model.getStatus();
@@ -189,9 +190,15 @@ export const modelsCommand = async (
         throw new Error(`Cannot find model ${model.name} in pi registry`);
       }
 
-      if ((await model.getStatus()) === Status.FAILED) {
+      // Verify auth
+      if ((await model.getStatus()) === Status.UNAUTHORIZED)
+        throw new Error(
+          `Unauthorized for ${model.name}. Use /login and add your API key.`,
+        );
+
+      // Verify failure
+      if ((await model.getStatus()) === Status.FAILED)
         throw new Error(`Failed to load model ${model.name}`);
-      }
 
       await pi.setModel(piModel);
       ctx.ui.notify(`Model ${model.name} ready`, "info");

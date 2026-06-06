@@ -161,7 +161,7 @@ describe("API key resolution", () => {
       "llama-server=http://127.0.0.1:8080",
     );
 
-    expect(result).toBe(API_KEY_PLACEHOLDER);
+    expect(result).toEqual(API_KEY_PLACEHOLDER);
   });
 
   it("should return placeholder when provider key is missing", async () => {
@@ -175,7 +175,7 @@ describe("API key resolution", () => {
       "llama-server=http://127.0.0.1:8080",
     );
 
-    expect(result).toBe(API_KEY_PLACEHOLDER);
+    expect(result).toEqual(API_KEY_PLACEHOLDER);
   });
 
   it("should return the provider key when present", async () => {
@@ -191,7 +191,7 @@ describe("API key resolution", () => {
       "llama-server=http://127.0.0.1:8080",
     );
 
-    expect(result).toBe("test-api-key");
+    expect(result).toEqual("test-api-key");
   });
 
   it("should cache the auth file and reuse the key", async () => {

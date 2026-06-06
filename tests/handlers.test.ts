@@ -54,6 +54,12 @@ const getActionsForModel = async (model: TestModel): Promise<Array<Action>> => {
       Action.CANCEL,
     ],
     [Status.UNLOADED]: [Action.LOAD, Action.CANCEL],
+    [Status.UNAUTHORIZED]: [
+      Action.SWITCH,
+      Action.UNLOAD,
+      Action.INFO,
+      Action.CANCEL,
+    ],
   };
 
   const singleModeActions: Record<Status, Array<Action>> = {
@@ -62,6 +68,7 @@ const getActionsForModel = async (model: TestModel): Promise<Array<Action>> => {
     [Status.FAILED]: [Action.CANCEL],
     [Status.SLEEPING]: [Action.INFO, Action.CANCEL],
     [Status.UNLOADED]: [Action.CANCEL],
+    [Status.UNAUTHORIZED]: [Action.INFO, Action.CANCEL],
   };
 
   const allActions =
@@ -103,6 +110,16 @@ describe("Action availability", () => {
       status: Status.UNLOADED,
       expected: [Action.LOAD, Action.CANCEL],
     },
+    {
+      mode: Mode.ROUTER,
+      status: Status.UNAUTHORIZED,
+      expected: [
+        Action.SWITCH,
+        Action.UNLOAD,
+        Action.INFO,
+        Action.CANCEL,
+      ],
+    },
     // Single mode
     {
       mode: Mode.SINGLE,
@@ -117,6 +134,11 @@ describe("Action availability", () => {
       expected: [Action.INFO, Action.CANCEL],
     },
     { mode: Mode.SINGLE, status: Status.UNLOADED, expected: [Action.CANCEL] },
+    {
+      mode: Mode.SINGLE,
+      status: Status.UNAUTHORIZED,
+      expected: [Action.INFO, Action.CANCEL],
+    },
   ];
 
   it.each(actionMatrix)(

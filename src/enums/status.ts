@@ -5,4 +5,5 @@ export enum Status {
   FAILED = "failed",
   SLEEPING = "sleeping",
   UNLOADED = "unloaded",
+  UNAUTHORIZED = "unauthorized",
 }
