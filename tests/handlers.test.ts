@@ -113,12 +113,7 @@ describe("Action availability", () => {
     {
       mode: Mode.ROUTER,
       status: Status.UNAUTHORIZED,
-      expected: [
-        Action.SWITCH,
-        Action.UNLOAD,
-        Action.INFO,
-        Action.CANCEL,
-      ],
+      expected: [Action.SWITCH, Action.UNLOAD, Action.INFO, Action.CANCEL],
     },
     // Single mode
     {

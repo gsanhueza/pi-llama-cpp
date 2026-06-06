@@ -6,7 +6,6 @@ import { AuthFile } from "./interfaces/auth";
 
 export class ConfigResolver {
   private cachedUrls: string[] = [];
-  private cachedAuth: AuthFile | null = null;
 
   /**
    * Detects if a particular file is present
@@ -110,15 +109,14 @@ export class ConfigResolver {
 
   /**
    * Resolves API key for the provider ID using Pi's auth.json
+   * Deliberately not cached, to react to changes in the file
    */
   async resolveApiKey(providerId: string): Promise<string> {
-    if (this.cachedAuth?.[providerId]) return this.cachedAuth[providerId].key;
-
     const authPath = join(getAgentDir(), "auth.json");
     if (!(await this.fileExists(authPath))) return API_KEY_PLACEHOLDER;
 
-    this.cachedAuth = await this.readJson<AuthFile>(authPath);
-    const apiKey = this.cachedAuth?.[providerId]?.key ?? API_KEY_PLACEHOLDER;
+    const auth = await this.readJson<AuthFile>(authPath);
+    const apiKey = auth?.[providerId]?.key ?? API_KEY_PLACEHOLDER;
 
     return apiKey;
   }

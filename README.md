@@ -10,21 +10,25 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 - **Multi-model router support** — works with both single-model and multi-model llama.cpp server configurations
 - **Image capabilities detection** — detects multimodal models automatically
 - **Flexible URL resolution** — configures the server URL via project config, environment variable, or global settings
+- **Auth support** — allows to login into a llama.cpp server that was secured with an API key
 - **Multiple server support** — connect to multiple llama.cpp servers simultaneously by separating URLs with semicolons
 
 ### Status Indicators
 
-| Icon | Status   | Description                       |
-| ---- | -------- | --------------------------------- |
-| 🟢   | Loaded   | Model is active and ready to use  |
-| 🟡   | Loading  | Model is currently being loaded   |
-| 🔴   | Failed   | Model failed to load              |
-| 🔵   | Sleeping | Model is available, but inactive  |
-| ⚪   | Unloaded | Model is not loaded on the server |
+| Icon | Status       | Description                            |
+| ---- | ------------ | -------------------------------------- |
+| 🟢   | Loaded       | Model is active and ready to use       |
+| 🟡   | Loading      | Model is currently being loaded        |
+| 🔴   | Failed       | Model failed to load                   |
+| 🔵   | Sleeping     | Model is available, but inactive       |
+| ⚪   | Unloaded     | Model is not loaded on the server      |
+| ⛔   | Unauthorized | Model can't be used (API key required) |
 
 > **Note**: The `Sleeping` status only shows when you start your server with `llama-server --sleep-idle-seconds <n> ...`.
 > This is a **llama.cpp server flag** that tells the server to put idle models to sleep after `n` seconds.
 > The model awakens automatically when you send a message.
+
+> **Note:** You can run your server with API authentication with `llama-server --api-key <your key> ...`.
 
 ## Installation
 
@@ -78,7 +82,6 @@ Each server gets its own provider (e.g., **Llama.cpp (http://127.0.0.1:8080)**) 
 ### API Key
 
 If your llama.cpp server requires authentication, use `/login` in Pi, select the "API key" option, and choose the provider from the list that correlates with the server needing the API key.
-Then run `/reload` to update the API key resolver of this extension.
 
 Alternatively, configure the API key in `~/.pi/agent/auth.json`:
 Use the provider ID `llama-server=<url>`:
