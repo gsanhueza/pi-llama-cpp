@@ -1,42 +1,37 @@
 import type {
   ExtensionAPI,
-  ExtensionCommandContext,
+  ExtensionContext,
+  SessionBeforeSwitchEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { AutocompleteItem } from "@earendil-works/pi-tui";
-import { onSessionBeforeSwitch } from "./commands/models";
-import { PROVIDER_NAME } from "./constants";
-import { onModelSelect } from "./events";
-import { CommandManager } from "./manager";
+import { ModelSelectEvent } from "./interfaces/events";
+import { CommandManager } from "./managers/command";
+import { EventManager } from "./managers/events";
+import { Server } from "./server";
+import { resolveApiKey, resolveUrl } from "./tools/resolver";
 
 export default async function (pi: ExtensionAPI) {
-  const manager = new CommandManager(pi);
+  const baseUrl = await resolveUrl(process.cwd());
+  const apiKey = await resolveApiKey();
+
+  const server = new Server(baseUrl, apiKey);
+  const events = new EventManager(server);
+  const manager = new CommandManager(pi, server);
+
   await manager.initialize();
 
   // Command: /models
-  pi.registerCommand("models", {
-    description: `Browse ${PROVIDER_NAME} models`,
-    getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
-      const available = [
-        {
-          value: "info",
-          label: "info",
-          description: "Show information of all models",
-        },
-        {
-          value: "unload",
-          label: "unload",
-          description: "Unload all models",
-        },
-      ];
-
-      const filtered = available.filter((a) => a.value.startsWith(prefix));
-      return filtered.length > 0 ? filtered : null;
-    },
-    handler: async (args: string, ctx: ExtensionCommandContext) =>
-      await manager.run(args, ctx),
-  });
+  pi.registerCommand("models", manager.setupModelsCommand());
 
   // Events registration
-  pi.on("model_select", onModelSelect);
-  pi.on("session_before_switch", onSessionBeforeSwitch);
+  pi.on(
+    "model_select",
+    async (event: ModelSelectEvent, ctx: ExtensionContext) =>
+      await events.onModelSelect(event, ctx),
+  );
+
+  pi.on(
+    "session_before_switch",
+    async (event: SessionBeforeSwitchEvent, ctx: ExtensionContext) =>
+      await events.onSessionBeforeSwitch(event, ctx),
+  );
 }

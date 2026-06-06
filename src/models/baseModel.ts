@@ -4,7 +4,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty, ModelsEndpoint } from "../interfaces/endpoints/models";
 import { PropsEndpoint } from "../interfaces/endpoints/props";
-import { rpc } from "../tools/retriever";
+import { Server } from "../server";
 
 /**
  * Abstract base class for llama-server models.
@@ -12,7 +12,10 @@ import { rpc } from "../tools/retriever";
  * loading/unloading, and configuration conversion.
  */
 export abstract class BaseModel {
-  constructor(protected readonly model: DataProperty) {}
+  constructor(
+    protected readonly model: DataProperty,
+    protected readonly server: Server,
+  ) {}
 
   protected readonly statusMapper: Record<string, Status> = {
     loaded: Status.LOADED,
@@ -59,7 +62,7 @@ export abstract class BaseModel {
    */
   public async getStatus(): Promise<Status> {
     try {
-      const { is_sleeping, error } = await rpc<PropsEndpoint>(
+      const { is_sleeping, error } = await this.server.rpc<PropsEndpoint>(
         `/props?model=${this.id}&autoload=false`,
       );
 
@@ -81,7 +84,7 @@ export abstract class BaseModel {
    * @returns The detected context size
    */
   async getContextSize(): Promise<number> {
-    const { data } = await rpc<ModelsEndpoint>("/models");
+    const { data } = await this.server.rpc<ModelsEndpoint>("/models");
     const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
 
     return n_ctx;
@@ -140,7 +143,7 @@ export abstract class BaseModel {
     const status = await this.getStatus();
     if (status === Status.LOADED || status === Status.SLEEPING) return;
 
-    await rpc("/models/load", { model: this.id });
+    await this.server.rpc("/models/load", { model: this.id });
     await this.pollStatus();
   }
 
@@ -148,7 +151,7 @@ export abstract class BaseModel {
    * Unloads the model from llama-server
    */
   async unload(): Promise<void> {
-    await rpc("/models/unload", { model: this.id });
+    await this.server.rpc("/models/unload", { model: this.id });
   }
 
   /**

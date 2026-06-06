@@ -3,7 +3,6 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { ModelsEndpoint } from "../interfaces/endpoints/models";
 import { PropsEndpoint } from "../interfaces/endpoints/props";
-import { rpc } from "../tools/retriever";
 import { BaseModel } from "./baseModel";
 
 /**
@@ -17,7 +16,7 @@ export class RouterModel extends BaseModel {
   }
 
   async getStatus(): Promise<Status> {
-    const { data } = await rpc<ModelsEndpoint>("/models");
+    const { data } = await this.server.rpc<ModelsEndpoint>("/models");
     const model = data.find((m) => m.id === this.id);
     if (!model) return Status.FAILED;
 
@@ -50,7 +49,9 @@ export class RouterModel extends BaseModel {
     // Grab the glitch
     while (Date.now() - startTime <= limit) {
       try {
-        await rpc<PropsEndpoint>(`/props?model=${this.id}&autoload=false`);
+        await this.server.rpc<PropsEndpoint>(
+          `/props?model=${this.id}&autoload=false`,
+        );
         break;
       } catch {
         elapsed += POLLING_INTERVAL;
@@ -63,7 +64,7 @@ export class RouterModel extends BaseModel {
   }
 
   async getCapabilities(): Promise<("text" | "image")[]> {
-    const { data } = await rpc<ModelsEndpoint>(`/models`);
+    const { data } = await this.server.rpc<ModelsEndpoint>(`/models`);
     const model = data.find((d) => d.id === this.id);
     if (!model) return ["text"];
 
