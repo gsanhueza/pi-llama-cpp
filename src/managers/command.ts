@@ -9,7 +9,6 @@ import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 
 export class CommandManager {
-  static inflightModel: BaseModel | null = null;
   readonly failedUrls: string[] = [];
 
   constructor(

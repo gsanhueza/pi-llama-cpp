@@ -111,27 +111,9 @@ describe("RouterModel context size extraction", () => {
   });
 
   it("should prefer --ctx-size over --fit-ctx when loaded", async () => {
-    // First call: getStatus() -> /models
-    mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          id: "test-model",
-          status: {
-            value: "loaded",
-            args: [
-              "--model",
-              "gguf",
-              "--ctx-size",
-              "4096",
-              "--fit-ctx",
-              "8192",
-            ],
-            preset: "default",
-          },
-        },
-      ],
-    });
-    // Second call: super.getContextSize() -> /models with meta.n_ctx
+    // First call: getStatus() -> fetchModelProps
+    mockRpc.mockResolvedValueOnce({ is_sleeping: false });
+    // Second call: super.getContextSize() -> fetchModels with meta.n_ctx
     mockRpc.mockResolvedValueOnce({
       data: [
         {
@@ -157,20 +139,9 @@ describe("RouterModel context size extraction", () => {
   });
 
   it("should return n_ctx from meta when loaded without context size args", async () => {
-    // First call: getStatus() -> /models
-    mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          id: "test-model",
-          status: {
-            value: "loaded",
-            args: ["--model", "gguf"],
-            preset: "default",
-          },
-        },
-      ],
-    });
-    // Second call: super.getContextSize() -> /models with meta.n_ctx
+    // First call: getStatus() -> fetchModelProps
+    mockRpc.mockResolvedValueOnce({ is_sleeping: false });
+    // Second call: super.getContextSize() -> fetchModels with meta.n_ctx
     mockRpc.mockResolvedValueOnce({
       data: [
         {

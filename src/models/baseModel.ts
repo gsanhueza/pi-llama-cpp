@@ -2,8 +2,7 @@ import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
-import { DataProperty, ModelsEndpoint } from "../interfaces/endpoints/models";
-import { PropsEndpoint } from "../interfaces/endpoints/props";
+import { DataProperty } from "../interfaces/endpoints/models";
 import { Server } from "../server";
 
 /**
@@ -86,9 +85,7 @@ export abstract class BaseModel {
    */
   public async getStatus(): Promise<Status> {
     try {
-      const { is_sleeping, error } = await this.server.rpc<PropsEndpoint>(
-        `/props?model=${this.id}&autoload=false`,
-      );
+      const { is_sleeping, error } = await this.server.fetchModelProps(this.id);
 
       if (is_sleeping) return Status.SLEEPING;
       if (!error) return Status.LOADED;
@@ -110,7 +107,7 @@ export abstract class BaseModel {
    * @returns The context size in tokens
    */
   async getContextSize(): Promise<number> {
-    const { data } = await this.server.rpc<ModelsEndpoint>("/models");
+    const { data } = await this.server.fetchModels();
     const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
 
     return n_ctx;
@@ -170,7 +167,7 @@ export abstract class BaseModel {
     const status = await this.getStatus();
     if (status === Status.LOADED || status === Status.SLEEPING) return;
 
-    await this.server.rpc("/models/load", { model: this.id });
+    await this.server.postRequest("load", this.id);
     await this.pollStatus();
   }
 
@@ -178,7 +175,7 @@ export abstract class BaseModel {
    * Unloads the model from llama-server
    */
   async unload(): Promise<void> {
-    await this.server.rpc("/models/unload", { model: this.id });
+    await this.server.postRequest("unload", this.id);
   }
 
   /**

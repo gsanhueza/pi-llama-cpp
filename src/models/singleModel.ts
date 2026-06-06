@@ -1,5 +1,4 @@
 import { Mode } from "../enums/mode";
-import { ModelsEndpoint } from "../interfaces/endpoints/models";
 import { BaseModel } from "./baseModel";
 
 export class SingleModel extends BaseModel {
@@ -8,7 +7,7 @@ export class SingleModel extends BaseModel {
   }
 
   async getCapabilities(): Promise<("text" | "image")[]> {
-    const { models } = await this.server.rpc<ModelsEndpoint>(`/models`);
+    const { models } = await this.server.fetchModels();
     const [model] = models!;
 
     const hasImage = model.capabilities.includes("multimodal");

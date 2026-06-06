@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Mode } from "../src/enums/mode";
 import { Status } from "../src/enums/status";
-import { ModelProperty } from "../src/interfaces/endpoints/models";
+import { DataProperty } from "../src/interfaces/endpoints/models";
 import { SingleModel } from "../src/models/singleModel";
 import { createMockServer, mockRpc } from "./mocks";
 
@@ -9,7 +9,7 @@ beforeEach(() => {
   mockRpc.mockClear();
 });
 
-const createModel = (extra: Partial<ModelProperty> = {}): SingleModel =>
+const createModel = (extra: Partial<DataProperty> = {}): SingleModel =>
   new SingleModel(
     {
       id: "test",

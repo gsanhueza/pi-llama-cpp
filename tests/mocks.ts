@@ -3,30 +3,45 @@ import { vi } from "vitest";
 import { Mode } from "../src/enums/mode";
 import { Status } from "../src/enums/status";
 import { BaseModel } from "../src/models/baseModel";
+import { Server } from "../src/server";
 
 /** Shared mock RPC — each test configures it */
 export const mockRpc = vi.fn();
 
 /** Default mock server that assumes everything works */
-export const createMockServer = (overrides: Record<string, unknown> = {}) => {
-  const models: unknown[] = [];
-  const server: Record<string, unknown> = {
-    rpc: mockRpc,
+export const createMockServer = (
+  overrides: Partial<Server & { apiKey?: string }> = {},
+): Server => {
+  const models: BaseModel[] = [];
+  const server: Partial<Server> = {
     baseUrl: "http://127.0.0.1:8080",
-    apiKey: undefined,
-    get models() {
-      return models;
-    },
+    models,
     getApiKey: () => Promise.resolve(overrides.apiKey ?? ""),
-    isReady: () => Promise.resolve(true),
+    fetchModels: () => mockRpc("/models"),
+    fetchModelProps: (modelId: string) =>
+      mockRpc(`/props?model=${modelId}&autoload=false`),
+    fetchServerHealth: () => mockRpc("/health"),
+    fetchServerProps: () => mockRpc("/props?autoload=false"),
+    postRequest: (resource: "load" | "unload", model: string) =>
+      mockRpc(`/models/${resource}`, { model }),
+    isReady: async () => {
+      try {
+        const r = await mockRpc("/health");
+        return r.status === "ok";
+      } catch {
+        return false;
+      }
+    },
     initialize: async () => {
-      const { data } = (await mockRpc("/models")) as { data: unknown[] };
+      const { data } = (await mockRpc("/models")) as {
+        data: BaseModel[];
+      };
       models.length = 0;
       models.push(...(data ?? []));
     },
     ...overrides,
   };
-  return server as unknown as import("../src/server").Server;
+  return server as Server;
 };
 
 /** Helper to create a mock BaseModel */

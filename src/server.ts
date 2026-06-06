@@ -39,8 +39,8 @@ export class Server {
    */
   async initialize() {
     this.models.length = 0;
-    const { models, data } = await this.rpc<ModelsEndpoint>("/models");
-    const { role } = await this.rpc<PropsEndpoint>("/props?autoload=false");
+    const { data } = await this.fetchModels();
+    const { role } = await this.fetchServerProps();
 
     if (role === "router") {
       this.models.push(
@@ -59,11 +59,63 @@ export class Server {
    */
   async isReady(): Promise<boolean> {
     try {
-      const { status } = await this.rpc<HealthEndpoint>("/health");
+      const { status } = await this.fetchServerHealth();
       return status === "ok";
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Retrieves the health status of the server
+   *
+   * @returns The health status
+   */
+  async fetchServerHealth(): Promise<HealthEndpoint> {
+    return await this.rpc<HealthEndpoint>("/health");
+  }
+
+  /**
+   * Fetches models from the server
+   *
+   * @return The models from the server
+   */
+  async fetchModels(): Promise<ModelsEndpoint> {
+    return await this.rpc<ModelsEndpoint>("/v1/models");
+  }
+
+  /**
+   * Fetches general properties of the server
+   *
+   * @return The properties of the server
+   */
+  async fetchServerProps(): Promise<PropsEndpoint> {
+    return await this.rpc<PropsEndpoint>("/props?autoload=false");
+  }
+
+  /**
+   * Fetches properties of a specific model from the server
+   *
+   * @param modelId The ID of the model
+   * @return The properties of the specified model
+   */
+  async fetchModelProps(modelId: string): Promise<PropsEndpoint> {
+    return await this.rpc<PropsEndpoint>(
+      `/props?model=${modelId}&autoload=false`,
+    );
+  }
+
+  /**
+   * Sends a request associated to a specific model from the server
+   *
+   * @param resource The specified resource ("load" | "unload")
+   * @param model The targeted model
+   */
+  async postRequest(
+    resource: "load" | "unload",
+    model: string,
+  ): Promise<ModelsEndpoint> {
+    return await this.rpc<ModelsEndpoint>(`/models/${resource}`, { model });
   }
 
   /**
@@ -73,7 +125,10 @@ export class Server {
    * @param body The optional request body for POST requests
    * @returns The parsed JSON response from the server
    */
-  async rpc<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
+  private async rpc<T>(
+    endpoint: string,
+    body?: Record<string, unknown>,
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const apiKey = await this.getApiKey();
 
