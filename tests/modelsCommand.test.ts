@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe("modelsCommand", () => {
-  const CHOICE = "model-a [Server: http://127.0.0.1:8080]";
+  const CHOICE = "model-a   [Server: http://127.0.0.1:8080]";
 
   it("should return early on cancel (null model selection)", async () => {
     const models = [createMockModel("model-a")];

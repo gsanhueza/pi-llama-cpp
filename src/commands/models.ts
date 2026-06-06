@@ -27,12 +27,19 @@ const selectModel = async (
     })),
   );
 
+  // Count grapheme clusters (not UTF-16 code units) so emoji padding aligns visually
+  const graphemeLength = (str: string) =>
+    [...new Intl.Segmenter().segment(str)].length;
+
   // Decorate the label so the spacing makes it seem more like a table
-  const maxLength = Math.max(...labels.map(({ label }) => label.length));
-  const choices = labels.map(
-    ({ label, serverUrl }) =>
-      `${label.padEnd(maxLength)} [Server: ${serverUrl}]`,
+  const maxLength = Math.max(
+    ...labels.map(({ label }) => graphemeLength(label)),
   );
+  const choices = labels.map(({ label, serverUrl }) => {
+    const extraPadding = 2;
+    const padLen = maxLength - graphemeLength(label) + extraPadding;
+    return `${label}${" ".repeat(padLen)} [Server: ${serverUrl}]`;
+  });
 
   const choice = await ctx.ui.select(`${PROVIDER_NAME} models:`, choices);
   if (!choice) return null;
