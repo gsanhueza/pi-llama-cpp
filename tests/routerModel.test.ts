@@ -168,33 +168,28 @@ describe("RouterModel context size extraction", () => {
 });
 
 describe("RouterModel capabilities detection", () => {
-  it("should detect image capability from architecture.input_modalities", async () => {
-    // First call (fetchModelProps) throws to trigger fallback
-    mockRpc.mockRejectedValueOnce(new Error("props not available"));
-    // Second call (fetchModels) returns the data
-    mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          id: "test-model",
-          status: {
-            value: "loaded",
-            args: [],
-            preset: "default",
-            failed: false,
-          },
-          architecture: {
-            input_modalities: ["text", "image"],
-            output_modalities: ["text"],
-          },
-        },
-      ],
-    });
+  it("should detect image capability when modalities.vision is true", async () => {
+    mockRpc.mockResolvedValueOnce({ modalities: { vision: true } });
 
     const model = new RouterModel(createModel(), createMockServer());
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text", "image"]);
-    expect(mockRpc).toHaveBeenCalledWith("/v1/models");
+    expect(mockRpc).toHaveBeenCalledWith(
+      "/props?model=test-model&autoload=false",
+    );
+  });
+
+  it("should return text-only when fetchModelProps fails", async () => {
+    // First call (fetchModelProps) throws to trigger fallback
+    mockRpc.mockRejectedValueOnce(new Error("props not available"));
+    // Second call (fetchModels) returns empty data so model is not found
+    mockRpc.mockResolvedValueOnce({ data: [] });
+
+    const model = new RouterModel(createModel(), createMockServer());
+    const capabilities = await model.getCapabilities();
+
+    expect(capabilities).toEqual(["text"]);
   });
 
   it("should detect text-only capability when only text in input_modalities", async () => {

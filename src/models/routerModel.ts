@@ -46,25 +46,12 @@ export class RouterModel extends BaseModel {
     return await super.pollStatus(startTime, timeout);
   }
 
-  async getCapabilities(): Promise<("text" | "image")[]> {
-    try {
-      // When loaded, this works alright
-      return await super.getCapabilities();
-    } catch {
-      // Otherwise, we have to search for it ourselves
-      const { data } = await this.server.fetchModels();
-      const model = data.find((d) => d.id === this.id);
-      if (!model) return ["text"];
-
-      const { input_modalities } = model.architecture!;
-      const response = input_modalities.filter(
-        (mod) => mod === "text" || mod === "image",
-      );
-
-      return response;
-    }
-  }
-
+  /**
+   * Gets the context size of a particular model.
+   * In router mode, falls back to parsing CLI args when the model is unloaded.
+   *
+   * @returns The context size in tokens
+   */
   async getContextSize(): Promise<number> {
     // We can get a more accurate context size if the model is already loaded
     if ((await this.getStatus()) === Status.LOADED) {

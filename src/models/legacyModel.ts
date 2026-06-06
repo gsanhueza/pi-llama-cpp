@@ -27,4 +27,19 @@ export class LegacyModel extends SingleModel {
 
     return contextSize ?? DEFAULT_CTX;
   }
+
+  /**
+   * Detects the capabilities of the model when the user is running
+   * a server that uses legacy models, such as ik_llama.cpp
+   *
+   * @returns An array of capabilities, as expected by Pi
+   */
+  async getCapabilities(): Promise<("text" | "image")[]> {
+    try {
+      return await super.getCapabilities();
+    } catch {
+      // When auth is wrong in a legacy model, we simply can't detect the real capabilities
+      return ["text"];
+    }
+  }
 }

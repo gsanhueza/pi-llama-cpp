@@ -77,8 +77,23 @@ export abstract class BaseModel {
    * @returns An array of capabilities, as expected by Pi
    */
   async getCapabilities(): Promise<("text" | "image")[]> {
-    const { modalities } = await this.server.fetchModelProps(this.id);
-    return modalities.vision ? ["text", "image"] : ["text"];
+    try {
+      // When loaded, this works alright
+      const { modalities } = await this.server.fetchModelProps(this.id);
+      return modalities.vision ? ["text", "image"] : ["text"];
+    } catch {
+      // Otherwise, we have to search for it ourselves
+      const { data } = await this.server.fetchModels();
+      const model = data.find((d) => d.id === this.id);
+      if (!model) return ["text"];
+
+      const { input_modalities } = model.architecture!;
+      const response = input_modalities.filter(
+        (mod) => mod === "text" || mod === "image",
+      );
+
+      return response;
+    }
   }
 
   /**
@@ -105,15 +120,18 @@ export abstract class BaseModel {
 
   /**
    * Gets the context size of a particular model.
-   * In router mode, falls back to parsing CLI args when the model is unloaded.
    *
    * @returns The context size in tokens
    */
   async getContextSize(): Promise<number> {
-    const { data } = await this.server.fetchModels();
-    const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
+    try {
+      const { data } = await this.server.fetchModels();
+      const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
 
-    return n_ctx ?? DEFAULT_CTX;
+      return n_ctx ?? DEFAULT_CTX;
+    } catch {
+      return DEFAULT_CTX;
+    }
   }
 
   /**
