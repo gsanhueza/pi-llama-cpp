@@ -1,7 +1,7 @@
 {
   "name": "pi-llama-cpp",
-  "version": "0.5.1",
-  "description": "Pi extension for llama.cpp integration. Supports both router and single modes. Supports multiple servers.",
+  "version": "0.6.0",
+  "description": "Pi extension for llama.cpp integration. Supports router, single and legacy models. Supports multiple servers.",
   "keywords": [
     "pi",
     "pi-package",
@@ -38,6 +38,6 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "prettier-plugin-organize-imports": "^4.3.0",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   }
 }
