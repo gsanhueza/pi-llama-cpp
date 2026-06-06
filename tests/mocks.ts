@@ -17,7 +17,7 @@ export const createMockServer = (
     baseUrl: "http://127.0.0.1:8080",
     models,
     getApiKey: () => Promise.resolve(overrides.apiKey ?? ""),
-    fetchModels: () => mockRpc("/models"),
+    fetchModels: () => mockRpc("/v1/models"),
     fetchModelProps: (modelId: string) =>
       mockRpc(`/props?model=${modelId}&autoload=false`),
     fetchServerHealth: () => mockRpc("/health"),
@@ -33,7 +33,7 @@ export const createMockServer = (
       }
     },
     initialize: async () => {
-      const { data } = (await mockRpc("/models")) as {
+      const { data } = (await mockRpc("/v1/models")) as {
         data: BaseModel[];
       };
       models.length = 0;

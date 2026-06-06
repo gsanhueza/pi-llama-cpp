@@ -47,16 +47,22 @@ export class RouterModel extends BaseModel {
   }
 
   async getCapabilities(): Promise<("text" | "image")[]> {
-    const { data } = await this.server.fetchModels();
-    const model = data.find((d) => d.id === this.id);
-    if (!model) return ["text"];
+    try {
+      // When loaded, this works alright
+      return await super.getCapabilities();
+    } catch {
+      // Otherwise, we have to search for it ourselves
+      const { data } = await this.server.fetchModels();
+      const model = data.find((d) => d.id === this.id);
+      if (!model) return ["text"];
 
-    const { input_modalities } = model.architecture!;
-    const response = input_modalities.filter(
-      (mod) => mod === "text" || mod === "image",
-    );
+      const { input_modalities } = model.architecture!;
+      const response = input_modalities.filter(
+        (mod) => mod === "text" || mod === "image",
+      );
 
-    return response;
+      return response;
+    }
   }
 
   async getContextSize(): Promise<number> {

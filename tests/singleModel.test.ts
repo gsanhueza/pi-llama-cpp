@@ -6,7 +6,7 @@ import { SingleModel } from "../src/models/singleModel";
 import { createMockServer, mockRpc } from "./mocks";
 
 beforeEach(() => {
-  mockRpc.mockClear();
+  mockRpc.mockReset();
 });
 
 const createModel = (extra: Partial<DataProperty> = {}): SingleModel =>
@@ -31,21 +31,16 @@ describe("SingleModel mode", () => {
 
 describe("SingleModel capabilities", () => {
   it("should detect image capability when multimodal is in capabilities", async () => {
-    mockRpc.mockResolvedValueOnce({
-      models: [{ id: "test", capabilities: ["multimodal"] }],
-    });
+    mockRpc.mockResolvedValueOnce({ modalities: { vision: true } });
 
     const model = createModel();
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text", "image"]);
-    expect(mockRpc).toHaveBeenCalledWith("/models");
   });
 
   it("should detect text-only capability when multimodal is not in capabilities", async () => {
-    mockRpc.mockResolvedValueOnce({
-      models: [{ id: "test", capabilities: [] }],
-    });
+    mockRpc.mockResolvedValueOnce({ modalities: { vision: false } });
 
     const model = createModel();
     const capabilities = await model.getCapabilities();
@@ -78,8 +73,8 @@ describe("SingleModel getStatus", () => {
 });
 
 describe("SingleModel getContextSize", () => {
-  it("should return n_ctx from /models endpoint meta", async () => {
-    mockRpc.mockResolvedValueOnce({
+  it("should return n_ctx from /v1/models endpoint meta", async () => {
+    mockRpc.mockResolvedValue({
       data: [{ id: "test", meta: { n_ctx: 8192 } }],
     });
 
@@ -87,6 +82,6 @@ describe("SingleModel getContextSize", () => {
     const ctxSize = await model.getContextSize();
 
     expect(ctxSize).toBe(8192);
-    expect(mockRpc).toHaveBeenCalledWith("/models");
+    expect(mockRpc).toHaveBeenCalledWith("/v1/models");
   });
 });

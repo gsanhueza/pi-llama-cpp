@@ -169,6 +169,9 @@ describe("RouterModel context size extraction", () => {
 
 describe("RouterModel capabilities detection", () => {
   it("should detect image capability from architecture.input_modalities", async () => {
+    // First call (fetchModelProps) throws to trigger fallback
+    mockRpc.mockRejectedValueOnce(new Error("props not available"));
+    // Second call (fetchModels) returns the data
     mockRpc.mockResolvedValueOnce({
       data: [
         {
@@ -191,10 +194,13 @@ describe("RouterModel capabilities detection", () => {
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text", "image"]);
-    expect(mockRpc).toHaveBeenCalledWith("/models");
+    expect(mockRpc).toHaveBeenCalledWith("/v1/models");
   });
 
   it("should detect text-only capability when only text in input_modalities", async () => {
+    // First call (fetchModelProps) throws to trigger fallback
+    mockRpc.mockRejectedValueOnce(new Error("props not available"));
+    // Second call (fetchModels) returns the data
     mockRpc.mockResolvedValueOnce({
       data: [
         {
@@ -220,6 +226,9 @@ describe("RouterModel capabilities detection", () => {
   });
 
   it("should return text when model not found in /models response", async () => {
+    // First call (fetchModelProps) throws to trigger fallback
+    mockRpc.mockRejectedValueOnce(new Error("props not available"));
+    // Second call (fetchModels) returns data without matching model
     mockRpc.mockResolvedValueOnce({
       data: [
         {

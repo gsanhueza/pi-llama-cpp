@@ -42,7 +42,7 @@ describe("Server fetchModels", () => {
       models: [{ id: "model1" }],
       object: "list",
     });
-    expect(mockRpc).toHaveBeenCalledWith("/models");
+    expect(mockRpc).toHaveBeenCalledWith("/v1/models");
   });
 });
 

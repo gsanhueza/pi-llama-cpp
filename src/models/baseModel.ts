@@ -1,5 +1,5 @@
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import { POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
+import { DEFAULT_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
@@ -76,7 +76,10 @@ export abstract class BaseModel {
    *
    * @returns An array of capabilities, as expected by Pi
    */
-  abstract getCapabilities(): Promise<("text" | "image")[]>;
+  async getCapabilities(): Promise<("text" | "image")[]> {
+    const { modalities } = await this.server.fetchModelProps(this.id);
+    return modalities.vision ? ["text", "image"] : ["text"];
+  }
 
   /**
    * Gets the load status of the model
@@ -110,7 +113,7 @@ export abstract class BaseModel {
     const { data } = await this.server.fetchModels();
     const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
 
-    return n_ctx;
+    return n_ctx ?? DEFAULT_CTX;
   }
 
   /**
