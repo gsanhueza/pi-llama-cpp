@@ -2,6 +2,7 @@
  * The structure of llama-server's /props endpoint
  */
 export interface PropsEndpoint {
+  role?: "router";
   error?: PropsError;
   default_generation_settings: Record<string, any>;
   total_slots: number;

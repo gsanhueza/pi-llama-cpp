@@ -1,6 +1,7 @@
 import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
+import { PropsEndpoint } from "./interfaces/endpoints/props";
 import { BaseModel } from "./models/baseModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
@@ -39,15 +40,16 @@ export class Server {
   async initialize() {
     this.models.length = 0;
     const { models, data } = await this.rpc<ModelsEndpoint>("/models");
+    const { role } = await this.rpc<PropsEndpoint>("/props?autoload=false");
 
-    if (models) {
-      this.models.push(...data.map((m) => new SingleModel(m, this)));
-    } else {
+    if (role === "router") {
       this.models.push(
         ...data
           .map((m) => new RouterModel(m, this))
           .sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1)),
       );
+    } else {
+      this.models.push(...data.map((m) => new SingleModel(m, this)));
     }
   }
 
