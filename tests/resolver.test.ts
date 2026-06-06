@@ -5,152 +5,168 @@ import {
   PROVIDER_ID,
 } from "../src/constants";
 
+// Mock getAgentDir before importing resolver
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  getAgentDir: vi.fn().mockReturnValue("/fake/agent/dir"),
+}));
+
+vi.mock("node:fs/promises", () => ({
+  access: vi.fn(),
+  constants: { F_OK: 0 },
+  readFile: vi.fn(),
+}));
+
+// Import mocked modules
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { access, readFile } from "node:fs/promises";
+import { ConfigResolver } from "../src/resolver";
+
 describe("URL resolution fallback chain", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.resetModules();
-  });
+  const mockAccess = vi.mocked(access);
+  const mockReadFile = vi.mocked(readFile);
+  const mockGetAgentDir = vi.mocked(getAgentDir);
 
   afterEach(() => {
     delete process.env.LLAMA_SERVER_URL;
+    vi.resetModules();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    // Default: no files exist
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
+    mockReadFile.mockResolvedValue("");
   });
 
   it("should return default URL when no config is found", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockRejectedValue(new Error("ENOENT")),
-      constants: { F_OK: 0 },
-      readFile: vi.fn().mockResolvedValue(""),
-    }));
-
-    const { resolveUrl } = await import("../src/tools/resolver");
-    const result = await resolveUrl("/tmp/test-project");
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveUrl("/tmp/test-project");
 
     expect(result).toBe(DEFAULT_LLAMA_SERVER_URL);
   });
 
   it("should prioritize project config over env variable", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (path: string) => {
-        if (path.includes("llama-server.json")) return undefined;
-        throw new Error("ENOENT");
-      }),
-      constants: { F_OK: 0 },
-      readFile: vi
-        .fn()
-        .mockResolvedValue(JSON.stringify({ url: "http://localhost:9999" })),
-    }));
+    mockAccess.mockImplementation(async (_path: unknown) => {
+      if (typeof _path === "string" && _path.includes("llama-server.json"))
+        return undefined;
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ url: "http://localhost:9999" }),
+    );
 
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const { resolveUrl } = await import("../src/tools/resolver");
-    const result = await resolveUrl("/tmp/test-project");
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveUrl("/tmp/test-project");
 
     expect(result).toBe("http://localhost:9999");
   });
 
   it("should use env variable when no project config exists", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockRejectedValue(new Error("ENOENT")),
-      constants: { F_OK: 0 },
-      readFile: vi.fn().mockResolvedValue(""),
-    }));
-
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const { resolveUrl } = await import("../src/tools/resolver");
-    const result = await resolveUrl("/tmp/test-project");
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveUrl("/tmp/test-project");
 
     expect(result).toBe("http://env-url:8080");
   });
 
   it("should use global settings when no project config or env exists", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (path: string) => {
-        if (path.includes("settings.json")) return undefined;
-        throw new Error("ENOENT");
-      }),
-      constants: { F_OK: 0 },
-      readFile: vi
-        .fn()
-        .mockResolvedValue(
-          JSON.stringify({ llamaServerUrl: "http://global:8080" }),
-        ),
-    }));
+    mockAccess.mockImplementation(async (_path: unknown) => {
+      if (typeof _path === "string" && _path.includes("settings.json"))
+        return undefined;
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ llamaServerUrl: "http://global:8080" }),
+    );
 
-    const { resolveUrl } = await import("../src/tools/resolver");
-    const result = await resolveUrl("/tmp/test-project");
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveUrl("/tmp/test-project");
 
     expect(result).toBe("http://global:8080");
   });
 
   it("should strip trailing slashes from resolved URL", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (path: string) => {
-        if (path.includes("llama-server.json")) return undefined;
-        throw new Error("ENOENT");
-      }),
-      constants: { F_OK: 0 },
-      readFile: vi
-        .fn()
-        .mockResolvedValue(JSON.stringify({ url: "http://localhost:8080/" })),
-    }));
+    mockAccess.mockImplementation(async (_path: unknown) => {
+      if (typeof _path === "string" && _path.includes("llama-server.json"))
+        return undefined;
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ url: "http://localhost:8080/" }),
+    );
 
-    const { resolveUrl } = await import("../src/tools/resolver");
-    const result = await resolveUrl("/tmp/test-project");
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveUrl("/tmp/test-project");
 
     expect(result).toBe("http://localhost:8080");
+  });
+
+  it("should cache the resolved URL on subsequent calls", async () => {
+    mockAccess.mockImplementation(async (_path: unknown) => {
+      if (typeof _path === "string" && _path.includes("llama-server.json"))
+        return undefined;
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ url: "http://first:8080" }),
+    );
+
+    const resolver = new ConfigResolver();
+    const result1 = await resolver.resolveUrl("/tmp/project1");
+    const result2 = await resolver.resolveUrl("/tmp/project2");
+
+    expect(result1).toBe("http://first:8080");
+    expect(result2).toBe("http://first:8080");
   });
 });
 
 describe("API key resolution", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  const mockAccess = vi.mocked(access);
+  const mockReadFile = vi.mocked(readFile);
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+
+  afterEach(() => {
     vi.resetModules();
   });
 
-  it("should return placeholder when auth file does not exist", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockRejectedValue(new Error("ENOENT")),
-      constants: { F_OK: 0 },
-      readFile: vi.fn().mockResolvedValue(""),
-    }));
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
+    mockReadFile.mockResolvedValue("");
+  });
 
-    const { resolveApiKey } = await import("../src/tools/resolver");
-    const result = await resolveApiKey();
+  it("should return placeholder when auth file does not exist", async () => {
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveApiKey();
 
     expect(result).toBe(API_KEY_PLACEHOLDER);
   });
 
   it("should return placeholder when provider key is missing", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockResolvedValue(undefined),
-      constants: { F_OK: 0 },
-      readFile: vi
-        .fn()
-        .mockResolvedValue(
-          JSON.stringify({ "other-provider": { key: "other-key" } }),
-        ),
-    }));
+    mockAccess.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ "other-provider": { key: "other-key" } }),
+    );
 
-    const { resolveApiKey } = await import("../src/tools/resolver");
-    const result = await resolveApiKey();
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveApiKey();
 
     expect(result).toBe(API_KEY_PLACEHOLDER);
   });
 
   it("should return the provider key when present", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockResolvedValue(undefined),
-      constants: { F_OK: 0 },
-      readFile: vi
-        .fn()
-        .mockResolvedValue(
-          JSON.stringify({ [PROVIDER_ID]: { key: "test-api-key" } }),
-        ),
-    }));
+    mockAccess.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ [PROVIDER_ID]: { key: "test-api-key" } }),
+    );
 
-    const { resolveApiKey } = await import("../src/tools/resolver");
-    const result = await resolveApiKey();
+    const resolver = new ConfigResolver();
+    const result = await resolver.resolveApiKey();
 
     expect(result).toBe("test-api-key");
   });

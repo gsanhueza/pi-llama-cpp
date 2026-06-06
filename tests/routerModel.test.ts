@@ -1,16 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { Mode } from "../src/enums/mode";
 import { DataProperty } from "../src/interfaces/endpoints/models";
 import { RouterModel } from "../src/models/routerModel";
-
-// Mock the retriever module before importing anything that depends on it
-const mockRpc = vi.fn();
-
-vi.mock("../src/tools/retriever", () => ({
-  rpc: (...args: unknown[]) => mockRpc(...args),
-  isServerReady: vi.fn(),
-  listModels: vi.fn(),
-}));
+import { createMockServer, mockRpc } from "./mocks";
 
 // Helper to create a mock DataProperty
 const createModel = (overrides: Partial<DataProperty> = {}): DataProperty => ({
@@ -22,6 +14,10 @@ const createModel = (overrides: Partial<DataProperty> = {}): DataProperty => ({
   created: Date.now(),
   status: { value: "loaded", args: [], preset: "default", failed: false },
   ...overrides,
+});
+
+beforeEach(() => {
+  mockRpc.mockClear();
 });
 
 describe("RouterModel context size extraction", () => {
@@ -41,6 +37,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     // Access the private method via any
@@ -57,6 +54,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const extractFrom = (model as any).extractFrom.bind(model);
@@ -72,6 +70,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const extractFrom = (model as any).extractFrom.bind(model);
@@ -88,6 +87,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const extractFrom = (model as any).extractFrom.bind(model);
@@ -103,6 +103,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const extractFrom = (model as any).extractFrom.bind(model);
@@ -148,6 +149,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const ctxSize = await model.getContextSize();
@@ -186,6 +188,7 @@ describe("RouterModel context size extraction", () => {
           preset: "default",
         },
       }),
+      createMockServer(),
     );
 
     const ctxSize = await model.getContextSize();
@@ -213,7 +216,7 @@ describe("RouterModel capabilities detection", () => {
       ],
     });
 
-    const model = new RouterModel(createModel());
+    const model = new RouterModel(createModel(), createMockServer());
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text", "image"]);
@@ -239,7 +242,7 @@ describe("RouterModel capabilities detection", () => {
       ],
     });
 
-    const model = new RouterModel(createModel());
+    const model = new RouterModel(createModel(), createMockServer());
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text"]);
@@ -260,7 +263,7 @@ describe("RouterModel capabilities detection", () => {
       ],
     });
 
-    const model = new RouterModel(createModel());
+    const model = new RouterModel(createModel(), createMockServer());
     const capabilities = await model.getCapabilities();
 
     expect(capabilities).toEqual(["text"]);
@@ -269,7 +272,7 @@ describe("RouterModel capabilities detection", () => {
 
 describe("RouterModel mode", () => {
   it("should always return ROUTER mode", () => {
-    const model = new RouterModel(createModel());
+    const model = new RouterModel(createModel(), createMockServer());
     expect(model.mode).toBe(Mode.ROUTER);
   });
 });

@@ -1,37 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PROVIDER_ID, PROVIDER_NAME } from "../src/constants";
-import { CommandManager } from "../src/manager";
-
-// Mock modules at top level (vi.mock is hoisted)
-vi.mock("../src/tools/retriever", () => ({
-  isServerReady: vi.fn(),
-  listModels: vi.fn(),
-}));
-
-vi.mock("../src/tools/resolver", () => ({
-  resolveUrl: vi.fn(),
-  resolveApiKey: vi.fn(),
-}));
-
-// Import mocked functions after vi.mock
-import { resolveApiKey, resolveUrl } from "../src/tools/resolver";
-import { isServerReady, listModels } from "../src/tools/retriever";
+import { CommandManager } from "../src/managers/command";
+import { BaseModel } from "../src/models/baseModel";
+import { createMockServer, mockRpc } from "./mocks";
 
 const mockPi = {
   registerProvider: vi.fn(),
+  registerCommand: vi.fn(),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (resolveUrl as any).mockResolvedValue("http://127.0.0.1:8080");
-  (resolveApiKey as any).mockResolvedValue("test-key");
+  mockRpc.mockResolvedValue({});
 });
 
 describe("CommandManager", () => {
   it("should register empty models when server is not ready", async () => {
-    (isServerReady as any).mockResolvedValue(false);
-
-    const manager = new CommandManager(mockPi as any);
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      isReady: () => Promise.resolve(false),
+    };
+    const manager = new CommandManager(mockPi as any, server as any);
     await manager.initialize();
 
     expect(mockPi.registerProvider).toHaveBeenCalledWith(PROVIDER_ID, {
@@ -50,15 +39,15 @@ describe("CommandManager", () => {
       toProviderConfig: vi
         .fn()
         .mockResolvedValue({ id: "test-model", maxTokens: 32000 }),
+    } as unknown as BaseModel;
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      models: [mockModel],
     };
-    (isServerReady as any).mockResolvedValue(true);
-    (listModels as any).mockResolvedValue([mockModel]);
 
-    const manager = new CommandManager(mockPi as any);
+    const manager = new CommandManager(mockPi as any, server as any);
     await manager.initialize();
 
-    expect(resolveUrl).toHaveBeenCalledWith(expect.any(String));
-    expect(listModels).toHaveBeenCalled();
     expect(mockPi.registerProvider).toHaveBeenCalledWith(PROVIDER_ID, {
       name: PROVIDER_NAME,
       baseUrl: "http://127.0.0.1:8080",
@@ -69,10 +58,16 @@ describe("CommandManager", () => {
   });
 
   it("should call notFoundCommand when server is not ready in run()", async () => {
-    (isServerReady as any).mockResolvedValue(false);
-
-    const manager = new CommandManager(mockPi as any);
-    await manager.run("", { ui: { notify: vi.fn() } } as any);
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      isReady: () => Promise.resolve(false),
+    };
+    const manager = new CommandManager(mockPi as any, server as any);
+    const cmd = manager.setupModelsCommand();
+    await cmd.handler("", {
+      cwd: "/tmp/test",
+      ui: { notify: vi.fn() } as any,
+    } as any);
 
     expect(mockPi.registerProvider).not.toHaveBeenCalled();
   });
@@ -83,20 +78,21 @@ describe("CommandManager", () => {
       id: "test-model",
       getInfo: vi.fn().mockResolvedValue("Model info for test-model"),
       toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
+    } as unknown as BaseModel;
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      models: [mockModel],
     };
-    (isServerReady as any).mockResolvedValue(true);
-    (listModels as any).mockResolvedValue([mockModel]);
 
     const notifyFn = vi.fn();
-    const manager = new CommandManager(mockPi as any);
+    const manager = new CommandManager(mockPi as any, server as any);
     await manager.initialize();
-    await manager.run("info", {
+    const cmd = manager.setupModelsCommand();
+    await cmd.handler("info", {
       ui: { notify: notifyFn, theme: { fg: (_c: string, t: string) => t } },
     } as any);
 
     expect(notifyFn).toHaveBeenCalledWith("Model info for test-model", "info");
-    // Called once in initialize() and once in run() to refresh the model list
-    expect(listModels).toHaveBeenCalledTimes(2);
   });
 
   it("should unload all models when args is 'unload'", async () => {
@@ -105,20 +101,23 @@ describe("CommandManager", () => {
       id: "model-1",
       unload: vi.fn().mockResolvedValue(undefined),
       toProviderConfig: vi.fn().mockResolvedValue({ id: "model-1" }),
-    };
+    } as unknown as BaseModel;
     const mockModel2 = {
       name: "model-2",
       id: "model-2",
       unload: vi.fn().mockResolvedValue(undefined),
       toProviderConfig: vi.fn().mockResolvedValue({ id: "model-2" }),
+    } as unknown as BaseModel;
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      models: [mockModel1, mockModel2],
     };
-    (isServerReady as any).mockResolvedValue(true);
-    (listModels as any).mockResolvedValue([mockModel1, mockModel2]);
 
     const notifyFn = vi.fn();
-    const manager = new CommandManager(mockPi as any);
+    const manager = new CommandManager(mockPi as any, server as any);
     await manager.initialize();
-    await manager.run("unload", {
+    const cmd = manager.setupModelsCommand();
+    await cmd.handler("unload", {
       ui: { notify: notifyFn },
     } as any);
 
@@ -136,14 +135,17 @@ describe("CommandManager", () => {
       id: "test-model",
       getLabel: vi.fn().mockResolvedValue("test-model"),
       toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
+    } as unknown as BaseModel;
+    const server = {
+      ...createMockServer({ apiKey: "test-key" }),
+      models: [mockModel],
     };
-    (isServerReady as any).mockResolvedValue(true);
-    (listModels as any).mockResolvedValue([mockModel]);
 
     const selectFn = vi.fn().mockReturnValue(null); // cancel immediately
-    const manager = new CommandManager(mockPi as any);
+    const manager = new CommandManager(mockPi as any, server as any);
     await manager.initialize();
-    await manager.run("", {
+    const cmd = manager.setupModelsCommand();
+    await cmd.handler("", {
       ui: { notify: vi.fn(), select: selectFn },
     } as any);
 

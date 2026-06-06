@@ -6,12 +6,13 @@ import type {
 import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
+import { ConfigResolver } from "./resolver";
 import { Server } from "./server";
-import { resolveApiKey, resolveUrl } from "./tools/resolver";
 
 export default async function (pi: ExtensionAPI) {
-  const baseUrl = await resolveUrl(process.cwd());
-  const apiKey = await resolveApiKey();
+  const resolver = new ConfigResolver();
+  const baseUrl = await resolver.resolveUrl(process.cwd());
+  const apiKey = await resolver.resolveApiKey();
 
   const server = new Server(baseUrl, apiKey);
   const events = new EventManager(server);

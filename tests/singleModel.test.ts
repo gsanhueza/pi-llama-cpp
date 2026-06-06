@@ -1,29 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { Mode } from "../src/enums/mode";
 import { Status } from "../src/enums/status";
 import { ModelProperty } from "../src/interfaces/endpoints/models";
 import { SingleModel } from "../src/models/singleModel";
-
-const mockRpc = vi.fn();
-
-vi.mock("../src/tools/retriever", () => ({
-  rpc: (...args: unknown[]) => mockRpc(...args),
-  isServerReady: vi.fn(),
-  listModels: vi.fn(),
-}));
+import { createMockServer, mockRpc } from "./mocks";
 
 beforeEach(() => {
   mockRpc.mockClear();
 });
 
 const createModel = (extra: Partial<ModelProperty> = {}): SingleModel =>
-  new SingleModel({
-    id: "test",
-    tags: [],
-    object: "model",
-    owned_by: "test",
-    created: Date.now(),
-  });
+  new SingleModel(
+    {
+      id: "test",
+      tags: [],
+      object: "model",
+      owned_by: "test",
+      created: Date.now(),
+      ...extra,
+    },
+    createMockServer(),
+  );
 
 describe("SingleModel mode", () => {
   it("should always return SINGLE mode", () => {

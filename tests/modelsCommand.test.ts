@@ -1,77 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { modelsCommand } from "../src/commands/models";
+import { Action } from "../src/enums/action";
+import { Status } from "../src/enums/status";
+import { EventManager } from "../src/managers/events";
+import {
+  createMockCtx,
+  createMockModel,
+  createMockPi,
+  createMockPiContext,
+  createMockServer,
+} from "./mocks";
 
 // Set up fake timers before any imports so setTimeout is mocked globally
 vi.useFakeTimers();
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import {
-  modelsCommand,
-  onSessionBeforeSwitch,
-  resetInflightModel,
-} from "../src/commands/models";
-import { Action } from "../src/enums/action";
-import { Mode } from "../src/enums/mode";
-import { Status } from "../src/enums/status";
-import { BaseModel } from "../src/models/baseModel";
-
-// Mock the retriever module
-vi.mock("../src/tools/retriever", () => ({
-  rpc: vi.fn(),
-  isServerReady: vi.fn(),
-  listModels: vi.fn(),
-}));
-
-// Helper to create a mock BaseModel
-const createMockModel = (
-  name: string,
-  overrides: Partial<BaseModel> = {},
-): BaseModel =>
-  ({
-    name,
-    id: name,
-    mode: Mode.ROUTER,
-    capabilities: ["text"] as ["text"],
-    getStatus: vi.fn().mockResolvedValue(Status.LOADED),
-    getContextSize: vi.fn().mockResolvedValue(4096),
-    getInfo: vi.fn().mockResolvedValue(`Model: ${name}\nID: ${name}`),
-    load: vi.fn().mockResolvedValue(undefined),
-    unload: vi.fn().mockResolvedValue(undefined),
-    toProviderConfig: vi.fn().mockResolvedValue({}),
-    getLabel: vi.fn().mockResolvedValue(name),
-    ...overrides,
-  }) as unknown as BaseModel;
-
-const createMockCtx = (
-  selectFn: (prompt: string, options: string[]) => string | null,
-) => ({
-  cwd: "/tmp/test",
-  ui: {
-    select: vi.fn(selectFn),
-    notify: vi.fn(),
-    theme: {
-      fg: (color: string, text: string) => text,
-    },
-  },
-  modelRegistry: {
-    find: vi.fn().mockReturnValue({ id: "test-model-id" }),
-  },
-});
-
-const createMockPiContext = (notifyFn: ReturnType<typeof vi.fn>) =>
-  ({
-    ui: {
-      notify: notifyFn,
-    },
-  }) as any as ExtensionContext;
-
-const createMockPi = () => ({
-  setModel: vi.fn(),
-  registerProvider: vi.fn(),
-});
-
 beforeEach(() => {
   vi.clearAllTimers();
-  resetInflightModel();
+  EventManager.resetInflightModel();
 });
 
 afterEach(() => {
@@ -166,9 +111,9 @@ describe("modelsCommand", () => {
     // Advance past the microtask that sets inflightModel
     await vi.advanceTimersByTimeAsync(0);
 
-    // Simulate session switch while model is still loading
-    // onSessionBeforeSwitch awaits READABLE_TIMEOUT (15s) for the notification
-    const switchPromise = onSessionBeforeSwitch(
+    // Create EventManager instance and call onSessionBeforeSwitch
+    const eventManager = new EventManager(createMockServer() as any);
+    const switchPromise = eventManager.onSessionBeforeSwitch(
       {} as any,
       createMockPiContext(ctx.ui.notify as any),
     );
@@ -192,9 +137,10 @@ describe("modelsCommand", () => {
 
   it("should not warn when no model is loading", async () => {
     const notifyFn = vi.fn();
+    const eventManager = new EventManager(createMockServer() as any);
     const ctx = createMockPiContext(notifyFn);
 
-    await onSessionBeforeSwitch({} as any, ctx);
+    await eventManager.onSessionBeforeSwitch({} as any, ctx);
 
     expect(notifyFn).not.toHaveBeenCalled();
     // No timers should be scheduled
@@ -222,7 +168,11 @@ describe("modelsCommand", () => {
     // (verified indirectly: calling onSessionBeforeSwitch should not warn)
     await vi.advanceTimersByTimeAsync(0);
     const notifyFn = vi.fn();
-    await onSessionBeforeSwitch({} as any, createMockPiContext(notifyFn));
+    const eventManager = new EventManager(createMockServer() as any);
+    await eventManager.onSessionBeforeSwitch(
+      {} as any,
+      createMockPiContext(notifyFn),
+    );
     expect(notifyFn).not.toHaveBeenCalled();
   });
 
@@ -245,7 +195,11 @@ describe("modelsCommand", () => {
     // inflightModel should be cleared after failure
     await vi.advanceTimersByTimeAsync(0);
     const notifyFn = vi.fn();
-    await onSessionBeforeSwitch({} as any, createMockPiContext(notifyFn));
+    const eventManager = new EventManager(createMockServer() as any);
+    await eventManager.onSessionBeforeSwitch(
+      {} as any,
+      createMockPiContext(notifyFn),
+    );
     expect(notifyFn).not.toHaveBeenCalled();
   });
 

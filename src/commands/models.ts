@@ -8,7 +8,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { EventManager } from "../managers/events";
 import { BaseModel } from "../models/baseModel";
-import { resolveUrl } from "../tools/resolver";
+import { ConfigResolver } from "../resolver";
 
 /**
  * Select a model from the list. Returns null if user cancels.
@@ -124,7 +124,7 @@ const modelSelectionHandler = async (
 export const notFoundCommand = async (
   ctx: ExtensionCommandContext,
 ): Promise<void> => {
-  const url = await resolveUrl(ctx.cwd);
+  const url = await new ConfigResolver().resolveUrl(ctx.cwd);
   ctx.ui.notify(`${PROVIDER_NAME} unreachable at ${url}`, "error");
 };
 

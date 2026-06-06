@@ -2,18 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { Action } from "../src/enums/action";
 import { Mode } from "../src/enums/mode";
 import { Status } from "../src/enums/status";
-import { DataProperty } from "../src/interfaces/endpoints/models";
 
-// Mock the retriever module before importing anything that depends on it
-vi.mock("../src/tools/retriever", () => ({
-  rpc: vi.fn(),
-  isServerReady: vi.fn(),
-  listModels: vi.fn(),
+const mockRpc = vi.fn();
+
+vi.mock("../src/server", () => ({
+  Server: vi.fn().mockImplementation(() => ({
+    rpc: (...args: unknown[]) => mockRpc(...args),
+    baseUrl: "http://127.0.0.1:8080",
+    apiKey: undefined,
+  })),
 }));
 
 class TestModel {
   constructor(
-    private readonly model: DataProperty,
     private readonly _mode: Mode,
     private readonly _status: Status,
   ) {}
@@ -35,26 +36,10 @@ class TestModel {
   }
 }
 
-const createModel = (
-  mode: Mode,
-  status: Status,
-  overrides: Partial<DataProperty> = {},
-) =>
-  new TestModel(
-    {
-      id: "test",
-      tags: [],
-      object: "model",
-      owned_by: "test",
-      created: Date.now(),
-      ...overrides,
-    },
-    mode,
-    status,
-  );
+const createModel = (mode: Mode, status: Status) => new TestModel(mode, status);
 
 /**
- * Replicates the getActionsForModel logic from handlers.ts for testing
+ * Replicates the getActionsForModel logic from commands/models.ts for testing
  * without needing the full Pi extension context.
  */
 const getActionsForModel = async (model: TestModel): Promise<Array<Action>> => {
