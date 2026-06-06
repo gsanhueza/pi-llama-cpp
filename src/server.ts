@@ -1,4 +1,5 @@
 import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
+import { Mode } from "./enums/mode";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
 import { PropsEndpoint } from "./interfaces/endpoints/props";
@@ -38,18 +39,36 @@ export class Server {
    * Fetches models from the server and populates {@link models}
    */
   async initialize() {
-    this.models.length = 0;
     const { data } = await this.fetchModels();
+    const mode = await this.detectServerMode();
+
+    // Setup models
+    this.models.length = 0;
+    let models: BaseModel[] = [];
+
+    if (mode === Mode.ROUTER) {
+      models = data.map((m) => new RouterModel(m, this));
+    } else {
+      models = data.map((m) => new SingleModel(m, this));
+    }
+
+    models.sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1));
+    this.models.push(...models);
+  }
+
+  /**
+   * Detects the mode of the server
+   *
+   * @returns The detected mode
+   */
+  private async detectServerMode(): Promise<Mode> {
     const { role } = await this.fetchServerProps();
 
-    if (role === "router") {
-      this.models.push(
-        ...data
-          .map((m) => new RouterModel(m, this))
-          .sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1)),
-      );
-    } else {
-      this.models.push(...data.map((m) => new SingleModel(m, this)));
+    switch (true) {
+      case role === "router":
+        return Mode.ROUTER;
+      default:
+        return Mode.SINGLE;
     }
   }
 
