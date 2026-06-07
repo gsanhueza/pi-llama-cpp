@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API_TYPE, PROVIDER_INIT_TIMEOUT } from "../constants";
+import { API_TYPE, PROVIDER_NAME, SERVER_TIMEOUT } from "../constants";
+import { ServerStatus } from "../enums/serverStatus";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 
@@ -16,7 +17,7 @@ export class ServerManager {
    */
   async initialize(pi: ExtensionAPI) {
     // Register the providers with a timeout first
-    await this.update(pi, PROVIDER_INIT_TIMEOUT);
+    await this.update(pi, SERVER_TIMEOUT);
   }
 
   /**
@@ -54,23 +55,28 @@ export class ServerManager {
   private async findRegistrableServers(timeout: number): Promise<Server[]> {
     const healthResults = await Promise.all(
       this.servers.map(async (server) => {
-        const timeoutPromise = new Promise<boolean>((resolve) =>
-          setTimeout(() => resolve(false), timeout),
-        );
-
-        const ready = await Promise.race([server.isReady(), timeoutPromise]);
-        return { server, ready };
+        const status = await server.isReady(timeout);
+        return { server, status };
       }),
     );
 
     const response: Server[] = [];
-    for (const { server, ready } of healthResults) {
-      if (ready) {
+    for (const { server, status } of healthResults) {
+      if (status === ServerStatus.READY) {
         response.push(server);
+      } else if (status === ServerStatus.TIMEOUT) {
+        const message = [
+          "[pi-llama-cpp]",
+          `${PROVIDER_NAME} server initialization for '${server.baseUrl}' took more than ${SERVER_TIMEOUT} ms, so it has been skipped.`,
+          "Run `/models` to retry without timeout and see all models.",
+        ].join("\n");
+        this.warnings.push(message);
+        this.failedUrls.push(server.baseUrl);
       } else {
         const message = [
-          `Server at '${server.baseUrl}' couldn't be initialized on time, so it has been skipped.`,
-          "Run `/models` to retry without timeout and see all models.",
+          "[pi-llama-cpp]",
+          `${PROVIDER_NAME} server at '${server.baseUrl}' is unreachable.`,
+          "Check the URL and try again. Run `/models` to retry.",
         ].join("\n");
         this.warnings.push(message);
         this.failedUrls.push(server.baseUrl);

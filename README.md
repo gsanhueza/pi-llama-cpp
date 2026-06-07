@@ -140,6 +140,8 @@ The extension determines the context size as follows:
 | `/models info`   | Show detailed information for all available models at once.                        |
 | `/models unload` | Unload all loaded models at once.                                                  |
 
+> **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.
+
 > **Note:** When a llama.cpp server is unreachable, `/models` displays an error notification with the configured server URL, but healthy servers continue to show their models.
 
 > **Note:** The `/models unload` command only makes sense in router mode.
@@ -162,6 +164,8 @@ When browsing models via the `/models` command, you can:
 When you switch models via Pi's model picker (instead of using the `/models` command), the extension listens for the `model_select` event, which also loads the requested model before the conversation begins.
 
 This keeps the server in sync with the active model in Pi, regardless of how the switch was initiated — you don't need to manually load models before using them.
+
+> **Note:** If you switch sessions while a model load is in-flight, you'll see a warning, but the load continues in the background. Use `/models` in the new session to verify the model status.
 
 ### Loading Models
 

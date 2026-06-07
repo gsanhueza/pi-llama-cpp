@@ -1,6 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { vi } from "vitest";
 import { Mode } from "../src/enums/mode";
+import { ServerStatus } from "../src/enums/serverStatus";
 import { Status } from "../src/enums/status";
 import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
@@ -24,12 +25,14 @@ export const createMockServer = (
     fetchServerProps: () => mockRpc("/props?autoload=false"),
     postRequest: (resource: "load" | "unload", model: string) =>
       mockRpc(`/models/${resource}`, { model }),
-    isReady: async () => {
+    isReady: async (timeout: number) => {
       try {
         const r = await mockRpc("/health");
-        return r.status === "ok";
+        return r.status === "ok"
+          ? ServerStatus.READY
+          : ServerStatus.UNREACHABLE;
       } catch {
-        return false;
+        return ServerStatus.UNREACHABLE;
       }
     },
     initialize: async () => {

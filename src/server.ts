@@ -1,5 +1,6 @@
 import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
 import { Mode } from "./enums/mode";
+import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
 import { PropsEndpoint } from "./interfaces/endpoints/props";
@@ -73,15 +74,29 @@ export class Server {
   }
 
   /**
-   * Detects if the server is ready
-   * @returns True if it's ready to work
+   * Checks if the server is ready, with a timeout.
+   *
+   * @param timeout Maximum time to wait for the health check
+   * @returns The server status
    */
-  async isReady(): Promise<boolean> {
+  async isReady(timeout: number): Promise<ServerStatus> {
     try {
-      const { status } = await this.fetchServerHealth();
-      return status === "ok";
-    } catch {
-      return false;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), timeout),
+      );
+      const health = await Promise.race([
+        this.fetchServerHealth(),
+        timeoutPromise,
+      ]);
+      if (health.status === "ok") {
+        return ServerStatus.READY;
+      }
+      return ServerStatus.UNREACHABLE;
+    } catch (error) {
+      if (error instanceof Error && error.message === "timeout") {
+        return ServerStatus.TIMEOUT;
+      }
+      return ServerStatus.UNREACHABLE;
     }
   }
 

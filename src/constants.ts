@@ -39,11 +39,11 @@ export const POLLING_INTERVAL = 500;
 export const POLLING_TIMEOUT = 60000;
 
 /**
- * Reasonable time to read notifications if context goes stale
+ * Reasonable time (ms) to read notifications if context goes stale
  */
 export const READABLE_TIMEOUT = 15000;
 
 /**
- * Timeout (ms) for provider initialization before assuming failure
+ * Timeout (ms) for server verification before assuming failure
  */
-export const PROVIDER_INIT_TIMEOUT = 1000;
+export const SERVER_TIMEOUT = 1000;

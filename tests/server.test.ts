@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ServerStatus } from "../src/enums/serverStatus";
 import { Server } from "../src/server";
 import { createMockServer, mockRpc } from "./mocks";
 
@@ -146,30 +147,30 @@ describe("Server postRequest", () => {
 });
 
 describe("Server isReady", () => {
-  it("should return true when health status is ok", async () => {
+  it("should return READY when health status is ok", async () => {
     mockRpc.mockResolvedValueOnce({ status: "ok" });
 
     const server = createMockServer();
-    const ready = await server.isReady();
+    const status = await server.isReady(1000);
 
-    expect(ready).toBe(true);
+    expect(status).toBe(ServerStatus.READY);
   });
 
-  it("should return false when health check fails", async () => {
+  it("should return UNREACHABLE when health check fails", async () => {
     mockRpc.mockRejectedValueOnce(new Error("connection refused"));
 
     const server = createMockServer();
-    const ready = await server.isReady();
+    const status = await server.isReady(1000);
 
-    expect(ready).toBe(false);
+    expect(status).toBe(ServerStatus.UNREACHABLE);
   });
 
-  it("should return false when health status is not ok", async () => {
+  it("should return UNREACHABLE when health status is not ok", async () => {
     mockRpc.mockResolvedValueOnce({ status: "error" });
 
     const server = createMockServer();
-    const ready = await server.isReady();
+    const status = await server.isReady(1000);
 
-    expect(ready).toBe(false);
+    expect(status).toBe(ServerStatus.UNREACHABLE);
   });
 });
