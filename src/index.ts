@@ -22,7 +22,7 @@ export default async function (pi: ExtensionAPI) {
   const commandManager = new CommandManager(serverManager);
 
   // Register providers once at startup
-  await serverManager.registerAllProviders(pi);
+  await serverManager.initialize(pi);
 
   // Single global /models command
   pi.registerCommand("models", {

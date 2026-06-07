@@ -10,16 +10,21 @@ export class ServerManager {
 
   /**
    * Registers one provider per server in Pi with their model configurations.
-   * Call this after the servers have been initialized.
    * The manual awaiting per-server is deliberate (we want them in order)
    *
    * @param pi The Pi extension
    */
-  async registerAllProviders(pi: ExtensionAPI) {
+  async initialize(pi: ExtensionAPI) {
     this.failedUrls.length = 0;
 
     for (const server of this.servers) {
-      await this.registerProvider(server, pi);
+      try {
+        await server.initialize();
+        await this.registerProvider(server, pi);
+      } catch {
+        this.failedUrls.push(server.baseUrl);
+        continue;
+      }
     }
   }
 
@@ -29,14 +34,6 @@ export class ServerManager {
    * @param server The server
    */
   private async registerProvider(server: Server, pi: ExtensionAPI) {
-    try {
-      await server.initialize();
-    } catch {
-      this.failedUrls.push(server.baseUrl);
-      return;
-    }
-
-    // Setup the Pi registration
     const { baseUrl, models, providerId, providerName } = server;
     const apiKey = await server.getApiKey();
     const modelConfigs = await Promise.all(

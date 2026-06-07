@@ -63,7 +63,7 @@ describe("ServerManager", () => {
     });
     const manager = new ServerManager([server1, server2] as any);
 
-    await manager.registerAllProviders(mockPi as any);
+    await manager.initialize(mockPi as any);
 
     expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
