@@ -50,7 +50,7 @@ export class CommandManager {
     pi: ExtensionAPI,
   ) {
     // Re-register providers so Pi sees updated model states
-    await this.serverManager.initialize(pi);
+    await this.serverManager.update(pi);
 
     // Notify about unreachable servers
     for (const url of this.serverManager.failedUrls) {

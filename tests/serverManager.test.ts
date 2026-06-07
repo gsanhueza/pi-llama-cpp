@@ -12,7 +12,14 @@ const mockPi = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRpc.mockResolvedValue({});
+  mockRpc.mockImplementation((endpoint: string, fallback?: unknown) => {
+    const defaults: Record<string, unknown> = {
+      "/health": { status: "ok" },
+      "/props?autoload=false": { role: "router" },
+      "/v1/models": { data: [], object: "list" },
+    };
+    return Promise.resolve(defaults[endpoint] ?? fallback ?? {});
+  });
 });
 
 describe("Server", () => {
@@ -44,9 +51,15 @@ describe("ServerManager", () => {
       id: "test-model",
       toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
     } as unknown as BaseModel;
-    mockRpc.mockResolvedValue({
-      data: [mockModel],
-      object: "list",
+    mockRpc.mockImplementation((endpoint: string, fallback?: unknown) => {
+      if (endpoint === "/v1/models") {
+        return Promise.resolve({ data: [mockModel], object: "list" });
+      }
+      const defaults: Record<string, unknown> = {
+        "/health": { status: "ok" },
+        "/props?autoload=false": { role: "router" },
+      };
+      return Promise.resolve(defaults[endpoint] ?? fallback ?? {});
     });
 
     const server1 = createMockServer({

@@ -1,23 +1,40 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API_TYPE } from "../constants";
+import { API_TYPE, PROVIDER_INIT_TIMEOUT } from "../constants";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 
 export class ServerManager {
   readonly failedUrls: string[] = [];
+  private readonly warnings: string[] = [];
 
   constructor(private readonly servers: Server[]) {}
+
+  /**
+   * Verifies reachability of servers and registers the providers
+   *
+   * @param pi The Pi extension API
+   */
+  async initialize(pi: ExtensionAPI) {
+    // Register the providers with a timeout first
+    await this.update(pi, PROVIDER_INIT_TIMEOUT);
+  }
 
   /**
    * Registers one provider per server in Pi with their model configurations.
    * The manual awaiting per-server is deliberate (we want them in order)
    *
-   * @param pi The Pi extension
+   * @param pi The Pi extension API
+   * @param timeout (Optional) Timeout before assuming server has failed
    */
-  async initialize(pi: ExtensionAPI) {
+  async update(pi: ExtensionAPI, timeout?: number) {
     this.failedUrls.length = 0;
 
-    for (const server of this.servers) {
+    const registrableServers = timeout
+      ? await this.findRegistrableServers(timeout)
+      : this.servers;
+
+    // Initialization and registration
+    for (const server of registrableServers) {
       try {
         await server.initialize();
         await this.registerProvider(server, pi);
@@ -26,6 +43,41 @@ export class ServerManager {
         continue;
       }
     }
+  }
+
+  /**
+   * Runs concurrent health checks and returns only healthy servers.
+   *
+   * @param timeout Maximum time to wait for each server
+   * @returns Array of servers that passed the health check
+   */
+  private async findRegistrableServers(timeout: number): Promise<Server[]> {
+    const healthResults = await Promise.all(
+      this.servers.map(async (server) => {
+        const timeoutPromise = new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), timeout),
+        );
+
+        const ready = await Promise.race([server.isReady(), timeoutPromise]);
+        return { server, ready };
+      }),
+    );
+
+    const response: Server[] = [];
+    for (const { server, ready } of healthResults) {
+      if (ready) {
+        response.push(server);
+      } else {
+        const message = [
+          `Server at '${server.baseUrl}' couldn't be initialized on time, so it has been skipped.`,
+          "Run `/models` to retry without timeout and see all models.",
+        ].join("\n");
+        this.warnings.push(message);
+        this.failedUrls.push(server.baseUrl);
+      }
+    }
+
+    return response;
   }
 
   /**
@@ -47,6 +99,16 @@ export class ServerManager {
       apiKey: apiKey,
       models: modelConfigs,
     });
+  }
+
+  /**
+   * Returns warnings collected during initialization.
+   */
+  getWarnings(): string[] {
+    const warnings = [...this.warnings];
+    this.warnings.length = 0;
+
+    return warnings;
   }
 
   /**

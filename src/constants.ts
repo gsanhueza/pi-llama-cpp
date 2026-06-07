@@ -42,3 +42,8 @@ export const POLLING_TIMEOUT = 60000;
  * Reasonable time to read notifications if context goes stale
  */
 export const READABLE_TIMEOUT = 15000;
+
+/**
+ * Timeout (ms) for provider initialization before assuming failure
+ */
+export const PROVIDER_INIT_TIMEOUT = 1000;

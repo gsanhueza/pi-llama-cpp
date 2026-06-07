@@ -3,6 +3,7 @@ import type {
   ExtensionCommandContext,
   ExtensionContext,
   SessionBeforeSwitchEvent,
+  SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME } from "./constants";
 import { ModelSelectEvent } from "./interfaces/events";
@@ -34,6 +35,12 @@ export default async function (pi: ExtensionAPI) {
   });
 
   // Events
+  pi.on("session_start", (_event: SessionStartEvent, ctx: ExtensionContext) => {
+    if (_event.reason !== "startup") return;
+    for (const warning of serverManager.getWarnings())
+      ctx.ui.notify(warning, "warning");
+  });
+
   pi.on(
     "model_select",
     async (event: ModelSelectEvent, ctx: ExtensionContext) =>
