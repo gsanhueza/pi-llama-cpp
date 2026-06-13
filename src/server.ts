@@ -11,7 +11,8 @@ import { SingleModel } from "./models/singleModel";
 import { ConfigResolver } from "./resolver";
 
 export class Server {
-  readonly models: BaseModel[] = [];
+  public readonly models: BaseModel[] = [];
+  private configResolver = new ConfigResolver();
 
   constructor(readonly baseUrl: string) {}
 
@@ -34,7 +35,7 @@ export class Server {
    * @returns The API key
    */
   async getApiKey(): Promise<string> {
-    return await new ConfigResolver().resolveApiKey(this.providerId);
+    return await this.configResolver.resolveApiKey(this.providerId);
   }
 
   /**
