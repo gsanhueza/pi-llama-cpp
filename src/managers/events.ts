@@ -10,7 +10,6 @@ import { Server } from "../server";
 
 export class EventManager {
   static inflightModel: BaseModel | null = null;
-  private readonly resolver = new ConfigResolver();
 
   constructor(private readonly servers: Server[]) {}
 
@@ -86,8 +85,9 @@ export class EventManager {
     if (!isLlamaCpp) return payload;
 
     // Retrieve pi's current thinking level, so we can setup a budget
-    const level = this.resolver.resolveThinkingLevel() ?? "medium";
-    const budgets = this.resolver.resolveThinkingBudgets();
+    const resolver = new ConfigResolver();
+    const level = resolver.resolveThinkingLevel() ?? "medium";
+    const budgets = resolver.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 
     // Setup payload
