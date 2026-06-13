@@ -47,3 +47,15 @@ export const READABLE_TIMEOUT = 15000;
  * Timeout (ms) for server verification before assuming failure
  */
 export const SERVER_TIMEOUT = 1000;
+
+/**
+ * Thinking budgets to send to the server, depending on user-selected level in Pi.
+ */
+export const DEFAULT_THINKING_BUDGETS = {
+  off: 0,
+  minimal: 1024,
+  low: 2048,
+  medium: 8192,
+  high: 16384,
+  xhigh: -1,
+};

@@ -12,6 +12,7 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 - **Flexible URL resolution** — configures the server URL via project config, environment variable, or global settings
 - **Auth support** — allows to login into a llama.cpp server that was secured with an API key
 - **Multiple server support** — connect to multiple llama.cpp servers simultaneously by separating URLs with semicolons
+- **Thinking budget support** — configurable token budgets for model reasoning/thinking, mapped to Pi's thinking levels
 
 ### Status Indicators
 
@@ -127,7 +128,7 @@ The extension determines the context size as follows:
 
 - **Router mode**
   - When loaded, reads `meta.n_ctx` from the `/models` endpoint
-  - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments, or `ctx-size` and/or `fit-ctx` keys from the **presets.ini** file.
+  - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments (which can also originate from the **presets.ini** file the llama.cpp server uses to load its models).
 - **Single mode** — reads `meta.n_ctx` from the `/models` endpoint
 - **Legacy mode** — reads `max_model_len` from `/models`, falling back to `n_ctx` from `/props`
 - Falls back to `128000` if not available
@@ -158,6 +159,36 @@ When browsing models via the `/models` command, you can:
 - **Cancel** — Cancel the current operation
 
 > **Note:** In single-model and legacy-model mode, **Unload** is not available, since there is only one model on the server.
+
+### Thinking Budgets
+
+The extension supports configurable **thinking budgets** that control how many tokens the model allocates to its reasoning/thinking process.
+This is tied to Pi's thinking level selector (off, minimal, low, medium, high, xhigh).
+
+| Level     | Tokens | Description                  |
+| --------- | ------ | ---------------------------- |
+| `off`     | 0      | Thinking disabled            |
+| `minimal` | 1,024  | Short reasoning steps        |
+| `low`     | 2,048  | Light reasoning              |
+| `medium`  | 8,192  | Balanced reasoning (default) |
+| `high`    | 16,384 | Extended reasoning           |
+| `xhigh`   | -1     | Unlimited reasoning          |
+
+User-defined budgets can override the defaults by adding a `thinkingBudgets` object to `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (per-project):
+
+```json
+{
+  "thinkingBudgets": {
+    "minimal": 256,
+    "low": 1024,
+    "medium": 2048,
+    "high": 4096
+  }
+}
+```
+
+Only `minimal`, `low`, `medium`, and `high` are configurable — `off` (0) and `xhigh` (-1, unlimited) are fixed.
+The extension automatically injects the appropriate `thinking_budget_tokens` into each request payload based on the selected level.
 
 ### Model Selection Event
 

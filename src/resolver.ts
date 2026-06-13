@@ -5,7 +5,12 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { API_KEY_PLACEHOLDER, DEFAULT_LLAMA_SERVER_URL } from "./constants";
+import {
+  API_KEY_PLACEHOLDER,
+  DEFAULT_LLAMA_SERVER_URL,
+  DEFAULT_THINKING_BUDGETS,
+} from "./constants";
+import { ThinkingLevel } from "./interfaces/levels";
 
 export class ConfigResolver {
   private warnings: string[] = [];
@@ -119,5 +124,29 @@ export class ConfigResolver {
     this.warnings.length = 0;
 
     return warnings;
+  }
+
+  /*
+   * Resolves the current thinking level from Pi.
+   *
+   * @returns Selected level
+   */
+  resolveThinkingLevel(): ThinkingLevel | undefined {
+    return this.settingsManager.getDefaultThinkingLevel();
+  }
+
+  /**
+   * Resolves the effective thinking budgets from settings
+   *
+   * @returns Thinking budgets
+   */
+  resolveThinkingBudgets(): Record<ThinkingLevel, number> {
+    const settingsBudgets = this.settingsManager.getThinkingBudgets() ?? {};
+    const availableBudgets = {
+      ...DEFAULT_THINKING_BUDGETS,
+      ...settingsBudgets,
+    };
+
+    return availableBudgets;
   }
 }

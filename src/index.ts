@@ -1,9 +1,10 @@
-import type {
-  ExtensionAPI,
-  ExtensionCommandContext,
-  ExtensionContext,
-  SessionBeforeSwitchEvent,
-  SessionStartEvent,
+import {
+  type BeforeProviderRequestEvent,
+  type ExtensionAPI,
+  type ExtensionCommandContext,
+  type ExtensionContext,
+  type SessionBeforeSwitchEvent,
+  type SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME } from "./constants";
 import { ModelSelectEvent } from "./interfaces/events";
@@ -43,6 +44,12 @@ export default async function (pi: ExtensionAPI) {
     for (const warning of resolver.getWarnings())
       ctx.ui.notify(warning, "warning");
   });
+
+  pi.on(
+    "before_provider_request",
+    async (event: BeforeProviderRequestEvent) =>
+      await eventManager.onBeforeProviderRequest(event),
+  );
 
   pi.on(
     "model_select",

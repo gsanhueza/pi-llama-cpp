@@ -172,6 +172,13 @@ export abstract class BaseModel {
       id: this.id,
       name: this.name,
       reasoning: this.reasoning,
+      thinkingLevelMap: {
+        minimal: "minimal",
+        low: "low",
+        medium: "medium",
+        high: "high",
+        xhigh: "xhigh",
+      },
       input: await this.getCapabilities(),
       contextWindow: await this.getContextSize(),
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
