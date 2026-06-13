@@ -15,7 +15,7 @@ import { Server } from "./server";
 
 export default async function (pi: ExtensionAPI) {
   const resolver = new ConfigResolver();
-  const urls = await resolver.resolveUrls(process.cwd());
+  const urls = await resolver.resolveUrls();
   const servers = urls.map((url) => new Server(url));
 
   const eventManager = new EventManager(servers);
@@ -38,6 +38,9 @@ export default async function (pi: ExtensionAPI) {
   pi.on("session_start", (event: SessionStartEvent, ctx: ExtensionContext) => {
     if (event.reason !== "startup") return;
     for (const warning of serverManager.getWarnings())
+      ctx.ui.notify(warning, "warning");
+
+    for (const warning of resolver.getWarnings())
       ctx.ui.notify(warning, "warning");
   });
 

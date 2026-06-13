@@ -48,11 +48,11 @@ pi install https://github.com/gsanhueza/pi-llama-cpp
 
 The extension resolves the llama.cpp server URL(s) using the following priority order:
 
-1. **Per-project config** — `.pi/llama-server.json` in your project root:
+1. **Per-project config** — `.pi/settings.json` in your project root:
 
    ```json
    {
-     "url": "http://127.0.0.1:8080"
+     "llamaServerUrl": "http://127.0.0.1:8080"
    }
    ```
 

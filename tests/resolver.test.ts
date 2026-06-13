@@ -4,35 +4,46 @@ import {
   DEFAULT_LLAMA_SERVER_URL,
 } from "../src/constants";
 
-// Hoisted mock instance — survives vi.resetModules()
+// Hoisted mock instances — survives vi.resetModules()
 const mockAuthStorage = vi.hoisted(() => ({
   reload: vi.fn(),
   getApiKey: vi.fn(),
 }));
 
-// Mock getAgentDir and AuthStorage before importing resolver
+const mockSettingsManager = vi.hoisted(() => ({
+  getProjectSettings: vi.fn(),
+  getGlobalSettings: vi.fn(),
+}));
+
+// Mock getAgentDir, AuthStorage, and SettingsManager before importing resolver
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   getAgentDir: vi.fn().mockReturnValue("/fake/agent/dir"),
   AuthStorage: {
     create: vi.fn().mockReturnValue(mockAuthStorage),
   },
+  SettingsManager: {
+    create: vi.fn().mockReturnValue(mockSettingsManager),
+  },
 }));
 
 vi.mock("node:fs/promises", () => ({
-  access: vi.fn(),
-  constants: { F_OK: 0 },
   readFile: vi.fn(),
 }));
 
 // Import mocked modules
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { ConfigResolver } from "../src/resolver";
 
 describe("URL resolution fallback chain", () => {
-  const mockAccess = vi.mocked(access);
   const mockReadFile = vi.mocked(readFile);
   const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
 
   afterEach(() => {
     delete process.env.LLAMA_SERVER_URL;
@@ -42,107 +53,83 @@ describe("URL resolution fallback chain", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
-    // Default: no files exist
-    mockAccess.mockRejectedValue(new Error("ENOENT"));
-    mockReadFile.mockResolvedValue("");
+    // Default: no settings found
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
   });
 
   it("should return default URL when no config is found", async () => {
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual([DEFAULT_LLAMA_SERVER_URL]);
   });
 
   it("should prioritize project config over env variable", async () => {
-    mockAccess.mockImplementation(async (_path: unknown) => {
-      if (typeof _path === "string" && _path.includes("llama-server.json"))
-        return undefined;
-      throw new Error("ENOENT");
+    mockGetProjectSettings.mockReturnValue({
+      llamaServerUrl: "http://localhost:9999",
     });
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ url: "http://localhost:9999" }),
-    );
-
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual(["http://localhost:9999"]);
   });
 
   it("should use env variable when no project config exists", async () => {
+    mockGetProjectSettings.mockReturnValue({});
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual(["http://env-url:8080"]);
   });
 
   it("should use global settings when no project config or env exists", async () => {
-    mockAccess.mockImplementation(async (_path: unknown) => {
-      if (typeof _path === "string" && _path.includes("settings.json"))
-        return undefined;
-      throw new Error("ENOENT");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({
+      llamaServerUrl: "http://global:8080",
     });
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ llamaServerUrl: "http://global:8080" }),
-    );
 
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual(["http://global:8080"]);
   });
 
   it("should strip trailing slashes from resolved URL", async () => {
-    mockAccess.mockImplementation(async (_path: unknown) => {
-      if (typeof _path === "string" && _path.includes("llama-server.json"))
-        return undefined;
-      throw new Error("ENOENT");
+    mockGetProjectSettings.mockReturnValue({
+      llamaServerUrl: "http://localhost:8080/",
     });
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ url: "http://localhost:8080/" }),
-    );
 
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual(["http://localhost:8080"]);
   });
 
   it("should cache the resolved URL on subsequent calls", async () => {
-    mockAccess.mockImplementation(async (_path: unknown) => {
-      if (typeof _path === "string" && _path.includes("llama-server.json"))
-        return undefined;
-      throw new Error("ENOENT");
+    mockGetProjectSettings.mockReturnValue({
+      llamaServerUrl: "http://first:8080",
     });
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ url: "http://first:8080" }),
-    );
 
     const resolver = new ConfigResolver();
-    const result1 = await resolver.resolveUrls("/tmp/project1");
-    const result2 = await resolver.resolveUrls("/tmp/project2");
+    const result1 = await resolver.resolveUrls();
+    const result2 = await resolver.resolveUrls();
 
     expect(result1).toEqual(["http://first:8080"]);
     expect(result2).toEqual(["http://first:8080"]);
   });
 
   it("should handle multiple URLs separated by semicolons", async () => {
-    mockAccess.mockImplementation(async (_path: unknown) => {
-      if (typeof _path === "string" && _path.includes("llama-server.json"))
-        return undefined;
-      throw new Error("ENOENT");
+    mockGetProjectSettings.mockReturnValue({
+      llamaServerUrl: "http://first:8080;http://second:9090/",
     });
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ url: "http://first:8080;http://second:9090/" }),
-    );
 
     const resolver = new ConfigResolver();
-    const result = await resolver.resolveUrls("/tmp/test-project");
+    const result = await resolver.resolveUrls();
 
     expect(result).toEqual(["http://first:8080", "http://second:9090"]);
   });
