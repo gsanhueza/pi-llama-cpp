@@ -4,9 +4,18 @@ import {
   DEFAULT_LLAMA_SERVER_URL,
 } from "../src/constants";
 
-// Mock getAgentDir before importing resolver
+// Hoisted mock instance — survives vi.resetModules()
+const mockAuthStorage = vi.hoisted(() => ({
+  reload: vi.fn(),
+  getApiKey: vi.fn(),
+}));
+
+// Mock getAgentDir and AuthStorage before importing resolver
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   getAgentDir: vi.fn().mockReturnValue("/fake/agent/dir"),
+  AuthStorage: {
+    create: vi.fn().mockReturnValue(mockAuthStorage),
+  },
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -140,8 +149,6 @@ describe("URL resolution fallback chain", () => {
 });
 
 describe("API key resolution", () => {
-  const mockAccess = vi.mocked(access);
-  const mockReadFile = vi.mocked(readFile);
   const mockGetAgentDir = vi.mocked(getAgentDir);
 
   afterEach(() => {
@@ -151,11 +158,13 @@ describe("API key resolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
-    mockAccess.mockRejectedValue(new Error("ENOENT"));
-    mockReadFile.mockResolvedValue("");
+    mockAuthStorage.reload.mockReturnValue(undefined);
+    mockAuthStorage.getApiKey.mockResolvedValue(undefined);
   });
 
   it("should return placeholder when auth file does not exist", async () => {
+    mockAuthStorage.getApiKey.mockResolvedValue(undefined);
+
     const resolver = new ConfigResolver();
     const result = await resolver.resolveApiKey(
       "llama-server=http://127.0.0.1:8080",
@@ -165,10 +174,7 @@ describe("API key resolution", () => {
   });
 
   it("should return placeholder when provider key is missing", async () => {
-    mockAccess.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({ "other-provider": { key: "other-key" } }),
-    );
+    mockAuthStorage.getApiKey.mockResolvedValue(undefined);
 
     const resolver = new ConfigResolver();
     const result = await resolver.resolveApiKey(
@@ -179,12 +185,7 @@ describe("API key resolution", () => {
   });
 
   it("should return the provider key when present", async () => {
-    mockAccess.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({
-        "llama-server=http://127.0.0.1:8080": { key: "test-api-key" },
-      }),
-    );
+    mockAuthStorage.getApiKey.mockResolvedValue("test-api-key");
 
     const resolver = new ConfigResolver();
     const result = await resolver.resolveApiKey(
@@ -194,23 +195,13 @@ describe("API key resolution", () => {
     expect(result).toEqual("test-api-key");
   });
 
-  it("should cache the auth file and reuse the key", async () => {
-    mockAccess.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(
-      JSON.stringify({
-        "llama-server=http://127.0.0.1:8080": { key: "cached-key" },
-      }),
-    );
+  it("should call reload before each getApiKey", async () => {
+    mockAuthStorage.getApiKey.mockResolvedValue("cached-key");
 
     const resolver = new ConfigResolver();
-    const result1 = await resolver.resolveApiKey(
-      "llama-server=http://127.0.0.1:8080",
-    );
-    const result2 = await resolver.resolveApiKey(
-      "llama-server=http://127.0.0.1:8080",
-    );
+    await resolver.resolveApiKey("llama-server=http://127.0.0.1:8080");
+    await resolver.resolveApiKey("llama-server=http://127.0.0.1:8080");
 
-    expect(result1).toBe("cached-key");
-    expect(result2).toBe("cached-key");
+    expect(mockAuthStorage.reload).toHaveBeenCalledTimes(2);
   });
 });

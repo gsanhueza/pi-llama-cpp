@@ -1,11 +1,11 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { AuthStorage, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { access, constants, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { API_KEY_PLACEHOLDER, DEFAULT_LLAMA_SERVER_URL } from "./constants";
-import { AuthFile } from "./interfaces/auth";
 
 export class ConfigResolver {
   private cachedUrls: string[] = [];
+  private authStorage = AuthStorage.create(join(getAgentDir(), "auth.json"));
 
   /**
    * Detects if a particular file is present
@@ -108,16 +108,12 @@ export class ConfigResolver {
   }
 
   /**
-   * Resolves API key for the provider ID using Pi's auth.json
-   * Deliberately not cached, to react to changes in the file
+   * Resolves API key for the provider ID using Pi's AuthStorage
    */
   async resolveApiKey(providerId: string): Promise<string> {
-    const authPath = join(getAgentDir(), "auth.json");
-    if (!(await this.fileExists(authPath))) return API_KEY_PLACEHOLDER;
+    this.authStorage.reload();
+    const apiKey = await this.authStorage.getApiKey(providerId);
 
-    const auth = await this.readJson<AuthFile>(authPath);
-    const apiKey = auth?.[providerId]?.key ?? API_KEY_PLACEHOLDER;
-
-    return apiKey;
+    return apiKey ?? API_KEY_PLACEHOLDER;
   }
 }
