@@ -127,10 +127,10 @@ llama-server --model path/to/model.gguf ...
 The extension determines the context size as follows:
 
 - **Router mode**
-  - When loaded, reads `meta.n_ctx` from the `/models` endpoint
+  - When loaded, reads `meta.n_ctx` from the `/v1/models` endpoint
   - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments (which can also originate from the **presets.ini** file the llama.cpp server uses to load its models).
-- **Single mode** — reads `meta.n_ctx` from the `/models` endpoint
-- **Legacy mode** — reads `max_model_len` from `/models`, falling back to `n_ctx` from `/props`
+- **Single mode** — reads `meta.n_ctx` from the `/v1/models` endpoint
+- **Legacy mode** — reads `max_model_len` from `/v1/models`, falling back to `n_ctx` from `/props`
 - Falls back to `128000` if not available
 
 ### Commands
@@ -209,7 +209,7 @@ When you trigger a load, switch, or retry action, the extension polls the server
 Each model exposed to Pi includes the following defaults:
 
 - **`maxTokens`** — dynamically set to the model's context window (detected from llama-server)
-- **`reasoning`** — `true` (assumed, as llama.cpp's `/models` endpoint does not expose it)
+- **`reasoning`** — `true` (assumed, as llama.cpp's `/v1/models` endpoint does not expose it)
 - **`cost`** — all zero (local models)
 
 ## Dependencies
