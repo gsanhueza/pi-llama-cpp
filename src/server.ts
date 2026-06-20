@@ -1,4 +1,4 @@
-import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
+import { POLLING_INTERVAL, PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
@@ -9,10 +9,14 @@ import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { ConfigResolver } from "./resolver";
+import { Cache } from "./utils/cache";
+import { Mutex } from "./utils/mutex";
 
 export class Server {
   public readonly models: BaseModel[] = [];
   private configResolver = new ConfigResolver();
+  private cache = new Cache(POLLING_INTERVAL / 2);
+  private mutex = new Mutex();
 
   constructor(readonly baseUrl: string) {}
 
@@ -39,9 +43,11 @@ export class Server {
   }
 
   /**
-   * Fetches models from the server and populates {@link models}
+   * Fetches models from the server and populates {@link models}.
+   * Clears the cache first so we always fetch fresh data.
    */
   async initialize() {
+    this.cache.clear();
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 
@@ -150,17 +156,46 @@ export class Server {
     resource: "load" | "unload",
     model: string,
   ): Promise<ModelsEndpoint> {
+    this.cache.clear();
     return await this.rpc<ModelsEndpoint>(`/models/${resource}`, { model });
   }
 
   /**
-   * Makes an HTTP request to the llama-server and returns the parsed JSON response
+   * Makes a cached, deduplicated request to the llama-server.
+   * Results are cached for half the {@link POLLING_INTERVAL} and in-flight requests are deduplicated.
    *
    * @param endpoint The endpoint path to fetch (e.g. "/health")
    * @param body The optional request body for POST requests
    * @returns The parsed JSON response from the server
    */
   private async rpc<T>(
+    endpoint: string,
+    body?: Record<string, unknown>,
+  ): Promise<T> {
+    const key = this.cacheKey(endpoint, body);
+
+    // Check cache
+    const cached = this.cache.get<T>(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    // Deduplicate in-flight requests
+    return this.mutex.getOrCreate(key, async () => {
+      const data = await this.fetch<T>(endpoint, body);
+      this.cache.set(key, data);
+      return data;
+    });
+  }
+
+  /**
+   * Makes an HTTP request to the llama-server and returns the parsed JSON response.
+   *
+   * @param endpoint The endpoint path to fetch (e.g. "/health")
+   * @param body The optional request body for POST requests
+   * @returns The parsed JSON response from the server
+   */
+  private async fetch<T>(
     endpoint: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
@@ -183,5 +218,16 @@ export class Server {
 
     const response: T = await res.json();
     return response;
+  }
+
+  /**
+   * Generates a cache key from the endpoint and body.
+   *
+   * @param endpoint The endpoint path (e.g. "/health")
+   * @param body The optional request body for POST requests
+   * @returns A key used for caching
+   */
+  private cacheKey(endpoint: string, body?: Record<string, unknown>): string {
+    return body ? `${endpoint}:${JSON.stringify(body)}` : endpoint;
   }
 }

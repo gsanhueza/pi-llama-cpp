@@ -14,8 +14,7 @@ export class RouterModel extends BaseModel {
   }
 
   /**
-   * Workaround for the currently-bugged /models status detection
-   * (I suspect it was introduced in PR #22683 of llama.cpp)
+   * Workaround for /models status detection
    *
    * When a model is loaded for the very first time,
    * this workaround will try to poll to /props instead of /models
