@@ -4,6 +4,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
 import { Server } from "../server";
+import type { SSECleanup } from "../sse/types";
 
 /**
  * Abstract base class for llama-server models.
@@ -13,7 +14,7 @@ import { Server } from "../server";
 export abstract class BaseModel {
   constructor(
     protected readonly model: DataProperty,
-    public readonly server: Server,
+    protected readonly server: Server,
   ) {}
 
   protected readonly statusMapper: Record<string, Status> = {
@@ -215,6 +216,18 @@ export abstract class BaseModel {
    */
   async unload(): Promise<void> {
     await this.server.postRequest("unload", this.id);
+  }
+
+  /**
+   * Subscribes to SSE progress events for this model.
+   *
+   * @param onProgress - Callback to receive progress updates
+   * @returns A cleanup function to unsubscribe
+   */
+  subscribeToProgress(
+    onProgress: (percentage: number, stage?: string) => void,
+  ): SSECleanup {
+    return this.server.subscribeToProgress(this.id, onProgress);
   }
 
   /**
