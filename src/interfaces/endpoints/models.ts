@@ -40,6 +40,9 @@ export interface DataProperty {
   created: number;
   status?: StatusProperty;
   architecture?: ArchitectureProperty;
+  source?: string;
+  can_remove?: boolean;
+  need_download?: boolean;
   meta?: MetaProperty;
 }
 

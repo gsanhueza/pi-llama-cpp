@@ -3,7 +3,10 @@ import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
-import { PropsEndpoint } from "./interfaces/endpoints/props";
+import {
+  PropsEndpoint,
+  PropsModelEndpoint,
+} from "./interfaces/endpoints/props";
 import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
@@ -140,8 +143,8 @@ export class Server {
    * @param modelId The ID of the model
    * @return The properties of the specified model
    */
-  async fetchModelProps(modelId: string): Promise<PropsEndpoint> {
-    return await this.rpc<PropsEndpoint>(
+  async fetchModelProps(modelId: string): Promise<PropsModelEndpoint> {
+    return await this.rpc<PropsModelEndpoint>(
       `/props?model=${modelId}&autoload=false`,
     );
   }
