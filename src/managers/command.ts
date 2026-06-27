@@ -135,13 +135,16 @@ export class CommandManager {
       EventManager.inflightModel = model;
 
       // Subscribe to progress events via server
-      await model.server.subscribeToProgress(model.id, (percentage, stage) => {
-        const stageText = stage ? ` (${stage})` : "";
-        ctx.ui.notify(
-          `Loading ${model.name}... [${percentage}%${stageText}]`,
-          "info",
-        );
-      });
+      const cleanupProgress = model.server.subscribeToProgress(
+        model.id,
+        (percentage, stage) => {
+          const stageText = stage ? ` (${stage})` : "";
+          ctx.ui.notify(
+            `Loading ${model.name}... [${percentage}%${stageText}]`,
+            "info",
+          );
+        },
+      );
 
       const onSuccess = async () => {
         const { serverId } = model;
@@ -181,6 +184,7 @@ export class CommandManager {
         .then(onSuccess)
         .catch(onFailure)
         .finally(() => {
+          cleanupProgress();
           EventManager.resetInflightModel();
         });
     }

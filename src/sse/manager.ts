@@ -32,7 +32,7 @@ export class SSEManager {
   /**
    * The SSE endpoint URL.
    */
-  get sseEndpoint(): string {
+  private get sseEndpoint(): string {
     return `${this.baseUrl}/models/sse`;
   }
 
@@ -74,7 +74,7 @@ export class SSEManager {
    * @param callback - Callback to receive SSE events
    * @returns A cleanup function to unsubscribe
    */
-  subscribeToSSE(
+  private subscribeToSSE(
     modelId: string,
     callback: (event: SSEEvent) => void,
   ): SSECleanup {

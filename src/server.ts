@@ -151,10 +151,10 @@ export class Server {
    * @param onProgress - Callback to receive progress updates (percentage 0-100, stage name)
    * @returns A cleanup function to unsubscribe
    */
-  async subscribeToProgress(
+  subscribeToProgress(
     modelId: string,
     onProgress: (percentage: number, stage?: string) => void,
-  ): Promise<SSECleanup> {
+  ): SSECleanup {
     return this.sseManager!.subscribeToProgress(modelId, onProgress);
   }
 
