@@ -13,6 +13,7 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 - **Auth support** — allows to login into a llama.cpp server that was secured with an API key
 - **Multiple server support** — connect to multiple llama.cpp servers simultaneously by separating URLs with semicolons
 - **Thinking budget support** — configurable token budgets for model reasoning/thinking, mapped to Pi's thinking levels
+- **Real-time progress tracking** — live loading progress via SSE (falls back to polling)
 
 ### Status Indicators
 
@@ -200,9 +201,11 @@ This keeps the server in sync with the active model in Pi, regardless of how the
 
 ### Loading Models
 
-When you trigger a load, switch, or retry action, the extension polls the server to track progress. If a model takes longer than **60 seconds** to load, the polling times out with an error.
+When you trigger a load, switch, or retry action, the extension uses SSE (Server-Sent Events) to receive real-time progress updates from the server. If SSE is not available, it falls back to polling.
 
-> **Note:** The timeout is only for the polling. The model might still be loading.
+If loading takes longer than **60 seconds**, the operation times out with an error.
+
+> **Note:** The timeout only applies to the progress detection. The model might still be loading in the background.
 
 ### Model Configuration
 
