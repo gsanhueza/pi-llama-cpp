@@ -87,9 +87,11 @@ export abstract class BaseModel {
       const model = data.find((d) => d.id === this.id);
       if (!model) return ["text"];
 
-      const { input_modalities } = model.architecture!;
+      const input_modalities: ("text" | "image" | "audio")[] = model
+        .architecture?.input_modalities ?? ["text"];
+
       const response = input_modalities.filter(
-        (mod) => mod === "text" || mod === "image",
+        (mod): mod is "text" | "image" => mod === "text" || mod === "image",
       );
 
       return response;
