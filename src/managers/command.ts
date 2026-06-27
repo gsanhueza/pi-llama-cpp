@@ -134,6 +134,15 @@ export class CommandManager {
       ctx.ui.notify(`Loading ${model.name}...`, "info");
       EventManager.inflightModel = model;
 
+      // Subscribe to progress events via server
+      await model.server.subscribeToProgress(model.id, (percentage, stage) => {
+        const stageText = stage ? ` (${stage})` : "";
+        ctx.ui.notify(
+          `Loading ${model.name}... [${percentage}%${stageText}]`,
+          "info",
+        );
+      });
+
       const onSuccess = async () => {
         const { serverId } = model;
         const piModel = ctx.modelRegistry.find(serverId, model.id);
@@ -171,7 +180,9 @@ export class CommandManager {
         .load()
         .then(onSuccess)
         .catch(onFailure)
-        .finally(EventManager.resetInflightModel);
+        .finally(() => {
+          EventManager.resetInflightModel();
+        });
     }
   }
 

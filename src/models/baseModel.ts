@@ -13,7 +13,7 @@ import { Server } from "../server";
 export abstract class BaseModel {
   constructor(
     protected readonly model: DataProperty,
-    protected readonly server: Server,
+    public readonly server: Server,
   ) {}
 
   protected readonly statusMapper: Record<string, Status> = {

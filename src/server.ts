@@ -1,4 +1,9 @@
-import { POLLING_INTERVAL, PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
+import {
+  POLLING_INTERVAL,
+  PROVIDER_NAME,
+  PROVIDER_PREFIX,
+  SERVER_TIMEOUT,
+} from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
@@ -12,6 +17,8 @@ import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { ConfigResolver } from "./resolver";
+import { SSEManager } from "./sse/manager";
+import { SSECleanup } from "./sse/types";
 import { Cache } from "./utils/cache";
 import { Mutex } from "./utils/mutex";
 
@@ -20,6 +27,12 @@ export class Server {
   private configResolver = new ConfigResolver();
   private cache = new Cache(POLLING_INTERVAL / 2);
   private mutex = new Mutex();
+  private sseManager?: SSEManager;
+  private sseSupported: boolean = false;
+
+  get isSSESupported(): boolean {
+    return this.sseSupported ?? false;
+  }
 
   constructor(readonly baseUrl: string) {}
 
@@ -51,6 +64,7 @@ export class Server {
    */
   async initialize() {
     this.cache.clear();
+    this.sseSupported = await this.hasSSESupport();
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 
@@ -126,6 +140,63 @@ export class Server {
    */
   async fetchModels(): Promise<ModelsEndpoint> {
     return await this.rpc<ModelsEndpoint>("/v1/models");
+  }
+
+  /**
+   * Checks if this server supports the /models/sse endpoint.
+   * Result is cached for the lifetime of the server instance.
+   *
+   * @returns true if SSE is supported
+   */
+  private async hasSSESupport(): Promise<boolean> {
+    try {
+      const sseEndpoint = `${this.baseUrl}/models/sse`;
+      const headers: Record<string, string> = {};
+      const apiKey = await this.getApiKey();
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+
+      const response = await fetch(sseEndpoint, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(SERVER_TIMEOUT),
+      });
+      return (
+        response.ok &&
+        !!response.headers.get("content-type")?.includes("text/event-stream")
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Subscribes to SSE progress events for a specific model.
+   * Parses SSE events and calls the progress callback with percentage and stage.
+   *
+   * @param modelId - The model ID to subscribe to
+   * @param onProgress - Callback to receive progress updates (percentage 0-100, stage name)
+   * @returns A cleanup function to unsubscribe
+   */
+  async subscribeToProgress(
+    modelId: string,
+    onProgress: (percentage: number, stage?: string) => void,
+  ): Promise<SSECleanup> {
+    this.sseManager ??= new SSEManager(this.baseUrl, await this.getApiKey());
+    return this.sseManager.subscribeToProgress(modelId, onProgress);
+  }
+
+  /**
+   * Subscribes to SSE status change events for a specific model.
+   * Resolves with the final status string once the model reaches a terminal state.
+   *
+   * @param modelId - The model ID to subscribe to
+   * @returns Promise that resolves with the final status string
+   */
+  async subscribeToStatus(modelId: string): Promise<string> {
+    this.sseManager ??= new SSEManager(this.baseUrl, await this.getApiKey());
+    return this.sseManager.subscribeToStatus(modelId);
   }
 
   /**

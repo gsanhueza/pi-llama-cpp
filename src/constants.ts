@@ -44,7 +44,7 @@ export const POLLING_TIMEOUT = 60000;
 export const READABLE_TIMEOUT = 15000;
 
 /**
- * Timeout (ms) for server verification before assuming failure
+ * Timeout (ms) for server verification and SSE support probe
  */
 export const SERVER_TIMEOUT = 1000;
 
