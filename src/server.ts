@@ -1,9 +1,4 @@
-import {
-  POLLING_INTERVAL,
-  PROVIDER_NAME,
-  PROVIDER_PREFIX,
-  SERVER_TIMEOUT,
-} from "./constants";
+import { POLLING_INTERVAL, PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
@@ -28,11 +23,6 @@ export class Server {
   private cache = new Cache(POLLING_INTERVAL / 2);
   private mutex = new Mutex();
   private sseManager?: SSEManager;
-  private sseSupported: boolean = false;
-
-  get isSSESupported(): boolean {
-    return this.sseSupported ?? false;
-  }
 
   constructor(readonly baseUrl: string) {}
 
@@ -64,7 +54,8 @@ export class Server {
    */
   async initialize() {
     this.cache.clear();
-    this.sseSupported = await this.hasSSESupport();
+    this.sseManager = new SSEManager(this.baseUrl, await this.getApiKey());
+    await this.sseManager.probeSSE();
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 
@@ -149,26 +140,7 @@ export class Server {
    * @returns true if SSE is supported
    */
   private async hasSSESupport(): Promise<boolean> {
-    try {
-      const sseEndpoint = `${this.baseUrl}/models/sse`;
-      const headers: Record<string, string> = {};
-      const apiKey = await this.getApiKey();
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
-
-      const response = await fetch(sseEndpoint, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(SERVER_TIMEOUT),
-      });
-      return (
-        response.ok &&
-        !!response.headers.get("content-type")?.includes("text/event-stream")
-      );
-    } catch {
-      return false;
-    }
+    return this.sseManager!.probeSSE();
   }
 
   /**
@@ -183,8 +155,7 @@ export class Server {
     modelId: string,
     onProgress: (percentage: number, stage?: string) => void,
   ): Promise<SSECleanup> {
-    this.sseManager ??= new SSEManager(this.baseUrl, await this.getApiKey());
-    return this.sseManager.subscribeToProgress(modelId, onProgress);
+    return this.sseManager!.subscribeToProgress(modelId, onProgress);
   }
 
   /**
@@ -195,8 +166,10 @@ export class Server {
    * @returns Promise that resolves with the final status string
    */
   async subscribeToStatus(modelId: string): Promise<string> {
-    this.sseManager ??= new SSEManager(this.baseUrl, await this.getApiKey());
-    return this.sseManager.subscribeToStatus(modelId);
+    if (!(await this.sseManager!.probeSSE())) {
+      throw new Error(`Server does not support SSE: ${this.baseUrl}`);
+    }
+    return this.sseManager!.subscribeToStatus(modelId);
   }
 
   /**

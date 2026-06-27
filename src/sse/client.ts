@@ -15,11 +15,11 @@ export class SSEClient {
   private reconnecting: boolean = false; // tracks if EventSource auto-reconnect is in progress
 
   /**
-   * @param baseUrl - The base URL of the llama-server (e.g., "http://127.0.0.1:8080")
+   * @param sseEndpoint - The full SSE endpoint URL (e.g., "http://127.0.0.1:8080/models/sse")
    * @param apiKey - Optional API key for authenticated servers
    */
   constructor(
-    private readonly baseUrl: string,
+    private readonly sseEndpoint: string,
     private readonly apiKey?: string,
   ) {}
 
@@ -31,7 +31,7 @@ export class SSEClient {
   async connect(): Promise<boolean> {
     if (this.connected) return true;
 
-    const url = this.buildSSEUrl();
+    const url = this.buildUrl();
 
     try {
       this.eventSource = new EventSource(url);
@@ -112,14 +112,13 @@ export class SSEClient {
   }
 
   /**
-   * Builds the SSE URL with optional API key.
+   * Builds the full URL with optional API key query param.
    */
-  private buildSSEUrl(): string {
-    const url = `${this.baseUrl}/models/sse`;
+  private buildUrl(): string {
     if (this.apiKey) {
-      return `${url}?api_key=${encodeURIComponent(this.apiKey)}`;
+      return `${this.sseEndpoint}?api_key=${encodeURIComponent(this.apiKey)}`;
     }
-    return url;
+    return this.sseEndpoint;
   }
 
   /**

@@ -191,14 +191,23 @@ export abstract class BaseModel {
   }
 
   /**
-   * Loads the model in llama-server
+   * Loads the model in llama-server.
+   * Uses SSE status events when available, falling back to polling.
    */
   async load(): Promise<void> {
     const status = await this.getStatus();
     if (status === Status.LOADED || status === Status.SLEEPING) return;
 
     await this.server.postRequest("load", this.id);
-    await this.pollStatus();
+
+    try {
+      const finalStatus = await this.server.subscribeToStatus(this.id);
+      if (finalStatus === "failed") {
+        throw new Error(`Model loading failed: ${this.id}`);
+      }
+    } catch {
+      await this.pollStatus();
+    }
   }
 
   /**

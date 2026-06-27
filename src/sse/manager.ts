@@ -1,8 +1,9 @@
-import { POLLING_TIMEOUT } from "../constants";
+import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../constants";
 import { SSEClient } from "./client";
 import {
   DownloadProgressData,
   ProgressData,
+  SSECallback,
   SSECleanup,
   SSEEvent,
   SSEEventType,
@@ -14,12 +15,14 @@ import {
  *
  * Handles:
  * - Shared EventSource connection
- * - Model-based event subscription
+ * - Model-based event subscription with callback aggregation
  * - Progress parsing and callback dispatch
  */
 export class SSEManager {
   private sseClient: SSEClient | null = null;
   private sseSubscribers: Map<string, SSECleanup> = new Map();
+  private modelCallbacks: Map<string, SSECallback[]> = new Map();
+  private sseSupported: boolean | null = null;
 
   constructor(
     private readonly baseUrl: string,
@@ -27,8 +30,45 @@ export class SSEManager {
   ) {}
 
   /**
+   * The SSE endpoint URL.
+   */
+  get sseEndpoint(): string {
+    return `${this.baseUrl}/models/sse`;
+  }
+
+  /**
+   * Probes the SSE endpoint to check if it's supported.
+   * Result is cached for the lifetime of the manager.
+   *
+   * @returns true if SSE is supported
+   */
+  async probeSSE(): Promise<boolean> {
+    if (this.sseSupported !== null) return this.sseSupported;
+
+    try {
+      const headers: Record<string, string> = {};
+      if (this.apiKey) {
+        headers["Authorization"] = `Bearer ${this.apiKey}`;
+      }
+      const response = await fetch(this.sseEndpoint, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(SERVER_TIMEOUT),
+      });
+      this.sseSupported =
+        response.ok &&
+        !!response.headers.get("content-type")?.includes("text/event-stream");
+    } catch {
+      this.sseSupported = false;
+    }
+
+    return this.sseSupported;
+  }
+
+  /**
    * Subscribes to SSE events for a specific model.
    * Uses a shared SSE connection per server.
+   * Aggregates multiple callbacks into one SSEClient subscription.
    *
    * @param modelId - The model ID to subscribe to
    * @param callback - Callback to receive SSE events
@@ -38,18 +78,35 @@ export class SSEManager {
     modelId: string,
     callback: (event: SSEEvent) => void,
   ): SSECleanup {
+    // Aggregate callbacks for this model
+    const callbacks = this.modelCallbacks.get(modelId) ?? [];
+    callbacks.push(callback);
+    this.modelCallbacks.set(modelId, callbacks);
+
     // Create SSE client if not already created
-    if (!this.sseClient) {
-      this.sseClient = new SSEClient(this.baseUrl, this.apiKey);
+    this.sseClient ??= new SSEClient(this.sseEndpoint, this.apiKey);
+
+    // Subscribe a single dispatching callback to the SSE client
+    if (!this.sseSubscribers.has(modelId)) {
+      const dispatch = (event: SSEEvent) => {
+        for (const cb of callbacks) cb(event);
+      };
+      const cleanup = this.sseClient!.subscribe(modelId, dispatch);
+      this.sseSubscribers.set(modelId, cleanup);
     }
 
-    // Subscribe to events (auto-connects if needed)
-    const cleanup = this.sseClient.subscribe(modelId, callback);
-    this.sseSubscribers.set(modelId, cleanup);
-
     return () => {
-      this.sseSubscribers.delete(modelId);
-      cleanup();
+      const list = this.modelCallbacks.get(modelId);
+      if (list) {
+        const idx = list.indexOf(callback);
+        if (idx !== -1) list.splice(idx, 1);
+        if (list.length === 0) {
+          this.modelCallbacks.delete(modelId);
+          const cleanup = this.sseSubscribers.get(modelId);
+          if (cleanup) cleanup();
+          this.sseSubscribers.delete(modelId);
+        }
+      }
     };
   }
 
@@ -117,10 +174,7 @@ export class SSEManager {
       );
 
       this.subscribeToSSE(modelId, (event: SSEEvent) => {
-        if (
-          event.event === SSEEventType.status_change &&
-          event.data
-        ) {
+        if (event.event === SSEEventType.status_change && event.data) {
           const data = event.data as unknown as StatusChangeData;
           if (data.status === "loaded" || data.status === "failed") {
             clearTimeout(timeout);
@@ -139,6 +193,7 @@ export class SSEManager {
       cleanup();
     }
     this.sseSubscribers.clear();
+    this.modelCallbacks.clear();
     if (this.sseClient) {
       this.sseClient.disconnect();
       this.sseClient = null;
