@@ -200,14 +200,14 @@ export abstract class BaseModel {
 
     await this.server.postRequest("load", this.id);
 
-    try {
-      const finalStatus = await this.server.sseManager.subscribeToStatus(
-        this.id,
-      );
-      if (finalStatus === "failed") {
+    if (await this.server.sseManager.probeSSE()) {
+      const { status, exit_code } =
+        await this.server.sseManager.subscribeToStatus(this.id);
+
+      if (status === "failed" || (status === "unloaded" && exit_code !== 0)) {
         throw new Error(`Model loading failed: ${this.id}`);
       }
-    } catch {
+    } else {
       await this.pollStatus();
     }
   }

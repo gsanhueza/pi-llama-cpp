@@ -166,7 +166,7 @@ export class SSEManager {
    * @param modelId - The model ID to subscribe to
    * @returns Promise that resolves with the final status string
    */
-  subscribeToStatus(modelId: string): Promise<string> {
+  subscribeToStatus(modelId: string): Promise<StatusChangeData> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error(`SSE status timeout for model: ${modelId}`)),
@@ -176,9 +176,9 @@ export class SSEManager {
       this.subscribeToSSE(modelId, (event: SSEEvent) => {
         if (event.event === SSEEventType.status_change && event.data) {
           const data = event.data as unknown as StatusChangeData;
-          if (data.status === "loaded" || data.status === "failed") {
+          if (["loaded", "unloaded", "failed"].includes(data.status)) {
             clearTimeout(timeout);
-            resolve(data.status);
+            resolve(data);
           }
         }
       });
