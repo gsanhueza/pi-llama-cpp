@@ -4,7 +4,6 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
 import { Server } from "../server";
-import type { SSECleanup } from "../sse/types";
 
 /**
  * Abstract base class for llama-server models.
@@ -202,7 +201,7 @@ export abstract class BaseModel {
     await this.server.postRequest("load", this.id);
 
     try {
-      const finalStatus = await this.server.subscribeToStatus(this.id);
+      const finalStatus = await this.server.subscribeToModelStatus(this);
       if (finalStatus === "failed") {
         throw new Error(`Model loading failed: ${this.id}`);
       }
@@ -216,18 +215,6 @@ export abstract class BaseModel {
    */
   async unload(): Promise<void> {
     await this.server.postRequest("unload", this.id);
-  }
-
-  /**
-   * Subscribes to SSE progress events for this model.
-   *
-   * @param onProgress - Callback to receive progress updates
-   * @returns A cleanup function to unsubscribe
-   */
-  subscribeToProgress(
-    onProgress: (percentage: number, stage?: string) => void,
-  ): SSECleanup {
-    return this.server.subscribeToProgress(this.id, onProgress);
   }
 
   /**

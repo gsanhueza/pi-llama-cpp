@@ -135,13 +135,15 @@ export class CommandManager {
       EventManager.inflightModel = model;
 
       // Subscribe to progress events
-      const cleanupProgress = model.subscribeToProgress((percentage, stage) => {
-        const stageText = stage ? ` (${stage})` : "";
-        ctx.ui.notify(
-          `Loading ${model.name}... [${percentage}%${stageText}]`,
-          "info",
-        );
-      });
+      const cleanupProgress = this.serverManager
+        .getServer(model)
+        .subscribeToModelProgress(model, (percentage, stage) => {
+          const stageText = stage ? ` (${stage})` : "";
+          ctx.ui.notify(
+            `Loading ${model.name}... [${percentage}%${stageText}]`,
+            "info",
+          );
+        });
 
       const onSuccess = async () => {
         const { serverId } = model;

@@ -118,6 +118,16 @@ export class ServerManager {
   }
 
   /**
+   * Returns the server for a given model.
+   *
+   * @param model - The model to find the server for
+   * @returns The server containing the model
+   */
+  getServer(model: BaseModel): Server {
+    return this.servers.find((s) => s.baseUrl === model.serverUrl)!;
+  }
+
+  /**
    * Returns all models from all servers.
    *
    * @returns Flat array of all models across all servers

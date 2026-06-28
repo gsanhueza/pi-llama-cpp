@@ -22,7 +22,7 @@ export class Server {
   private configResolver = new ConfigResolver();
   private cache = new Cache(POLLING_INTERVAL / 2);
   private mutex = new Mutex();
-  private sseManager?: SSEManager;
+  private sseManager: SSEManager = {} as SSEManager;
 
   constructor(readonly baseUrl: string) {}
 
@@ -55,7 +55,6 @@ export class Server {
   async initialize() {
     this.cache.clear();
     this.sseManager = new SSEManager(this.baseUrl, await this.getApiKey());
-    await this.sseManager.probeSSE();
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 
@@ -134,42 +133,29 @@ export class Server {
   }
 
   /**
-   * Checks if this server supports the /models/sse endpoint.
-   * Result is cached for the lifetime of the server instance.
-   *
-   * @returns true if SSE is supported
-   */
-  private async hasSSESupport(): Promise<boolean> {
-    return this.sseManager!.probeSSE();
-  }
-
-  /**
    * Subscribes to SSE progress events for a specific model.
-   * Parses SSE events and calls the progress callback with percentage and stage.
+   * Convenience overload that accepts a {@link BaseModel} directly.
    *
-   * @param modelId - The model ID to subscribe to
+   * @param model - The model to subscribe to
    * @param onProgress - Callback to receive progress updates (percentage 0-100, stage name)
    * @returns A cleanup function to unsubscribe
    */
-  subscribeToProgress(
-    modelId: string,
+  subscribeToModelProgress(
+    model: BaseModel,
     onProgress: (percentage: number, stage?: string) => void,
   ): SSECleanup {
-    return this.sseManager!.subscribeToProgress(modelId, onProgress);
+    return this.sseManager.subscribeToProgress(model.id, onProgress);
   }
 
   /**
    * Subscribes to SSE status change events for a specific model.
    * Resolves with the final status string once the model reaches a terminal state.
    *
-   * @param modelId - The model ID to subscribe to
+   * @param model - The model to subscribe to
    * @returns Promise that resolves with the final status string
    */
-  async subscribeToStatus(modelId: string): Promise<string> {
-    if (!(await this.sseManager!.probeSSE())) {
-      throw new Error(`Server does not support SSE: ${this.baseUrl}`);
-    }
-    return this.sseManager!.subscribeToStatus(modelId);
+  async subscribeToModelStatus(model: BaseModel): Promise<string> {
+    return this.sseManager.subscribeToStatus(model.id);
   }
 
   /**
