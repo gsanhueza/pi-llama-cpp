@@ -127,7 +127,7 @@ export class Server {
    * @returns The health status
    */
   async fetchServerHealth(): Promise<HealthEndpoint> {
-    return await this.rpc<HealthEndpoint>("/health");
+    return await this.apiClient.get<HealthEndpoint>("/health");
   }
 
   /**
@@ -136,7 +136,7 @@ export class Server {
    * @return The models from the server
    */
   async fetchModels(): Promise<ModelsEndpoint> {
-    return await this.rpc<ModelsEndpoint>("/v1/models");
+    return await this.apiClient.get<ModelsEndpoint>("/v1/models");
   }
 
   /**
@@ -145,7 +145,7 @@ export class Server {
    * @return The properties of the server
    */
   async fetchServerProps(): Promise<PropsEndpoint> {
-    return await this.rpc<PropsEndpoint>("/props?autoload=false");
+    return await this.apiClient.get<PropsEndpoint>("/props?autoload=false");
   }
 
   /**
@@ -155,7 +155,7 @@ export class Server {
    * @return The properties of the specified model
    */
   async fetchModelProps(modelId: string): Promise<PropsModelEndpoint> {
-    return await this.rpc<PropsModelEndpoint>(
+    return await this.apiClient.get<PropsModelEndpoint>(
       `/props?model=${modelId}&autoload=false`,
     );
   }
@@ -170,18 +170,9 @@ export class Server {
     resource: "load" | "unload",
     model: string,
   ): Promise<ModelsEndpoint> {
-    this.apiClient!.clearCache();
-    return await this.rpc<ModelsEndpoint>(`/models/${resource}`, { model });
-  }
-
-  /**
-   * Makes a cached, deduplicated request to the llama-server.
-   * Results are cached for half the polling interval and in-flight requests are deduplicated.
-   */
-  private async rpc<T>(
-    endpoint: string,
-    body?: Record<string, unknown>,
-  ): Promise<T> {
-    return await this.apiClient!.rpc<T>(endpoint, body);
+    this.apiClient.clearCache();
+    return await this.apiClient.post<ModelsEndpoint>(`/models/${resource}`, {
+      model,
+    });
   }
 }
