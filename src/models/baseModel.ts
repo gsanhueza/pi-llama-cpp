@@ -201,7 +201,9 @@ export abstract class BaseModel {
     await this.server.postRequest("load", this.id);
 
     try {
-      const finalStatus = await this.server.subscribeToModelStatus(this);
+      const finalStatus = await this.server.sseManager.subscribeToStatus(
+        this.id,
+      );
       if (finalStatus === "failed") {
         throw new Error(`Model loading failed: ${this.id}`);
       }

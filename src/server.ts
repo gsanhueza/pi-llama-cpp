@@ -13,7 +13,6 @@ import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { ConfigResolver } from "./resolver";
 import { SSEManager } from "./sse/manager";
-import { SSECleanup } from "./sse/types";
 import { Cache } from "./utils/cache";
 import { Mutex } from "./utils/mutex";
 
@@ -22,9 +21,16 @@ export class Server {
   private configResolver = new ConfigResolver();
   private cache = new Cache(POLLING_INTERVAL / 2);
   private mutex = new Mutex();
-  private sseManager: SSEManager = {} as SSEManager;
+  private sse: SSEManager = {} as SSEManager;
 
   constructor(readonly baseUrl: string) {}
+
+  /**
+   * Provides access to the SSE manager for direct subscriptions.
+   */
+  get sseManager(): SSEManager {
+    return this.sse;
+  }
 
   /**
    * Generates a unique provider ID from a server URL.
@@ -54,7 +60,7 @@ export class Server {
    */
   async initialize() {
     this.cache.clear();
-    this.sseManager = new SSEManager(this.baseUrl, await this.getApiKey());
+    this.sse = new SSEManager(this.baseUrl, await this.getApiKey());
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 
@@ -130,32 +136,6 @@ export class Server {
    */
   async fetchModels(): Promise<ModelsEndpoint> {
     return await this.rpc<ModelsEndpoint>("/v1/models");
-  }
-
-  /**
-   * Subscribes to SSE progress events for a specific model.
-   * Convenience overload that accepts a {@link BaseModel} directly.
-   *
-   * @param model - The model to subscribe to
-   * @param onProgress - Callback to receive progress updates (percentage 0-100, stage name)
-   * @returns A cleanup function to unsubscribe
-   */
-  subscribeToModelProgress(
-    model: BaseModel,
-    onProgress: (percentage: number, stage?: string) => void,
-  ): SSECleanup {
-    return this.sseManager.subscribeToProgress(model.id, onProgress);
-  }
-
-  /**
-   * Subscribes to SSE status change events for a specific model.
-   * Resolves with the final status string once the model reaches a terminal state.
-   *
-   * @param model - The model to subscribe to
-   * @returns Promise that resolves with the final status string
-   */
-  async subscribeToModelStatus(model: BaseModel): Promise<string> {
-    return this.sseManager.subscribeToStatus(model.id);
   }
 
   /**

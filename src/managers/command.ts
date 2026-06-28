@@ -137,7 +137,7 @@ export class CommandManager {
       // Subscribe to progress events
       const cleanupProgress = this.serverManager
         .getServer(model)
-        .subscribeToModelProgress(model, (percentage, stage) => {
+        .sseManager.subscribeToProgress(model.id, (percentage, stage) => {
           const stageText = stage ? ` (${stage})` : "";
           ctx.ui.notify(
             `Loading ${model.name}... [${percentage}%${stageText}]`,
