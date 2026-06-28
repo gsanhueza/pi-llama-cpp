@@ -46,13 +46,12 @@ export class SSEManager {
     if (this.sseSupported !== null) return this.sseSupported;
 
     try {
-      const headers: Record<string, string> = {};
+      let url = this.sseEndpoint;
       if (this.apiKey) {
-        headers["Authorization"] = `Bearer ${this.apiKey}`;
+        url = `${url}?api_key=${encodeURIComponent(this.apiKey)}`;
       }
-      const response = await fetch(this.sseEndpoint, {
+      const response = await fetch(url, {
         method: "GET",
-        headers,
         signal: AbortSignal.timeout(SERVER_TIMEOUT),
       });
       this.sseSupported =
@@ -162,6 +161,7 @@ export class SSEManager {
   /**
    * Subscribes to SSE status change events for a specific model.
    * Resolves with the final status string once the model reaches a terminal state.
+   * Rejects immediately if the connection fails before any event is received.
    *
    * @param modelId - The model ID to subscribe to
    * @returns Promise that resolves with the final status string
@@ -181,6 +181,12 @@ export class SSEManager {
             resolve(data);
           }
         }
+      });
+
+      // Reject immediately if the connection fails before any event is received
+      this.sseClient?.setOnConnectFailed(() => {
+        clearTimeout(timeout);
+        reject(new Error(`SSE connection failed for model: ${modelId}`));
       });
     });
   }

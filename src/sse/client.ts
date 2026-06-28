@@ -13,6 +13,8 @@ export class SSEClient {
   private subscribers: Map<string, SSECallback> = new Map();
   private connected: boolean = false;
   private reconnecting: boolean = false; // tracks if EventSource auto-reconnect is in progress
+  private _onConnectFailed: (() => void) | null = null;
+  private _hasReceivedEvents: boolean = false;
 
   /**
    * @param sseEndpoint - The full SSE endpoint URL (e.g., "http://127.0.0.1:8080/models/sse")
@@ -49,6 +51,11 @@ export class SSEClient {
       // EventSource will auto-reconnect; we just track state
       this.connected = false;
       this.reconnecting = true;
+
+      // Notify subscriber if connection fails before any event is received
+      if (!this._hasReceivedEvents && this._onConnectFailed) {
+        this._onConnectFailed();
+      }
     };
 
     this.eventSource.onmessage = (event: MessageEvent) => {
@@ -59,6 +66,7 @@ export class SSEClient {
           model: data.model ?? "*",
           data: data.data,
         };
+        this._hasReceivedEvents = true;
         this.dispatch(sseEvent);
       } catch {
         // Invalid JSON, ignore
@@ -77,6 +85,16 @@ export class SSEClient {
     });
 
     return this.connected;
+  }
+
+  /**
+   * Sets a callback to be called when the connection fails before
+   * any event is received. Useful for rejecting promises early.
+   *
+   * @param callback - Called once when connection fails
+   */
+  setOnConnectFailed(callback: () => void): void {
+    this._onConnectFailed = callback;
   }
 
   /**
