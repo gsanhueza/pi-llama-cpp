@@ -219,5 +219,6 @@ Each model exposed to Pi includes the following defaults:
 
 | Peer dependency                   | Purpose             |
 | --------------------------------- | ------------------- |
+| `@earendil-works/pi-ai`           | Pi AI SDK           |
 | `@earendil-works/pi-coding-agent` | Pi Coding Agent SDK |
 | `@earendil-works/pi-tui`          | Pi TUI SDK          |
