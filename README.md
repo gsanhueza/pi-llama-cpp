@@ -164,7 +164,7 @@ When browsing models via the `/models` command, you can:
 ### Thinking Budgets
 
 The extension supports configurable **thinking budgets** that control how many tokens the model allocates to its reasoning/thinking process.
-This is tied to Pi's thinking level selector (off, minimal, low, medium, high, xhigh).
+This is tied to Pi's thinking level selector (off, minimal, low, medium, high, xhigh, max).
 
 | Level     | Tokens | Description                  |
 | --------- | ------ | ---------------------------- |
@@ -173,7 +173,8 @@ This is tied to Pi's thinking level selector (off, minimal, low, medium, high, x
 | `low`     | 2,048  | Light reasoning              |
 | `medium`  | 8,192  | Balanced reasoning (default) |
 | `high`    | 16,384 | Extended reasoning           |
-| `xhigh`   | -1     | Unlimited reasoning          |
+| `xhigh`   | 32,768 | Deep reasoning               |
+| `max`     | -1     | Unlimited reasoning          |
 
 User-defined budgets can override the defaults by adding a `thinkingBudgets` object to `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (per-project):
 
@@ -183,12 +184,13 @@ User-defined budgets can override the defaults by adding a `thinkingBudgets` obj
     "minimal": 256,
     "low": 1024,
     "medium": 2048,
-    "high": 4096
+    "high": 4096,
+    "xhigh": 8192
   }
 }
 ```
 
-Only `minimal`, `low`, `medium`, and `high` are configurable — `off` (0) and `xhigh` (-1, unlimited) are fixed.
+Only `minimal`, `low`, `medium`, `high` and `xhigh` are configurable — `off` (0) and `max` (-1, unlimited) are fixed.
 The extension automatically injects the appropriate `thinking_budget_tokens` into each request payload based on the selected level.
 
 ### Model Selection Event

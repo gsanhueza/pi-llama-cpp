@@ -57,5 +57,6 @@ export const DEFAULT_THINKING_BUDGETS = {
   low: 2048,
   medium: 8192,
   high: 16384,
-  xhigh: -1,
+  xhigh: 32768,
+  max: -1,
 };

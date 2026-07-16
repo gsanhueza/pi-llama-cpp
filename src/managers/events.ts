@@ -94,7 +94,7 @@ export class EventManager {
     if (level === "off")
       return { ...payload, chat_template_kwargs: { enable_thinking: false } };
 
-    if (level === "xhigh") return payload;
+    if (level === "max") return payload;
 
     return { ...payload, thinking_budget_tokens };
   }

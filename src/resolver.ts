@@ -1,4 +1,4 @@
-import { ApiKeyCredential } from "@earendil-works/pi-ai";
+import { ApiKeyCredential, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
   getAgentDir,
   readStoredCredential,
@@ -11,7 +11,6 @@ import {
   DEFAULT_LLAMA_SERVER_URL,
   DEFAULT_THINKING_BUDGETS,
 } from "./constants";
-import { ThinkingLevel } from "./interfaces/levels";
 
 export class ConfigResolver {
   private warnings: string[] = [];
@@ -129,7 +128,7 @@ export class ConfigResolver {
    *
    * @returns Selected level
    */
-  resolveThinkingLevel(): ThinkingLevel | undefined {
+  resolveThinkingLevel(): ModelThinkingLevel | undefined {
     return this.settingsManager.getDefaultThinkingLevel();
   }
 
@@ -138,7 +137,7 @@ export class ConfigResolver {
    *
    * @returns Thinking budgets
    */
-  resolveThinkingBudgets(): Record<ThinkingLevel, number> {
+  resolveThinkingBudgets(): Record<ModelThinkingLevel, number> {
     const settingsBudgets = this.settingsManager.getThinkingBudgets() ?? {};
     const availableBudgets = {
       ...DEFAULT_THINKING_BUDGETS,

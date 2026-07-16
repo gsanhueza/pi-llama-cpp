@@ -180,6 +180,7 @@ export abstract class BaseModel {
         medium: "medium",
         high: "high",
         xhigh: "xhigh",
+        max: "max",
       },
       input: await this.getCapabilities(),
       contextWindow: await this.getContextSize(),

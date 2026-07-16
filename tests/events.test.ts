@@ -55,7 +55,8 @@ describe("EventManager.onBeforeProviderRequest", () => {
       { level: "low", expected: { thinking_budget_tokens: 2048 } },
       { level: "medium", expected: { thinking_budget_tokens: 8192 } },
       { level: "high", expected: { thinking_budget_tokens: 16384 } },
-      { level: "xhigh", expected: {} },
+      { level: "xhigh", expected: { thinking_budget_tokens: 32768 } },
+      { level: "max", expected: {} },
     ])(
       'level "$level" should return $expected',
       async ({ level, expected }) => {
@@ -216,10 +217,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       expect(result).not.toHaveProperty("thinking_budget_tokens");
     });
 
-    it("should not allow overriding 'xhigh' — no budget is injected", async () => {
-      mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("xhigh");
+    it("should not inject budget for 'max' — unlimited reasoning", async () => {
+      mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("max");
       mockSettingsManager.getThinkingBudgets.mockReturnValue({
-        xhigh: 1,
+        max: 1,
       } as any);
 
       const server = createMockServer({
