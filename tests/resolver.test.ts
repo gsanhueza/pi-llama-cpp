@@ -163,7 +163,7 @@ describe("API key resolution", () => {
   });
 
   it("should return the apiKey when present in credential", () => {
-    mockReadStoredCredential.mockReturnValue({ apiKey: "test-api-key" });
+    mockReadStoredCredential.mockReturnValue({ key: "test-api-key" });
 
     const resolver = new ConfigResolver();
     const result = resolver.resolveApiKey("llama-server=http://127.0.0.1:8080");

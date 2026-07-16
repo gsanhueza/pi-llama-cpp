@@ -1,3 +1,4 @@
+import { ApiKeyCredential } from "@earendil-works/pi-ai";
 import {
   getAgentDir,
   readStoredCredential,
@@ -109,8 +110,8 @@ export class ConfigResolver {
    * Resolves API key for the provider ID using Pi's stored credentials
    */
   resolveApiKey(providerId: string): string {
-    const credential = readStoredCredential(providerId);
-    return credential?.apiKey ?? API_KEY_PLACEHOLDER;
+    const credential = readStoredCredential(providerId) as ApiKeyCredential;
+    return credential?.key ?? API_KEY_PLACEHOLDER;
   }
 
   /**
