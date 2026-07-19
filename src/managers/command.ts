@@ -177,15 +177,20 @@ export class CommandManager {
         }
       };
 
+      const onFinished = async () => {
+        cleanupProgress();
+        EventManager.resetInflightModel();
+
+        // Re-scan providers to ensure accuracy of loaded models
+        await this.serverManager.update(pi);
+
+        // Force TUI refresh so Pi picks up the updated model states
+        ctx.ui.setStatus(PROVIDER_NAME, " ");
+        ctx.ui.setStatus(PROVIDER_NAME, undefined);
+      };
+
       // Load the model without blocking the UI
-      model
-        .load()
-        .then(onSuccess)
-        .catch(onFailure)
-        .finally(() => {
-          cleanupProgress();
-          EventManager.resetInflightModel();
-        });
+      model.load().then(onSuccess).catch(onFailure).finally(onFinished);
     }
   }
 
