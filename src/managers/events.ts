@@ -72,7 +72,10 @@ export class EventManager {
    * @param event Request event
    * @returns Updated payload
    */
-  async onBeforeProviderRequest(event: BeforeProviderRequestEvent) {
+  async onBeforeProviderRequest(
+    event: BeforeProviderRequestEvent,
+    ctx: ExtensionContext,
+  ) {
     const payload = event.payload as { model?: string };
     const { model } = payload;
     if (!model) return payload;
@@ -86,7 +89,8 @@ export class EventManager {
 
     // Retrieve pi's current thinking level, so we can setup a budget
     const resolver = new ConfigResolver();
-    const level = resolver.resolveThinkingLevel() ?? "medium";
+    const level =
+      ctx.thinkingLevel ?? resolver.resolveThinkingLevel() ?? "medium";
     const budgets = resolver.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 

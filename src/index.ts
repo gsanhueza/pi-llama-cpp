@@ -47,8 +47,8 @@ export default async function (pi: ExtensionAPI) {
 
   pi.on(
     "before_provider_request",
-    async (event: BeforeProviderRequestEvent) =>
-      await eventManager.onBeforeProviderRequest(event),
+    async (event: BeforeProviderRequestEvent, ctx: ExtensionContext) =>
+      await eventManager.onBeforeProviderRequest(event, ctx),
   );
 
   pi.on(

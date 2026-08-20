@@ -44,6 +44,21 @@ const createNonLlamaPayload = () => ({
   messages: [{ role: "user", content: "hello" }],
 });
 
+const createMockCtx = (
+  thinkingLevel?:
+    | "off"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max",
+) =>
+  ({
+    thinkingLevel,
+    ui: { notify: vi.fn() },
+  }) as any;
+
 describe("EventManager.onBeforeProviderRequest", () => {
   describe("normal usage — each thinking level", () => {
     it.each([
@@ -68,8 +83,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
         const eventManager = new EventManager([server]);
         const event = { payload: createPayload("model-a") };
 
+        const ctx = createMockCtx(level as any);
         const result = (await eventManager.onBeforeProviderRequest(
           event as any,
+          ctx,
         )) as Record<string, unknown>;
 
         expect(result.model).toBe("model-a");
@@ -92,8 +109,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
         },
       };
 
+      const ctx = createMockCtx("low");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       expect(result.messages).toEqual([{ role: "user", content: "test" }]);
@@ -110,7 +129,11 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createNonLlamaPayload() };
 
-      const result = await eventManager.onBeforeProviderRequest(event as any);
+      const ctx = createMockCtx();
+      const result = await eventManager.onBeforeProviderRequest(
+        event as any,
+        ctx,
+      );
 
       expect(result).toEqual(createNonLlamaPayload());
     });
@@ -124,7 +147,11 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: { messages: [] } };
 
-      const result = await eventManager.onBeforeProviderRequest(event as any);
+      const ctx = createMockCtx();
+      const result = await eventManager.onBeforeProviderRequest(
+        event as any,
+        ctx,
+      );
 
       expect(result).toEqual({ messages: [] });
     });
@@ -141,8 +168,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("low");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       expect(result.thinking_budget_tokens).toBe(4096);
@@ -158,8 +187,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("medium");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       // medium uses default since user only overrode low
@@ -185,8 +216,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("medium");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       // Should fall back to default since "medium" is not in user budgets
@@ -207,8 +240,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("off");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       expect(result).toMatchObject({
@@ -229,8 +264,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("max");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       expect(result).toEqual(createPayload("model-a"));
@@ -247,8 +284,10 @@ describe("EventManager.onBeforeProviderRequest", () => {
       const eventManager = new EventManager([server]);
       const event = { payload: createPayload("model-a") };
 
+      const ctx = createMockCtx("high");
       const result = (await eventManager.onBeforeProviderRequest(
         event as any,
+        ctx,
       )) as Record<string, unknown>;
 
       expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.high);
