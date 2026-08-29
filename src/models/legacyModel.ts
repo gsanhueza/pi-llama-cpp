@@ -1,4 +1,4 @@
-import { DEFAULT_CTX } from "../constants";
+import { FALLBACK_CTX } from "../constants";
 import { Mode } from "../enums/mode";
 import { SingleModel } from "./singleModel";
 
@@ -25,7 +25,7 @@ export class LegacyModel extends SingleModel {
     const [{ max_model_len }] = data;
     const contextSize = max_model_len === 0 ? n_ctx : max_model_len;
 
-    return contextSize ?? DEFAULT_CTX;
+    return contextSize ?? FALLBACK_CTX;
   }
 
   /**

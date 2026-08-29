@@ -5,8 +5,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   API_KEY_PLACEHOLDER,
-  DEFAULT_LLAMA_SERVER_URL,
-  DEFAULT_THINKING_BUDGETS,
+  LLAMA_SERVER_URL,
+  THINKING_BUDGETS,
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
@@ -54,7 +54,7 @@ export class LlamaSettingsManager {
     response = this.resolveLegacyUrls();
     if (response.length > 0) return response;
 
-    return [DEFAULT_LLAMA_SERVER_URL];
+    return [LLAMA_SERVER_URL];
   }
 
   /**
@@ -146,7 +146,7 @@ export class LlamaSettingsManager {
   resolveThinkingBudgets(): Record<ModelThinkingLevel, number> {
     const settingsBudgets = this.settingsManager.getThinkingBudgets() ?? {};
     return {
-      ...DEFAULT_THINKING_BUDGETS,
+      ...THINKING_BUDGETS,
       ...settingsBudgets,
     };
   }

@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_THINKING_BUDGETS } from "../src/constants";
+import { THINKING_BUDGETS } from "../src/constants";
 import { Status } from "../src/enums/status";
 import { createMockModel, createMockServer } from "./mocks";
 
@@ -8,16 +8,16 @@ const mockSettings = {
   resolveReactToModelSelect: vi.fn(() => true),
   resolveAutoloadOnMessage: vi.fn(() => false),
   resolveThinkingLevel: vi.fn(() => "medium"),
-  resolveThinkingBudgets: vi.fn(() => ({ ...DEFAULT_THINKING_BUDGETS })),
+  resolveThinkingBudgets: vi.fn(() => ({ ...THINKING_BUDGETS })),
 };
 
 // Wire resolveThinkingBudgets to use the SettingsManager mock when set
 mockSettings.resolveThinkingBudgets.mockImplementation(() => {
   const userBudgets = mockSettingsManager.getThinkingBudgets();
   if (userBudgets) {
-    return { ...DEFAULT_THINKING_BUDGETS, ...userBudgets };
+    return { ...THINKING_BUDGETS, ...userBudgets };
   }
-  return { ...DEFAULT_THINKING_BUDGETS };
+  return { ...THINKING_BUDGETS };
 });
 
 // Create a mutable mock object shared across tests
@@ -139,7 +139,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
 
       expect(result.messages).toEqual([{ role: "user", content: "test" }]);
       expect(result.temperature).toBe(0.7);
-      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.low);
+      expect(result.thinking_budget_tokens).toBe(THINKING_BUDGETS.low);
     });
   });
 
@@ -216,7 +216,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
       )) as Record<string, unknown>;
 
       // medium uses default since user only overrode low
-      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.medium);
+      expect(result.thinking_budget_tokens).toBe(THINKING_BUDGETS.medium);
     });
   });
 
@@ -243,7 +243,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
       )) as Record<string, unknown>;
 
       // Should fall back to default since "medium" is not in user budgets
-      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.medium);
+      expect(result.thinking_budget_tokens).toBe(THINKING_BUDGETS.medium);
     });
 
     it("should not allow overriding 'off' — thinking stays disabled", async () => {
@@ -308,7 +308,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
         ctx,
       )) as Record<string, unknown>;
 
-      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.high);
+      expect(result.thinking_budget_tokens).toBe(THINKING_BUDGETS.high);
     });
   });
 });

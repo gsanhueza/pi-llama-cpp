@@ -1,4 +1,4 @@
-import { DEFAULT_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
+import { FALLBACK_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { BaseModel } from "./baseModel";
@@ -60,7 +60,7 @@ export class RouterModel extends BaseModel {
     const response =
       this.extractFrom("--ctx-size") ??
       this.extractFrom("--fit-ctx") ??
-      DEFAULT_CTX;
+      FALLBACK_CTX;
 
     return response;
   }

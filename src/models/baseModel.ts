@@ -1,5 +1,5 @@
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
+import { FALLBACK_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
@@ -130,9 +130,9 @@ export abstract class BaseModel {
       const { data } = await this.server.fetchModels();
       const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
 
-      return n_ctx ?? DEFAULT_CTX;
+      return n_ctx ?? FALLBACK_CTX;
     } catch {
-      return DEFAULT_CTX;
+      return FALLBACK_CTX;
     }
   }
 

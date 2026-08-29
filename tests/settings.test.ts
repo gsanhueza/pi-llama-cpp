@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   API_KEY_PLACEHOLDER,
-  DEFAULT_LLAMA_SERVER_URL,
+  LLAMA_SERVER_URL,
   PROVIDER_PREFIX,
 } from "../src/constants";
 import { settings } from "../src/managers/settings";
@@ -62,7 +62,7 @@ describe("URL resolution fallback chain", () => {
 
     const result = settings.resolveUrls();
 
-    expect(result).toEqual([DEFAULT_LLAMA_SERVER_URL]);
+    expect(result).toEqual([LLAMA_SERVER_URL]);
   });
 
   it("should prioritize env variable over project config", async () => {
