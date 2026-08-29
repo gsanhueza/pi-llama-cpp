@@ -150,6 +150,24 @@ export class LlamaSettingsManager {
       ...settingsBudgets,
     };
   }
+
+  /**
+   * Resolves whether the extension should react to model selection events.
+   *
+   * @returns `true` if the extension should load the model on model_select
+   */
+  resolveReactToModelSelect(): boolean {
+    return this.llamaSettings.reactToModelSelect ?? true;
+  }
+
+  /**
+   * Resolves whether the extension should auto-load models on message.
+   *
+   * @returns `true` if the extension should auto-load models
+   */
+  resolveAutoloadOnMessage(): boolean {
+    return this.llamaSettings.autoloadOnMessage ?? false;
+  }
 }
 
 /**

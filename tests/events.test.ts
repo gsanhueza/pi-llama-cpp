@@ -1,6 +1,24 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_THINKING_BUDGETS } from "../src/constants";
+import { Status } from "../src/enums/status";
 import { createMockModel, createMockServer } from "./mocks";
+
+// Mock settings — reactToModelSelect and autoloadOnMessage
+const mockSettings = {
+  resolveReactToModelSelect: vi.fn(() => true),
+  resolveAutoloadOnMessage: vi.fn(() => false),
+  resolveThinkingLevel: vi.fn(() => "medium"),
+  resolveThinkingBudgets: vi.fn(() => ({ ...DEFAULT_THINKING_BUDGETS })),
+};
+
+// Wire resolveThinkingBudgets to use the SettingsManager mock when set
+mockSettings.resolveThinkingBudgets.mockImplementation(() => {
+  const userBudgets = mockSettingsManager.getThinkingBudgets();
+  if (userBudgets) {
+    return { ...DEFAULT_THINKING_BUDGETS, ...userBudgets };
+  }
+  return { ...DEFAULT_THINKING_BUDGETS };
+});
 
 // Create a mutable mock object shared across tests
 const mockSettingsManager = {
@@ -18,6 +36,10 @@ vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
     },
   };
 });
+
+vi.mock("../src/managers/settings", () => ({
+  settings: mockSettings,
+}));
 
 let EventManager: typeof import("../src/managers/events").EventManager;
 
@@ -194,9 +216,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
       )) as Record<string, unknown>;
 
       // medium uses default since user only overrode low
-      expect(result.thinking_budget_tokens).toBe(
-        DEFAULT_THINKING_BUDGETS.medium,
-      );
+      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.medium);
     });
   });
 
@@ -223,9 +243,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
       )) as Record<string, unknown>;
 
       // Should fall back to default since "medium" is not in user budgets
-      expect(result.thinking_budget_tokens).toBe(
-        DEFAULT_THINKING_BUDGETS.medium,
-      );
+      expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.medium);
     });
 
     it("should not allow overriding 'off' — thinking stays disabled", async () => {
@@ -292,5 +310,123 @@ describe("EventManager.onBeforeProviderRequest", () => {
 
       expect(result.thinking_budget_tokens).toBe(DEFAULT_THINKING_BUDGETS.high);
     });
+  });
+});
+
+describe("EventManager.onModelSelect", () => {
+  beforeEach(() => {
+    mockSettings.resolveReactToModelSelect.mockReturnValue(true);
+  });
+
+  it("should load the model when reactToModelSelect is true", async () => {
+    const server = createMockServer({
+      models: ["model-a"].map((id) => createMockModel(id)),
+    });
+    const eventManager = new EventManager([server]);
+    const ctx = createMockCtx();
+
+    const event = {
+      model: { provider: server.providerId, id: "model-a" },
+    } as any;
+
+    await eventManager.onModelSelect(event, ctx);
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith("Loading model-a...", "info");
+  });
+
+  it("should return early when reactToModelSelect is false", async () => {
+    mockSettings.resolveReactToModelSelect.mockReturnValue(false);
+
+    const server = createMockServer({
+      models: ["model-a"].map((id) => createMockModel(id)),
+    });
+    const eventManager = new EventManager([server]);
+    const ctx = createMockCtx();
+
+    const event = {
+      model: { provider: server.providerId, id: "model-a" },
+    } as any;
+
+    await eventManager.onModelSelect(event, ctx);
+
+    expect(ctx.ui.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("EventManager.autoLoadIfNeeded", () => {
+  it("should load the model when autoloadOnMessage is true and model is UNLOADED", async () => {
+    mockSettings.resolveAutoloadOnMessage.mockReturnValue(true);
+
+    const server = createMockServer({
+      models: [
+        createMockModel("model-a", {
+          getStatus: vi.fn().mockResolvedValue(Status.UNLOADED),
+          load: vi.fn().mockResolvedValue(undefined),
+        }),
+      ],
+    });
+    const eventManager = new EventManager([server]);
+    const model = server.models[0];
+
+    await (eventManager as any).autoLoadIfNeeded(model);
+
+    expect(model.load).toHaveBeenCalled();
+  });
+
+  it("should not load the model when autoloadOnMessage is false", async () => {
+    mockSettings.resolveAutoloadOnMessage.mockReturnValue(false);
+
+    const server = createMockServer({
+      models: [
+        createMockModel("model-a", {
+          getStatus: vi.fn().mockResolvedValue(Status.UNLOADED),
+          load: vi.fn().mockResolvedValue(undefined),
+        }),
+      ],
+    });
+    const eventManager = new EventManager([server]);
+    const model = server.models[0];
+
+    await (eventManager as any).autoLoadIfNeeded(model);
+
+    expect(model.load).not.toHaveBeenCalled();
+  });
+
+  it("should not load the model when model is already LOADED", async () => {
+    mockSettings.resolveAutoloadOnMessage.mockReturnValue(true);
+
+    const server = createMockServer({
+      models: [
+        createMockModel("model-a", {
+          getStatus: vi.fn().mockResolvedValue(Status.LOADED),
+          load: vi.fn().mockResolvedValue(undefined),
+        }),
+      ],
+    });
+    const eventManager = new EventManager([server]);
+    const model = server.models[0];
+
+    await (eventManager as any).autoLoadIfNeeded(model);
+
+    expect(model.load).not.toHaveBeenCalled();
+  });
+
+  it("should not load the model when model is SLEEPING", async () => {
+    mockSettings.resolveAutoloadOnMessage.mockReturnValue(true);
+
+    const server = createMockServer({
+      models: [
+        createMockModel("model-a", {
+          getStatus: vi.fn().mockResolvedValue(Status.SLEEPING),
+          load: vi.fn().mockResolvedValue(undefined),
+        }),
+      ],
+    });
+    const eventManager = new EventManager([server]);
+    const model = server.models[0];
+
+    await (eventManager as any).autoLoadIfNeeded(model);
+
+    expect(model.load).not.toHaveBeenCalled();
   });
 });
