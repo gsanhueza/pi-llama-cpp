@@ -1,8 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API_TYPE, PROVIDER_NAME, SERVER_TIMEOUT } from "../constants";
+import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
+import { settings } from "./settings";
 
 export class ServerManager {
   readonly failedUrls: string[] = [];
@@ -16,8 +17,9 @@ export class ServerManager {
    * @param pi The Pi extension API
    */
   async initialize(pi: ExtensionAPI) {
-    // Register the providers with a timeout first
-    await this.update(pi, SERVER_TIMEOUT);
+    // Register the providers with the configured server timeout
+    const { serverTimeout } = settings.resolveTimeouts();
+    await this.update(pi, serverTimeout);
   }
 
   /**
@@ -67,7 +69,7 @@ export class ServerManager {
       } else if (status === ServerStatus.TIMEOUT) {
         const message = [
           "[pi-llama-cpp]",
-          `${PROVIDER_NAME} server initialization for '${server.baseUrl}' took more than ${SERVER_TIMEOUT} ms, so it has been skipped.`,
+          `${PROVIDER_NAME} server initialization for '${server.baseUrl}' took more than ${timeout} ms, so it has been skipped.`,
           "Run `/models` to retry without timeout and see all models.",
         ].join("\n");
         this.warnings.push(message);

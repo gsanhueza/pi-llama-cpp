@@ -27,6 +27,7 @@ export class SSEManager {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
+    readonly serverTimeout: number = SERVER_TIMEOUT,
   ) {}
 
   /**
@@ -52,7 +53,7 @@ export class SSEManager {
       }
       const response = await fetch(url, {
         method: "GET",
-        signal: AbortSignal.timeout(SERVER_TIMEOUT),
+        signal: AbortSignal.timeout(this.serverTimeout),
       });
       this.sseSupported =
         response.ok &&

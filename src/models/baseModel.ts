@@ -1,5 +1,5 @@
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import { FALLBACK_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
+import { FALLBACK_CTX, POLLING_INTERVAL } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
@@ -224,14 +224,17 @@ export abstract class BaseModel {
    * Polls llama-server to check when the model is loaded
    *
    * @param startTime The initial polling timestamp
-   * @param timeout The maximum amount of ms before timeout. Defaults to POLLING_TIMEOUT
+   * @param timeout The maximum amount of ms before timeout. Defaults to server's pollingTimeout
    * @param interval The polling interval. Defaults to POLLING_INTERVAL
    */
   async pollStatus(
     startTime: number = Date.now(),
-    timeout: number = POLLING_TIMEOUT,
+    timeout?: number,
     interval: number = POLLING_INTERVAL,
   ): Promise<void> {
+    if (timeout === undefined) {
+      timeout = this.server.pollingTimeout;
+    }
     while ((await this.getStatus()) === Status.LOADING) {
       // Force a timeout if we wasted too much time polling
       if (Date.now() - startTime > timeout) {

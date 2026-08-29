@@ -2,8 +2,17 @@
  * A description of a server in the "llamaSettings" key
  */
 interface LlamaServer {
+  /**
+   * The URL of the llama.cpp server.
+   */
   url: string;
+  /**
+   * Custom provider ID for this server.
+   */
   id?: string;
+  /**
+   * Custom display name for this server.
+   */
   name?: string;
 }
 
@@ -24,7 +33,28 @@ interface LlamaServer {
 }
  */
 export interface LlamaSettings {
+  /**
+   * List of servers to connect to.
+   */
   servers: LlamaServer[];
+  /**
+   * Whether to react to model selection events by loading the model.
+   * @default true
+   */
   reactToModelSelect?: boolean;
+  /**
+   * Whether to auto-load models when a message is sent.
+   * @default false
+   */
   autoloadOnMessage?: boolean;
+  /**
+   * Maximum time (ms) to wait for model loading before giving up.
+   * @default 60000
+   */
+  pollingTimeout?: number;
+  /**
+   * Timeout (ms) for server verification and SSE support probe.
+   * @default 1000
+   */
+  serverTimeout?: number;
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../src/constants";
 import { ServerStatus } from "../src/enums/serverStatus";
 import { Server } from "../src/server";
 import { createMockServer, mockRpc } from "./mocks";
@@ -143,6 +144,51 @@ describe("Server postRequest", () => {
     expect(mockRpc).toHaveBeenCalledWith("/models/unload", {
       model: "test-model",
     });
+  });
+});
+
+describe("Server timeouts", () => {
+  it("should use default timeouts when not provided", () => {
+    const server = new Server("http://127.0.0.1:8080");
+
+    expect(server.serverTimeout).toBe(SERVER_TIMEOUT);
+    expect(server.pollingTimeout).toBe(POLLING_TIMEOUT);
+  });
+
+  it("should accept custom serverTimeout", () => {
+    const server = new Server(
+      "http://127.0.0.1:8080",
+      undefined,
+      undefined,
+      3000,
+    );
+
+    expect(server.serverTimeout).toBe(3000);
+  });
+
+  it("should accept custom pollingTimeout", () => {
+    const server = new Server(
+      "http://127.0.0.1:8080",
+      undefined,
+      undefined,
+      1000,
+      120000,
+    );
+
+    expect(server.pollingTimeout).toBe(120000);
+  });
+
+  it("should accept both custom timeouts", () => {
+    const server = new Server(
+      "http://127.0.0.1:8080",
+      "my-id",
+      "My Server",
+      2000,
+      90000,
+    );
+
+    expect(server.serverTimeout).toBe(2000);
+    expect(server.pollingTimeout).toBe(90000);
   });
 });
 

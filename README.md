@@ -95,12 +95,16 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 
 #### Settings Options
 
-| Option               | Type    | Default | Description                                          |
-| -------------------- | ------- | ------- | ---------------------------------------------------- |
-| `reactToModelSelect` | boolean | `true`  | Load the model when you switch via Pi's model picker.|
+| Option               | Type    | Default | Description                                                   |
+| -------------------- | ------- | ------- | ------------------------------------------------------------- |
+| `reactToModelSelect` | boolean | `true`  | Load the model when you switch via Pi's model picker.         |
 | `autoloadOnMessage`  | boolean | `false` | Automatically load an unloaded model before sending a message |
+| `pollingTimeout`     | number  | `60000` | Max time (ms) to wait for model loading before giving up      |
+| `serverTimeout`      | number  | `1000`  | Timeout (ms) for server health checks and SSE probes          |
 
-### Alternative: `llamaServerUrl`
+> **Note:** `serverTimeout` controls individual HTTP request timeouts (health checks, SSE probe). `pollingTimeout` controls the total wait time for a model to finish loading. Increase `serverTimeout` for slow/high-latency servers, and `pollingTimeout` for large models or slow hardware.
+
+### Alternative: `llamaServerUrl` (legacy option)
 
 For a simpler setup, you can use the `llamaServerUrl` key instead:
 
@@ -263,7 +267,7 @@ This keeps the server in sync with the active model in Pi, regardless of how the
 
 When you trigger a load, switch, or retry action, the extension uses SSE (Server-Sent Events) to receive real-time progress updates from the server. If SSE is not available, it falls back to polling.
 
-If loading takes longer than **60 seconds**, the operation times out with an error.
+If loading takes longer than **60 seconds** (configurable via `pollingTimeout`), the operation times out with an error.
 
 > **Note:** The timeout only applies to the progress detection. The model might still be loading in the background.
 

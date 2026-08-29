@@ -1,8 +1,10 @@
 import { ApiClient } from "./api/client";
 import {
   API_KEY_PLACEHOLDER,
+  POLLING_TIMEOUT,
   PROVIDER_NAME,
   PROVIDER_PREFIX,
+  SERVER_TIMEOUT,
 } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
@@ -28,6 +30,8 @@ export class Server {
     readonly baseUrl: string,
     private readonly customId?: string,
     private readonly customName?: string,
+    readonly serverTimeout: number = SERVER_TIMEOUT,
+    readonly pollingTimeout: number = POLLING_TIMEOUT,
   ) {}
 
   /**
@@ -79,7 +83,7 @@ export class Server {
   async initialize() {
     const apiKey = await this.getApiKey();
     this.apiClient = new ApiClient(this.baseUrl, apiKey);
-    this.sse = new SSEManager(this.baseUrl, apiKey);
+    this.sse = new SSEManager(this.baseUrl, apiKey, this.serverTimeout);
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 

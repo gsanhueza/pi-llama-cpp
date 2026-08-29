@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   API_KEY_PLACEHOLDER,
   LLAMA_SERVER_URL,
+  POLLING_TIMEOUT,
   PROVIDER_PREFIX,
+  SERVER_TIMEOUT,
 } from "../src/constants";
 import { settings } from "../src/managers/settings";
 import { Server } from "../src/server";
@@ -522,6 +524,71 @@ describe("resolveServers", () => {
     // env variable takes precedence via resolveUrls
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://env:8080");
+  });
+});
+
+describe("resolveTimeouts", () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it("should return default timeouts when not configured", async () => {
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveTimeouts();
+
+    expect(result).toEqual({
+      pollingTimeout: POLLING_TIMEOUT,
+      serverTimeout: SERVER_TIMEOUT,
+    });
+  });
+
+  it("should use user-defined pollingTimeout", async () => {
+    mockSettingsManager.getProjectSettings.mockReturnValue({
+      llamaSettings: {
+        pollingTimeout: 120000,
+      },
+    });
+
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveTimeouts();
+
+    expect(result.pollingTimeout).toBe(120000);
+    expect(result.serverTimeout).toBe(SERVER_TIMEOUT);
+  });
+
+  it("should use user-defined serverTimeout", async () => {
+    mockSettingsManager.getProjectSettings.mockReturnValue({
+      llamaSettings: {
+        serverTimeout: 3000,
+      },
+    });
+
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveTimeouts();
+
+    expect(result.pollingTimeout).toBe(POLLING_TIMEOUT);
+    expect(result.serverTimeout).toBe(3000);
+  });
+
+  it("should use both user-defined timeouts", async () => {
+    mockSettingsManager.getProjectSettings.mockReturnValue({
+      llamaSettings: {
+        pollingTimeout: 90000,
+        serverTimeout: 2000,
+      },
+    });
+
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveTimeouts();
+
+    expect(result).toEqual({
+      pollingTimeout: 90000,
+      serverTimeout: 2000,
+    });
   });
 });
 

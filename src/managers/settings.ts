@@ -7,7 +7,9 @@ import {
   API_KEY_PLACEHOLDER,
   AUTOLOAD_ON_MESSAGE,
   LLAMA_SERVER_URL,
+  POLLING_TIMEOUT,
   REACT_TO_MODEL_SELECT,
+  SERVER_TIMEOUT,
   THINKING_BUDGETS,
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
@@ -119,12 +121,19 @@ export class LlamaSettingsManager {
    * @returns A list of Server objects
    */
   resolveServers(): Server[] {
+    const { pollingTimeout, serverTimeout } = this.resolveTimeouts();
     const urls = this.resolveUrls();
     const serverConfigs = this.llamaSettings.servers ?? [];
 
     return urls.map((url) => {
       const config = serverConfigs.find((s) => s.url === url);
-      return new Server(url, config?.id, config?.name);
+      return new Server(
+        url,
+        config?.id,
+        config?.name,
+        serverTimeout,
+        pollingTimeout,
+      );
     });
   }
 
@@ -176,6 +185,18 @@ export class LlamaSettingsManager {
    */
   resolveAutoloadOnMessage(): boolean {
     return this.llamaSettings.autoloadOnMessage ?? AUTOLOAD_ON_MESSAGE;
+  }
+
+  /**
+   * Resolves the timeout settings for polling and server checks.
+   *
+   * @returns Object with polling and server timeout values
+   */
+  resolveTimeouts(): { pollingTimeout: number; serverTimeout: number } {
+    return {
+      pollingTimeout: this.llamaSettings.pollingTimeout ?? POLLING_TIMEOUT,
+      serverTimeout: this.llamaSettings.serverTimeout ?? SERVER_TIMEOUT,
+    };
   }
 }
 

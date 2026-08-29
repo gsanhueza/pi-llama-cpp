@@ -1,4 +1,4 @@
-import { FALLBACK_CTX, POLLING_INTERVAL, POLLING_TIMEOUT } from "../constants";
+import { FALLBACK_CTX, POLLING_INTERVAL } from "../constants";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { BaseModel } from "./baseModel";
@@ -41,7 +41,7 @@ export class RouterModel extends BaseModel {
       }
     }
 
-    const timeout = POLLING_TIMEOUT - elapsed;
+    const timeout = this.server.pollingTimeout - elapsed;
     return await super.pollStatus(startTime, timeout);
   }
 
