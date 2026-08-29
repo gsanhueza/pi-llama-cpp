@@ -4,8 +4,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { READABLE_TIMEOUT } from "../constants";
 import { ModelSelectEvent } from "../interfaces/events";
+import { settings } from "../managers/settings";
 import { BaseModel } from "../models/baseModel";
-import { ConfigResolver } from "../resolvers/config-resolver";
 import { Server } from "../server";
 
 export class EventManager {
@@ -88,10 +88,9 @@ export class EventManager {
     if (!isLlamaCpp) return payload;
 
     // Retrieve pi's current thinking level, so we can setup a budget
-    const resolver = new ConfigResolver();
     const level =
-      ctx.thinkingLevel ?? resolver.resolveThinkingLevel() ?? "medium";
-    const budgets = resolver.resolveThinkingBudgets();
+      ctx.thinkingLevel ?? settings.resolveThinkingLevel() ?? "medium";
+    const budgets = settings.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 
     // Setup payload

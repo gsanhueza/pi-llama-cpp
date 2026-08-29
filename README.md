@@ -9,9 +9,9 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 - **Load / unload / switch** — manage models directly from the Pi command palette
 - **Multi-model router support** — works with both single-model and multi-model llama.cpp server configurations
 - **Image capabilities detection** — detects multimodal models automatically
-- **Flexible URL resolution** — configures the server URL via project config, environment variable, or global settings
+- **Flexible URL resolution** — configures the server via `llamaSettings` (project/global), environment variable, or legacy `llamaServerUrl`
 - **Auth support** — allows to login into a llama.cpp server that was secured with an API key
-- **Multiple server support** — connect to multiple llama.cpp servers simultaneously by separating URLs with semicolons
+- **Multiple server support** — connect to multiple llama.cpp servers simultaneously via `llamaSettings.servers` or semicolon-separated URLs
 - **Thinking budget support** — configurable token budgets for model reasoning/thinking, mapped to Pi's thinking levels
 - **Real-time progress tracking** — live loading progress via SSE (falls back to polling)
 
@@ -48,34 +48,88 @@ pi install https://github.com/gsanhueza/pi-llama-cpp
 
 ## Configuration
 
-The extension resolves the llama.cpp server URL(s) using the following priority order:
+The extension resolves the llama.cpp server configuration using the following priority order:
 
-1. **Per-project config** — `.pi/settings.json` in your project root:
-
-   ```json
-   {
-     "llamaServerUrl": "http://127.0.0.1:8080"
-   }
-   ```
-
-2. **Environment variable** — `LLAMA_SERVER_URL`
-
-3. **Global settings** — `~/.pi/agent/settings.json`:
-
-   ```json
-   {
-     "llamaServerUrl": "http://127.0.0.1:8080"
-   }
-   ```
-
+1. **Environment variable** — `LLAMA_SERVER_URL`
+2. **`llamaSettings`** — Main configuration format in `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global)
+3. **`llamaServerUrl`** — Alternative format in `.pi/settings.json` or global settings
 4. **Default** — `http://127.0.0.1:8080`
+
+### llamaSettings (Recommended)
+
+The recommended way to configure the extension is using the `llamaSettings` key. This provides a structured way to define multiple servers with custom names and IDs, plus additional behavior options.
+
+Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
+
+```json
+{
+  "llamaSettings": {
+    "servers": [
+      {
+        "url": "http://127.0.0.1:8080",
+        "id": "local",
+        "name": "Local Server"
+      },
+      {
+        "url": "http://10.0.0.5:8080",
+        "name": "Remote Server"
+      }
+    ],
+    "reactToModelSelect": true,
+    "autoloadOnMessage": false
+  }
+}
+```
+
+#### Server Options
+
+| Option | Type   | Required | Description                                                                  |
+| ------ | ------ | -------- | ---------------------------------------------------------------------------- |
+| `url`  | string | Yes      | The URL of the llama.cpp server                                              |
+| `id`   | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>` |
+| `name` | string | No       | Display name for the server in the UI                                        |
+
+#### Settings Options
+
+| Option               | Type    | Default | Description                                          |
+| -------------------- | ------- | ------- | ---------------------------------------------------- |
+| `reactToModelSelect` | boolean | `true`  | Load the model when you switch via Pi's model picker |
+| `autoloadOnMessage`  | boolean | `false` | Automatically load a model when you send a message   |
+
+### Alternative: `llamaServerUrl`
+
+For a simpler setup, you can use the `llamaServerUrl` key instead:
+
+```json
+{
+  "llamaServerUrl": "http://127.0.0.1:8080"
+}
+```
+
+This is equivalent to defining a single server in `llamaSettings.servers` with just a URL.
 
 ### Multiple Servers
 
-To connect to multiple llama.cpp servers simultaneously, add your URLs as a single string **separated with semicolons** in any of the examples above:
+To connect to multiple llama.cpp servers simultaneously:
+
+**Using `llamaSettings` (recommended):**
+
+```json
+{
+  "llamaSettings": {
+    "servers": [
+      { "url": "http://127.0.0.1:8080" },
+      { "url": "http://127.0.0.1:8081" },
+      { "url": "http://10.0.0.5:8080" }
+    ]
+  }
+}
+```
+
+**Using `llamaServerUrl`:**
 
 ```bash
-# Example for env, but you can use any of the other methods
+# Example with environment variable, but can be used for the rest of the options
 LLAMA_SERVER_URL="http://127.0.0.1:8080;http://127.0.0.1:8081;http://10.0.0.5:8080"
 ```
 

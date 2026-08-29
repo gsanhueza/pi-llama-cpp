@@ -17,7 +17,7 @@ export const createMockServer = (
   const server: Partial<Server> = {
     baseUrl: "http://127.0.0.1:8080",
     models,
-    getApiKey: () => Promise.resolve(overrides.apiKey ?? ""),
+    getApiKey: () => overrides.apiKey ?? "",
     fetchModels: () => mockRpc("/v1/models"),
     fetchModelProps: (modelId: string) =>
       mockRpc(`/props?model=${modelId}&autoload=false`),

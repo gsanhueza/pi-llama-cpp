@@ -8,16 +8,15 @@ import {
   PropsEndpoint,
   PropsModelEndpoint,
 } from "./interfaces/endpoints/props";
+import { settings } from "./managers/settings";
 import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
-import { ConfigResolver } from "./resolvers/config-resolver";
 import { SSEManager } from "./sse/manager";
 
 export class Server {
   public readonly models: BaseModel[] = [];
-  private configResolver = new ConfigResolver();
   private apiClient!: ApiClient;
   private sse!: SSEManager;
 
@@ -46,10 +45,11 @@ export class Server {
 
   /**
    * Retrieves the API key from the config resolver
+   *
    * @returns The API key
    */
-  async getApiKey(): Promise<string> {
-    return await this.configResolver.resolveApiKey(this.providerId);
+  getApiKey(): string {
+    return settings.resolveApiKey(this.providerId);
   }
 
   /**
