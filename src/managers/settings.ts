@@ -5,7 +5,9 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   API_KEY_PLACEHOLDER,
+  AUTOLOAD_ON_MESSAGE,
   LLAMA_SERVER_URL,
+  REACT_TO_MODEL_SELECT,
   THINKING_BUDGETS,
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
@@ -157,7 +159,7 @@ export class LlamaSettingsManager {
    * @returns `true` if the extension should load the model on model_select
    */
   resolveReactToModelSelect(): boolean {
-    return this.llamaSettings.reactToModelSelect ?? true;
+    return this.llamaSettings.reactToModelSelect ?? REACT_TO_MODEL_SELECT;
   }
 
   /**
@@ -166,7 +168,7 @@ export class LlamaSettingsManager {
    * @returns `true` if the extension should auto-load models
    */
   resolveAutoloadOnMessage(): boolean {
-    return this.llamaSettings.autoloadOnMessage ?? false;
+    return this.llamaSettings.autoloadOnMessage ?? AUTOLOAD_ON_MESSAGE;
   }
 }
 

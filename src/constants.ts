@@ -49,6 +49,16 @@ export const READABLE_TIMEOUT = 15000;
 export const SERVER_TIMEOUT = 1000;
 
 /**
+ * Default value for reactToModelSelect setting.
+ */
+export const REACT_TO_MODEL_SELECT = true;
+
+/**
+ * Default value for autoloadOnMessage setting.
+ */
+export const AUTOLOAD_ON_MESSAGE = false;
+
+/**
  * Thinking budgets to send to the server, depending on user-selected level in Pi.
  */
 export const THINKING_BUDGETS = {

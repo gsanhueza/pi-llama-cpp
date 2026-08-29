@@ -386,6 +386,42 @@ describe("Server with custom name", () => {
   });
 });
 
+describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it("should return true when reactToModelSelect is not set", async () => {
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveReactToModelSelect();
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false when autoloadOnMessage is not set", async () => {
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveAutoloadOnMessage();
+
+    expect(result).toBe(false);
+  });
+
+  it("should return user values when set", async () => {
+    mockSettingsManager.getProjectSettings.mockReturnValue({
+      llamaSettings: {
+        reactToModelSelect: false,
+        autoloadOnMessage: true,
+      },
+    });
+
+    const { settings } = await import("../src/managers/settings");
+
+    expect(settings.resolveReactToModelSelect()).toBe(false);
+    expect(settings.resolveAutoloadOnMessage()).toBe(true);
+  });
+});
+
 describe("Thinking config resolution", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
 
