@@ -422,6 +422,109 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   });
 });
 
+describe("resolveServers", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
+
+  afterEach(() => {
+    delete process.env.LLAMA_SERVER_URL;
+    vi.resetModules();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
+  });
+
+  it("should use llamaSettings.servers when configured", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          { url: "http://custom:8080", id: "my-server", name: "Custom" },
+        ],
+      },
+    });
+
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].baseUrl).toBe("http://custom:8080");
+    expect(result[0].providerId).toBe("my-server");
+  });
+
+  it("should fall back to resolveUrls when servers is empty", async () => {
+    process.env.LLAMA_SERVER_URL = "http://env-server:9090";
+
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].baseUrl).toBe("http://env-server:9090");
+  });
+
+  it("should fall back to default URL when no config exists", () => {
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].baseUrl).toBe(LLAMA_SERVER_URL);
+  });
+
+  it("should apply id/name from llamaSettings.servers as overrides", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          { url: "http://127.0.0.1:8080", id: "custom-id", name: "Custom" },
+        ],
+      },
+    });
+
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].baseUrl).toBe("http://127.0.0.1:8080");
+    expect(result[0].providerId).toBe("custom-id");
+    expect(result[0].providerName).toBe(`Llama.cpp (Custom)`);
+  });
+
+  it("should handle multiple URLs with partial id/name overrides", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [{ url: "http://first:8080", id: "first-server" }],
+      },
+    });
+    process.env.LLAMA_SERVER_URL = "http://first:8080;http://second:9090";
+
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(2);
+    expect(result[0].baseUrl).toBe("http://first:8080");
+    expect(result[0].providerId).toBe("first-server");
+    expect(result[1].baseUrl).toBe("http://second:9090");
+    expect(result[1].providerId).toBe(`${PROVIDER_PREFIX}=http://second:9090`);
+  });
+
+  it("should prioritize env variable over global servers", async () => {
+    process.env.LLAMA_SERVER_URL = "http://env:8080";
+    mockGetGlobalSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [{ url: "http://global:9090" }],
+      },
+    });
+
+    const result = settings.resolveServers();
+
+    // env variable takes precedence via resolveUrls
+    expect(result).toHaveLength(1);
+    expect(result[0].baseUrl).toBe("http://env:8080");
+  });
+});
+
 describe("Thinking config resolution", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
 

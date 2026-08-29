@@ -112,13 +112,20 @@ export class LlamaSettingsManager {
 
   /**
    * Resolves the servers that this extension will use.
-   * Uses full `LlamaServer` objects with `id` support.
+   * Uses `resolveUrls()` as the source of truth for URLs (env > settings >
+   * legacy > default), then applies `id`/`name` from `llamaSettings.servers`
+   * as overrides when available.
    *
    * @returns A list of Server objects
    */
   resolveServers(): Server[] {
-    const { servers = [] } = this.llamaSettings;
-    return servers.map((s) => new Server(s.url, s.id, s.name));
+    const urls = this.resolveUrls();
+    const serverConfigs = this.llamaSettings.servers ?? [];
+
+    return urls.map((url) => {
+      const config = serverConfigs.find((s) => s.url === url);
+      return new Server(url, config?.id, config?.name);
+    });
   }
 
   /**
