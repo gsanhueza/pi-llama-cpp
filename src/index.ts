@@ -11,7 +11,7 @@ import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
 import { ServerManager } from "./managers/server";
-import { ConfigResolver } from "./resolver";
+import { ConfigResolver } from "./resolvers/config-resolver";
 import { Server } from "./server";
 
 export default async function (pi: ExtensionAPI) {

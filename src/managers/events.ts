@@ -5,7 +5,7 @@ import {
 import { READABLE_TIMEOUT } from "../constants";
 import { ModelSelectEvent } from "../interfaces/events";
 import { BaseModel } from "../models/baseModel";
-import { ConfigResolver } from "../resolver";
+import { ConfigResolver } from "../resolvers/config-resolver";
 import { Server } from "../server";
 
 export class EventManager {

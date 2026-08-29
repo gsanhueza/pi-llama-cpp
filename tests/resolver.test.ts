@@ -10,6 +10,8 @@ const mockReadStoredCredential = vi.hoisted(() => vi.fn());
 const mockSettingsManager = vi.hoisted(() => ({
   getProjectSettings: vi.fn(),
   getGlobalSettings: vi.fn(),
+  getDefaultThinkingLevel: vi.fn(),
+  getThinkingBudgets: vi.fn(),
 }));
 
 // Mock getAgentDir, readStoredCredential, and SettingsManager before importing resolver
@@ -29,7 +31,7 @@ vi.mock("node:fs/promises", () => ({
 // Import mocked modules
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
-import { ConfigResolver } from "../src/resolver";
+import { ConfigResolver } from "../src/resolvers/config-resolver";
 
 describe("URL resolution fallback chain", () => {
   const mockReadFile = vi.mocked(readFile);
@@ -180,5 +182,75 @@ describe("API key resolution", () => {
     expect(mockReadStoredCredential).toHaveBeenCalledWith(
       "llama-server=http://127.0.0.1:8080",
     );
+  });
+});
+
+describe("Thinking config resolution", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("medium");
+    mockSettingsManager.getThinkingBudgets.mockReturnValue({});
+  });
+
+  it("should return the default thinking level from SettingsManager", () => {
+    mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("low");
+
+    const resolver = new ConfigResolver();
+    const result = resolver.resolveThinkingLevel();
+
+    expect(result).toEqual("low");
+  });
+
+  it("should return thinking budgets merged with defaults", () => {
+    mockSettingsManager.getThinkingBudgets.mockReturnValue({
+      low: 4096,
+    });
+
+    const resolver = new ConfigResolver();
+    const result = resolver.resolveThinkingBudgets();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        low: 4096,
+        off: 0,
+        minimal: 1024,
+        medium: 8192,
+        high: 16384,
+        xhigh: 32768,
+        max: -1,
+      }),
+    );
+  });
+});
+
+describe("Warnings", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockReadFile = vi.mocked(readFile);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+  });
+
+  it("should return warnings from URL resolution", async () => {
+    mockReadFile.mockResolvedValue(JSON.stringify({ url: "http://old:8080" }));
+
+    const resolver = new ConfigResolver();
+    await resolver.resolveUrls();
+    const warnings = resolver.getWarnings();
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("deprecated");
   });
 });

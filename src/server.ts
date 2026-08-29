@@ -12,7 +12,7 @@ import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
-import { ConfigResolver } from "./resolver";
+import { ConfigResolver } from "./resolvers/config-resolver";
 import { SSEManager } from "./sse/manager";
 
 export class Server {
@@ -45,7 +45,7 @@ export class Server {
   }
 
   /**
-   * Retrieves the API key from the resolver
+   * Retrieves the API key from the config resolver
    * @returns The API key
    */
   async getApiKey(): Promise<string> {
