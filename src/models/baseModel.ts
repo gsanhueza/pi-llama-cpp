@@ -202,11 +202,31 @@ export abstract class BaseModel {
     await this.server.postRequest("load", this.id);
 
     if (await this.server.sseManager.probeSSE()) {
-      const { status, exit_code } =
-        await this.server.sseManager.subscribeToStatus(this.id);
+      try {
+        const { status, exit_code } =
+          await this.server.sseManager.subscribeToStatus(this.id);
 
-      if (status === "failed" || (status === "unloaded" && exit_code !== 0)) {
-        throw new Error(`Model loading failed: ${this.id}`);
+        if (status === "failed" || (status === "unloaded" && exit_code !== 0)) {
+          throw new Error(`Model loading failed: ${this.id}`);
+        }
+      } catch (err) {
+        // A real failed status from the server stays fatal.
+        if (
+          err instanceof Error &&
+          err.message.startsWith("Model loading failed")
+        ) {
+          throw err;
+        }
+        // An SSE timeout or connection failure is not proof the load failed:
+        // subscribeToStatus timers are only cleared by a terminal event on
+        // the same SSE connection, so a timer orphaned by a server restart
+        // or reconnect can fire during a later, healthy load. Check the
+        // model's real status over HTTP before surfacing an error.
+        await this.pollStatus();
+        const finalStatus = await this.getStatus();
+        if (finalStatus !== Status.LOADED && finalStatus !== Status.SLEEPING) {
+          throw new Error(`Model loading failed: ${this.id}`);
+        }
       }
     } else {
       await this.pollStatus();
