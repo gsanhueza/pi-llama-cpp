@@ -1,5 +1,9 @@
 import { ApiClient } from "./api/client";
-import { PROVIDER_NAME, PROVIDER_PREFIX } from "./constants";
+import {
+  API_KEY_PLACEHOLDER,
+  PROVIDER_NAME,
+  PROVIDER_PREFIX,
+} from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
 import { HealthEndpoint } from "./interfaces/endpoints/health";
@@ -20,7 +24,10 @@ export class Server {
   private apiClient!: ApiClient;
   private sse!: SSEManager;
 
-  constructor(readonly baseUrl: string) {}
+  constructor(
+    readonly baseUrl: string,
+    private readonly customId?: string,
+  ) {}
 
   /**
    * Provides access to the SSE manager for direct subscriptions.
@@ -31,9 +38,10 @@ export class Server {
 
   /**
    * Generates a unique provider ID from a server URL.
+   * Uses custom ID if provided, otherwise falls back to URL-based ID.
    */
   get providerId(): string {
-    return `${PROVIDER_PREFIX}=${this.baseUrl}`;
+    return this.customId ?? `${PROVIDER_PREFIX}=${this.baseUrl}`;
   }
 
   /**
@@ -44,12 +52,19 @@ export class Server {
   }
 
   /**
-   * Retrieves the API key from the config resolver
+   * Retrieves the API key from the config resolver.
+   * Tries custom ID first, then falls back to URL-based ID.
    *
    * @returns The API key
    */
   getApiKey(): string {
-    return settings.resolveApiKey(this.providerId);
+    // Try custom ID first
+    if (this.customId) {
+      const key = settings.resolveApiKey(this.customId);
+      if (key !== API_KEY_PLACEHOLDER) return key;
+    }
+    // Fall back to URL-based ID
+    return settings.resolveApiKey(`${PROVIDER_PREFIX}=${this.baseUrl}`);
   }
 
   /**

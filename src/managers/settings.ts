@@ -109,15 +109,14 @@ export class LlamaSettingsManager {
   }
 
   /**
-   * Resolves the servers that this extension will use
+   * Resolves the servers that this extension will use.
+   * Uses full `LlamaServer` objects with `id` support.
    *
    * @returns A list of Server objects
    */
   resolveServers(): Server[] {
-    const urls = this.resolveUrls();
-    const response = urls.map((url) => new Server(url));
-
-    return response;
+    const { servers = [] } = this.llamaSettings;
+    return servers.map((s) => new Server(s.url, s.id));
   }
 
   /**

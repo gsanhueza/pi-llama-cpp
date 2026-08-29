@@ -89,6 +89,8 @@ Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (g
 | `id`   | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>` |
 | `name` | string | No       | Display name for the server in the UI                                        |
 
+> **Note:** If you set a custom `id`, you can use it in `~/.pi/agent/auth.json`. The extension will also fall back to the URL-based ID if no key is found for the custom `id`.
+
 #### Settings Options
 
 | Option               | Type    | Default | Description                                          |

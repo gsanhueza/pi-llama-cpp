@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   API_KEY_PLACEHOLDER,
   DEFAULT_LLAMA_SERVER_URL,
+  PROVIDER_PREFIX,
 } from "../src/constants";
 import { settings } from "../src/managers/settings";
+import { Server } from "../src/server";
 
 // Hoisted mock instances — survives vi.resetModules()
 const mockReadStoredCredential = vi.hoisted(() => vi.fn());
@@ -306,6 +308,52 @@ describe("API key resolution", () => {
     expect(mockReadStoredCredential).toHaveBeenCalledWith(
       "llama-server=http://127.0.0.1:8080",
     );
+  });
+});
+
+describe("Server with custom id", () => {
+  it("should use custom id as providerId when provided", () => {
+    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+
+    expect(server.providerId).toEqual("my-custom-id");
+  });
+
+  it("should fall back to URL-based providerId when no custom id", () => {
+    const server = new Server("http://127.0.0.1:8080");
+
+    expect(server.providerId).toEqual(
+      `${PROVIDER_PREFIX}=http://127.0.0.1:8080`,
+    );
+  });
+
+  it("should try custom id first in getApiKey(), then fall back to URL-based", () => {
+    vi.clearAllMocks();
+    // Mock: custom id returns placeholder (no key found)
+    mockReadStoredCredential
+      .mockReturnValueOnce(API_KEY_PLACEHOLDER)
+      .mockReturnValueOnce({ key: "fallback-key" });
+
+    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+
+    const result = server.getApiKey();
+
+    expect(result).toEqual("fallback-key");
+    expect(mockReadStoredCredential).toHaveBeenNthCalledWith(1, "my-custom-id");
+    expect(mockReadStoredCredential).toHaveBeenNthCalledWith(
+      2,
+      `${PROVIDER_PREFIX}=http://127.0.0.1:8080`,
+    );
+  });
+
+  it("should return custom id key directly when found", () => {
+    mockReadStoredCredential.mockReturnValue({ key: "custom-key" });
+
+    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+
+    const result = server.getApiKey();
+
+    expect(result).toEqual("custom-key");
+    expect(mockReadStoredCredential).toHaveBeenCalledWith("my-custom-id");
   });
 });
 
