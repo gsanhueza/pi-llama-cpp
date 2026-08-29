@@ -27,6 +27,7 @@ export class Server {
   constructor(
     readonly baseUrl: string,
     private readonly customId?: string,
+    private readonly customName?: string,
   ) {}
 
   /**
@@ -46,8 +47,12 @@ export class Server {
 
   /**
    * Generates a human-readable provider name from a server URL.
+   * Uses custom name as suffix if provided.
    */
   get providerName(): string {
+    if (this.customName) {
+      return `${PROVIDER_NAME} (${this.customName})`;
+    }
     return `${PROVIDER_NAME} (${this.baseUrl})`;
   }
 

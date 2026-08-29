@@ -357,6 +357,35 @@ describe("Server with custom id", () => {
   });
 });
 
+describe("Server with custom name", () => {
+  it("should use custom name as suffix in providerName", () => {
+    const server = new Server(
+      "http://127.0.0.1:8080",
+      undefined,
+      "Remote Server",
+    );
+
+    expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);
+  });
+
+  it("should fall back to URL-based name when no custom name", () => {
+    const server = new Server("http://127.0.0.1:8080");
+
+    expect(server.providerName).toEqual(`Llama.cpp (http://127.0.0.1:8080)`);
+  });
+
+  it("should use custom name even with custom id", () => {
+    const server = new Server(
+      "http://127.0.0.1:8080",
+      "my-custom-id",
+      "Remote Server",
+    );
+
+    expect(server.providerId).toEqual("my-custom-id");
+    expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);
+  });
+});
+
 describe("Thinking config resolution", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
 

@@ -81,13 +81,15 @@ Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (g
 }
 ```
 
+With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** and **Llama.cpp (Remote Server)**.
+
 #### Server Options
 
 | Option | Type   | Required | Description                                                                  |
 | ------ | ------ | -------- | ---------------------------------------------------------------------------- |
 | `url`  | string | Yes      | The URL of the llama.cpp server                                              |
 | `id`   | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>` |
-| `name` | string | No       | Display name for the server in the UI                                        |
+| `name` | string | No       | Display name for the server in the UI (shown as `Llama.cpp — <name>`)        |
 
 > **Note:** If you set a custom `id`, you can use it in `~/.pi/agent/auth.json`. The extension will also fall back to the URL-based ID if no key is found for the custom `id`.
 

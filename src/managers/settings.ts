@@ -116,7 +116,7 @@ export class LlamaSettingsManager {
    */
   resolveServers(): Server[] {
     const { servers = [] } = this.llamaSettings;
-    return servers.map((s) => new Server(s.url, s.id));
+    return servers.map((s) => new Server(s.url, s.id, s.name));
   }
 
   /**
