@@ -4,6 +4,11 @@
 export const PROVIDER_PREFIX = "llama-server";
 
 /**
+ * The settings key used in project/global settings.
+ */
+export const SETTINGS_KEY = "llamaSettings";
+
+/**
  * This provider's name
  */
 export const PROVIDER_NAME = "Llama.cpp";

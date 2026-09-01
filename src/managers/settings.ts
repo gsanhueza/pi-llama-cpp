@@ -10,12 +10,11 @@ import {
   POLLING_TIMEOUT,
   REACT_TO_MODEL_SELECT,
   SERVER_TIMEOUT,
+  SETTINGS_KEY,
   THINKING_BUDGETS,
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
-
-const SETTINGS_KEY = "llamaSettings";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
