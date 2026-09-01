@@ -29,6 +29,7 @@ interface LlamaServer {
  *   }],
  *   "reactToModelSelect": true
  *   "autoloadOnMessage": false
+ *   "sortBy": "asc"
  * }
 }
  */
@@ -57,4 +58,9 @@ export interface LlamaSettings {
    * @default 1000
    */
   serverTimeout?: number;
+  /**
+   * How to sort models in the /models command.
+   * @default "asc"
+   */
+  sortBy?: "asc" | "desc" | "asc-name" | "desc-name" | "api";
 }

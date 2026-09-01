@@ -7,6 +7,7 @@ import { createMockModel, createMockServer } from "./mocks";
 const mockSettings = {
   resolveReactToModelSelect: vi.fn(() => true),
   resolveAutoloadOnMessage: vi.fn(() => false),
+  resolveSortBy: vi.fn(() => "asc"),
   resolveThinkingLevel: vi.fn(() => "medium"),
   resolveThinkingBudgets: vi.fn(() => ({ ...THINKING_BUDGETS })),
 };

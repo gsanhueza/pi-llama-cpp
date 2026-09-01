@@ -94,9 +94,7 @@ export class Server {
       [Mode.SINGLE]: SingleModel,
     }[mode];
 
-    const models: BaseModel[] = data
-      .map((m) => new modelCtor(m, this))
-      .sort((a, b) => (a.id > b.id ? 1 : a.id === b.id ? 0 : -1));
+    const models: BaseModel[] = data.map((m) => new modelCtor(m, this));
 
     this.models.length = 0;
     this.models.push(...models);

@@ -77,6 +77,7 @@ Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (g
     ],
     "reactToModelSelect": true,
     "autoloadOnMessage": false,
+    "sortBy": "asc",
     "pollingTimeout": 60000,
     "serverTimeout": 1000
   }
@@ -101,6 +102,7 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 | -------------------- | ------- | ------- | ------------------------------------------------------------- |
 | `reactToModelSelect` | boolean | `true`  | Load the model when you switch via Pi's model picker.         |
 | `autoloadOnMessage`  | boolean | `false` | Automatically load an unloaded model before sending a message |
+| `sortBy`             | string  | `"asc"` | Sort order for models (see below)                             |
 | `pollingTimeout`     | number  | `60000` | Max time (ms) to wait for model loading before giving up      |
 | `serverTimeout`      | number  | `1000`  | Timeout (ms) for server health checks and SSE probes          |
 
@@ -220,6 +222,18 @@ The extension determines the context size as follows:
 > **Note:** When a llama.cpp server is unreachable, `/models` displays an error notification with the configured server URL, but healthy servers continue to show their models.
 
 > **Note:** The `/models unload` command only makes sense in router mode.
+
+#### Model sorting
+
+The order of models in the `/models` menu is controlled by the `sortBy` setting:
+
+| Value         | Description                                                                             |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `"asc"`       | Sort by model ID ascending (default)                                                    |
+| `"desc"`      | Sort by model ID descending                                                             |
+| `"asc-name"`  | Sort by model name ascending (ties broken by ID)                                        |
+| `"desc-name"` | Sort by model name descending (ties broken by ID)                                       |
+| `"api"`       | No sorting — models appear in the order returned by each server's `/v1/models` endpoint |
 
 ### Model Actions
 

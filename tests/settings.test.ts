@@ -409,6 +409,14 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
     expect(result).toBe(false);
   });
 
+  it("should return 'asc' when sortBy is not set", async () => {
+    const { settings } = await import("../src/managers/settings");
+
+    const result = settings.resolveSortBy();
+
+    expect(result).toBe("asc");
+  });
+
   it("should return user values when set", async () => {
     mockSettingsManager.getProjectSettings.mockReturnValue({
       llamaSettings: {

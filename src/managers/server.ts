@@ -130,12 +130,33 @@ export class ServerManager {
   }
 
   /**
-   * Returns all models from all servers.
+   * Returns all models from all servers, sorted by the configured sort mode.
    *
    * @returns Flat array of all models across all servers
    */
   getAllModels(): BaseModel[] {
-    const response = [];
+    const sortBy = settings.resolveSortBy();
+    const allModels = this.flattenModels();
+
+    if (sortBy === "api") return allModels;
+
+    const sorters = {
+      asc: this.sortByIdAsc,
+      desc: this.sortByIdDesc,
+      "asc-name": this.sortByNameAsc,
+      "desc-name": this.sortByNameDesc,
+    };
+
+    return allModels.sort(sorters[sortBy]);
+  }
+
+  /**
+   * Flattens all models from all servers into a single array.
+   *
+   * @returns Flat array of all models across all servers
+   */
+  private flattenModels(): BaseModel[] {
+    const response: BaseModel[] = [];
 
     for (const { models } of this.servers) {
       for (const model of models) {
@@ -145,4 +166,40 @@ export class ServerManager {
 
     return response;
   }
+
+  /**
+   * Sorts models by ID in ascending order.
+   *
+   * @returns Negative if a < b, zero if equal, positive if a > b
+   */
+  private sortByIdAsc = (a: BaseModel, b: BaseModel): number =>
+    a.id.localeCompare(b.id);
+
+  /**
+   * Sorts models by ID in descending order.
+   *
+   * @returns Negative if a > b, zero if equal, positive if a < b
+   */
+  private sortByIdDesc = (a: BaseModel, b: BaseModel): number =>
+    b.id.localeCompare(a.id);
+
+  /**
+   * Sorts models by name in ascending order, with ID as tiebreaker.
+   *
+   * @returns Negative if a < b, zero if equal, positive if a > b
+   */
+  private sortByNameAsc = (a: BaseModel, b: BaseModel): number => {
+    const cmp = a.name.localeCompare(b.name);
+    return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+  };
+
+  /**
+   * Sorts models by name in descending order, with ID as tiebreaker.
+   *
+   * @returns Negative if a > b, zero if equal, positive if a < b
+   */
+  private sortByNameDesc = (a: BaseModel, b: BaseModel): number => {
+    const cmp = b.name.localeCompare(a.name);
+    return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+  };
 }

@@ -11,6 +11,7 @@ import {
   REACT_TO_MODEL_SELECT,
   SERVER_TIMEOUT,
   SETTINGS_KEY,
+  SORT_BY,
   THINKING_BUDGETS,
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
@@ -196,6 +197,15 @@ export class LlamaSettingsManager {
       pollingTimeout: this.llamaSettings.pollingTimeout ?? POLLING_TIMEOUT,
       serverTimeout: this.llamaSettings.serverTimeout ?? SERVER_TIMEOUT,
     };
+  }
+
+  /**
+   * Resolves the sort order for model lists.
+   *
+   * @returns The sort order: "asc", "desc", "asc-name", "desc-name", or "api"
+   */
+  resolveSortBy(): "asc" | "desc" | "asc-name" | "desc-name" | "api" {
+    return this.llamaSettings.sortBy ?? SORT_BY;
   }
 }
 

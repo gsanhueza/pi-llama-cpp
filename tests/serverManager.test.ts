@@ -4,6 +4,21 @@ import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
 import { createMockServer, mockRpc } from "./mocks";
 
+const mockSettings = vi.hoisted(() => ({
+  resolveSortBy: vi.fn(() => "asc"),
+  resolveTimeouts: vi.fn(() => ({ pollingTimeout: 5000, serverTimeout: 1000 })),
+  resolveUrls: vi.fn(() => []),
+}));
+
+vi.mock("../src/managers/settings", () => ({
+  settings: mockSettings,
+}));
+
+const getSettings = () =>
+  vi.mocked(require("../src/managers/settings").settings) as {
+    resolveSortBy: () => "asc" | "desc" | "api";
+  };
+
 const mockPi = {
   registerProvider: vi.fn(),
   registerCommand: vi.fn(),
@@ -126,5 +141,127 @@ describe("ServerManager", () => {
     expect(allModels).toHaveLength(2);
     expect(allModels[0]).toBe(mockModel1);
     expect(allModels[1]).toBe(mockModel2);
+  });
+
+  describe("sortBy", () => {
+    const getSettings = () =>
+      vi.mocked(mockSettings) as {
+        resolveSortBy: () => "asc" | "desc" | "asc-name" | "desc-name" | "api";
+      };
+
+    it("should return models in API order when sortBy is 'api'", () => {
+      vi.mocked(getSettings().resolveSortBy).mockReturnValue("api");
+
+      const mockModelA = {
+        name: "model-a",
+        id: "model-a",
+      } as unknown as BaseModel;
+      const mockModelZ = {
+        name: "model-z",
+        id: "model-z",
+      } as unknown as BaseModel;
+      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
+      const manager = new ServerManager([
+        { ...server, models: [mockModelA, mockModelZ] } as any,
+      ] as any);
+
+      const allModels = manager.getAllModels();
+
+      expect(allModels).toHaveLength(2);
+      expect(allModels[0]).toBe(mockModelA);
+      expect(allModels[1]).toBe(mockModelZ);
+    });
+
+    it("should sort models by ID ascending when sortBy is 'asc'", () => {
+      vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc");
+
+      const mockModelZ = {
+        name: "model-z",
+        id: "model-z",
+      } as unknown as BaseModel;
+      const mockModelA = {
+        name: "model-a",
+        id: "model-a",
+      } as unknown as BaseModel;
+      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
+      const manager = new ServerManager([
+        { ...server, models: [mockModelZ, mockModelA] } as any,
+      ] as any);
+
+      const allModels = manager.getAllModels();
+
+      expect(allModels).toHaveLength(2);
+      expect(allModels[0]).toBe(mockModelA);
+      expect(allModels[1]).toBe(mockModelZ);
+    });
+
+    it("should sort models by ID descending when sortBy is 'desc'", () => {
+      vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc");
+
+      const mockModelA = {
+        name: "model-a",
+        id: "model-a",
+      } as unknown as BaseModel;
+      const mockModelZ = {
+        name: "model-z",
+        id: "model-z",
+      } as unknown as BaseModel;
+      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
+      const manager = new ServerManager([
+        { ...server, models: [mockModelA, mockModelZ] } as any,
+      ] as any);
+
+      const allModels = manager.getAllModels();
+
+      expect(allModels).toHaveLength(2);
+      expect(allModels[0]).toBe(mockModelZ);
+      expect(allModels[1]).toBe(mockModelA);
+    });
+
+    it("should sort models by name ascending when sortBy is 'asc-name'", () => {
+      vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc-name");
+
+      const mockModelB = {
+        name: "zebra",
+        id: "model-b",
+      } as unknown as BaseModel;
+      const mockModelA = {
+        name: "alpha",
+        id: "model-a",
+      } as unknown as BaseModel;
+      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
+      const manager = new ServerManager([
+        { ...server, models: [mockModelB, mockModelA] } as any,
+      ] as any);
+
+      const allModels = manager.getAllModels();
+
+      expect(allModels).toHaveLength(2);
+      expect(allModels[0]).toBe(mockModelA);
+      expect(allModels[1]).toBe(mockModelB);
+    });
+
+    it("should sort models by name descending when sortBy is 'desc-name'", () => {
+      vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc-name");
+
+      const mockModelA = {
+        name: "alpha",
+        id: "model-a",
+      } as unknown as BaseModel;
+      const mockModelB = {
+        name: "zebra",
+        id: "model-b",
+      } as unknown as BaseModel;
+      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
+      const manager = new ServerManager([
+        { ...server, models: [mockModelA, mockModelB] } as any,
+      ] as any);
+
+      const allModels = manager.getAllModels();
+
+      expect(allModels).toHaveLength(2);
+      expect(allModels[0]).toBe(mockModelB);
+      expect(allModels[1]).toBe(mockModelA);
+    });
   });
 });
