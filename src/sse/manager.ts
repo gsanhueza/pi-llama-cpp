@@ -1,4 +1,4 @@
-import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../constants";
+import { settings } from "../managers/settings";
 import { SSEClient } from "./client";
 import {
   DownloadProgressData,
@@ -27,8 +27,23 @@ export class SSEManager {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    readonly serverTimeout: number = SERVER_TIMEOUT,
   ) {}
+
+  /**
+   * Maximum time (ms) for server verification and SSE support probe.
+   * Resolved live from the settings singleton.
+   */
+  get serverTimeout(): number {
+    return settings.resolveTimeouts().serverTimeout;
+  }
+
+  /**
+   * Maximum time (ms) to wait for model loading before giving up.
+   * Resolved live from the settings singleton.
+   */
+  get pollingTimeout(): number {
+    return settings.resolveTimeouts().pollingTimeout;
+  }
 
   /**
    * The SSE endpoint URL.
@@ -171,7 +186,7 @@ export class SSEManager {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error(`SSE status timeout for model: ${modelId}`)),
-        POLLING_TIMEOUT,
+        this.pollingTimeout,
       );
 
       this.subscribeToSSE(modelId, (event: SSEEvent) => {

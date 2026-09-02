@@ -121,19 +121,12 @@ export class LlamaSettingsManager {
    * @returns A list of Server objects
    */
   resolveServers(): Server[] {
-    const { pollingTimeout, serverTimeout } = this.resolveTimeouts();
     const urls = this.resolveUrls();
     const serverConfigs = this.llamaSettings.servers ?? [];
 
     return urls.map((url) => {
       const config = serverConfigs.find((s) => s.url === url);
-      return new Server(
-        url,
-        config?.id,
-        config?.name,
-        serverTimeout,
-        pollingTimeout,
-      );
+      return new Server(url, config?.id, config?.name);
     });
   }
 

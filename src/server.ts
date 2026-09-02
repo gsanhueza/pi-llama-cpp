@@ -1,10 +1,8 @@
 import { ApiClient } from "./api/client";
 import {
   API_KEY_PLACEHOLDER,
-  POLLING_TIMEOUT,
   PROVIDER_NAME,
   PROVIDER_PREFIX,
-  SERVER_TIMEOUT,
 } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
@@ -30,9 +28,23 @@ export class Server {
     readonly baseUrl: string,
     private readonly customId?: string,
     private readonly customName?: string,
-    readonly serverTimeout: number = SERVER_TIMEOUT,
-    readonly pollingTimeout: number = POLLING_TIMEOUT,
   ) {}
+
+  /**
+   * Maximum time (ms) for server verification and SSE support probe.
+   * Resolved live from the settings singleton.
+   */
+  get serverTimeout(): number {
+    return settings.resolveTimeouts().serverTimeout;
+  }
+
+  /**
+   * Maximum time (ms) to wait for model loading before giving up.
+   * Resolved live from the settings singleton.
+   */
+  get pollingTimeout(): number {
+    return settings.resolveTimeouts().pollingTimeout;
+  }
 
   /**
    * Provides access to the SSE manager for direct subscriptions.
@@ -81,9 +93,9 @@ export class Server {
    * Clears the cache first so we always fetch fresh data.
    */
   async initialize() {
-    const apiKey = await this.getApiKey();
+    const apiKey = this.getApiKey();
     this.apiClient = new ApiClient(this.baseUrl, apiKey);
-    this.sse = new SSEManager(this.baseUrl, apiKey, this.serverTimeout);
+    this.sse = new SSEManager(this.baseUrl, apiKey);
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 

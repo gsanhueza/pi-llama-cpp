@@ -95,7 +95,7 @@ export class ServerManager {
    */
   private async registerProvider(server: Server, pi: ExtensionAPI) {
     const { baseUrl, models, providerId, providerName } = server;
-    const apiKey = await server.getApiKey();
+    const apiKey = server.getApiKey();
     const modelConfigs = await Promise.all(
       models.map((m) => m.toProviderConfig()),
     );
