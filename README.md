@@ -108,6 +108,22 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 
 > **Note:** `serverTimeout` controls individual HTTP request timeouts (health checks, SSE probe). `pollingTimeout` controls the total wait time for a model to finish loading. Increase `serverTimeout` for slow/high-latency servers, and `pollingTimeout` for large models or slow hardware.
 
+#### In-session settings menu
+
+Run `/models settings` to edit the scalar settings above without hand-editing JSON:
+
+- **Enter/Space** cycles the value under the cursor; **Esc** closes the menu.
+- Booleans toggle `on`/`off`, `sortBy` cycles through the sort orders, and the
+  timeouts cycle through presets (`pollingTimeout`: 15s/30s/60s/120s/300s,
+  `serverTimeout`: 500ms/1s/2s/5s/10s).
+- Changes are written to the **global** `~/.pi/agent/settings.json` only. If a
+  project `.pi/settings.json` defines the same key, its value keeps winning in
+  the merged view until you remove it there.
+- Boolean and sort changes apply immediately; timeout changes apply on the next
+  model load.
+- The `servers` list is not editable from the menu — add or rename servers by
+  editing the JSON directly.
+
 #### Environment variable
 
 For a quick setup, you can use the `LLAMA_SERVER_URL` environment variable instead of the JSON config:
@@ -211,11 +227,12 @@ The extension determines the context size as follows:
 
 ### Commands
 
-| Command          | Description                                                                        |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `/models`        | Browse your models with live status. Select a model to load, switch, or unload it. |
-| `/models info`   | Show detailed information for all available models at once.                        |
-| `/models unload` | Unload all loaded models at once.                                                  |
+| Command            | Description                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `/models`          | Browse your models with live status. Select a model to load, switch, or unload it. |
+| `/models info`     | Show detailed information for all available models at once.                        |
+| `/models unload`   | Unload all loaded models at once.                                                  |
+| `/models settings` | Open a menu to edit the scalar `llamaSettings` fields.                             |
 
 > **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.
 

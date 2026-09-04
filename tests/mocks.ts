@@ -72,10 +72,12 @@ export const createMockModel = (
 export const createMockCtx = (
   selectFn: (prompt: string, options: string[]) => string | null,
 ) => ({
+  mode: "tui",
   cwd: "/tmp/test",
   ui: {
     select: vi.fn(selectFn),
     notify: vi.fn(),
+    custom: vi.fn(),
     theme: {
       fg: (color: string, text: string) => text,
     },

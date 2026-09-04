@@ -1,15 +1,141 @@
-import type {
-  ExtensionAPI,
-  ExtensionCommandContext,
+import {
+  getSettingsListTheme,
+  type ExtensionAPI,
+  type ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { AutocompleteItem } from "@earendil-works/pi-tui";
+import {
+  AutocompleteItem,
+  SettingsList,
+  type SettingItem,
+} from "@earendil-works/pi-tui";
 import { PROVIDER_NAME } from "../constants";
 import { Action } from "../enums/action";
 import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
+import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
+import { settings } from "./settings";
+
+/**
+ * Identifiers of the editable fields shown in `/models settings`.
+ * Values match the scalar `LlamaSettings` keys.
+ */
+export enum Options {
+  REACT_TO_MODEL_SELECT = "reactToModelSelect",
+  AUTOLOAD_ON_MESSAGE = "autoloadOnMessage",
+  SORT_BY = "sortBy",
+  POLLING_TIMEOUT = "pollingTimeout",
+  SERVER_TIMEOUT = "serverTimeout",
+}
+
+type SortByValue = NonNullable<LlamaSettings["sortBy"]>;
+
+const SORT_VALUES: SortByValue[] = [
+  "asc",
+  "desc",
+  "asc-name",
+  "desc-name",
+  "api",
+];
+
+/** Presets (ms) for `pollingTimeout` */
+const POLLING_PRESETS = [15000, 30000, 60000, 120000, 300000];
+
+/** Presets (ms) for `serverTimeout` */
+const SERVER_PRESETS = [500, 1000, 2000, 5000, 10000];
+
+/**
+ * Formats milliseconds compactly for display (e.g. `500 -> "500ms"`,
+ * `60000 -> "60s"`).
+ */
+export const formatMs = (ms: number): string =>
+  ms % 1000 === 0 ? `${ms / 1000}s` : `${ms}ms`;
+
+/**
+ * Parses a value produced by `formatMs()` back to milliseconds.
+ * Only ever called with values from the preset lists.
+ */
+const parseMs = (value: string): number =>
+  value.endsWith("ms")
+    ? Number(value.slice(0, -2))
+    : Number(value.slice(0, -1)) * 1000;
+
+/**
+ * Builds the `SettingsList` items for `/models settings` from the current
+ * (merged) values of the scalar `llamaSettings` fields.
+ */
+export const buildSettingsItems = (): SettingItem[] => {
+  const { pollingTimeout, serverTimeout } = settings.resolveTimeouts();
+
+  return [
+    {
+      id: Options.REACT_TO_MODEL_SELECT,
+      label: "React to model selection",
+      description: "Load the model when you pick it in Pi (immediate)",
+      currentValue: settings.resolveReactToModelSelect() ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
+      id: Options.AUTOLOAD_ON_MESSAGE,
+      label: "Autoload on message",
+      description:
+        "Auto-load the selected model when you send a message (immediate)",
+      currentValue: settings.resolveAutoloadOnMessage() ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
+      id: Options.SORT_BY,
+      label: "Sort models by",
+      description: "Order of models in /models (next open)",
+      currentValue: settings.resolveSortBy(),
+      values: [...SORT_VALUES],
+    },
+    {
+      id: Options.POLLING_TIMEOUT,
+      label: "Polling timeout",
+      description: "Max model-load wait (next model load)",
+      currentValue: formatMs(pollingTimeout),
+      values: POLLING_PRESETS.map(formatMs),
+    },
+    {
+      id: Options.SERVER_TIMEOUT,
+      label: "Server timeout",
+      description: "Health check / SSE probe timeout (next model load)",
+      currentValue: formatMs(serverTimeout),
+      values: SERVER_PRESETS.map(formatMs),
+    },
+  ];
+};
+
+/**
+ * Persists a change made in the settings menu.
+ * Maps the `SettingsList` id/value pair to the matching `llamaSettings`
+ * key and writes it via `LlamaSettingsManager.setLlamaSetting()`.
+ */
+export const applySettingChange = async (
+  id: string,
+  newValue: string,
+): Promise<void> => {
+  switch (id) {
+    case Options.REACT_TO_MODEL_SELECT:
+      await settings.setLlamaSetting("reactToModelSelect", newValue === "on");
+      return;
+    case Options.AUTOLOAD_ON_MESSAGE:
+      await settings.setLlamaSetting("autoloadOnMessage", newValue === "on");
+      return;
+    case Options.SORT_BY:
+      await settings.setLlamaSetting("sortBy", newValue as SortByValue);
+      return;
+    case Options.POLLING_TIMEOUT:
+      await settings.setLlamaSetting("pollingTimeout", parseMs(newValue));
+      return;
+    case Options.SERVER_TIMEOUT:
+      await settings.setLlamaSetting("serverTimeout", parseMs(newValue));
+      return;
+  }
+};
 
 export class CommandManager {
   constructor(private readonly serverManager: ServerManager) {}
@@ -32,6 +158,11 @@ export class CommandManager {
         label: "unload",
         description: "Unload all models",
       },
+      {
+        value: "settings",
+        label: "settings",
+        description: "Configure llamaSettings",
+      },
     ];
     const filtered = available.filter((a) => a.value.startsWith(prefix));
     return filtered.length > 0 ? filtered : null;
@@ -49,6 +180,13 @@ export class CommandManager {
     ctx: ExtensionCommandContext,
     pi: ExtensionAPI,
   ) {
+    // Settings menu: no network round-trip needed, handle before any
+    // server updates / unreachable-server notifications
+    if (args === "settings") {
+      await this.runSettingsMenu(ctx);
+      return;
+    }
+
     // Re-register providers so Pi sees updated model states
     await this.serverManager.update(pi);
 
@@ -75,6 +213,42 @@ export class CommandManager {
 
     // Interactive menu: show <name> (<server_url>)
     await this.runModelsMenu(ctx, pi);
+  }
+
+  /**
+   * Runs the interactive settings menu for the scalar `llamaSettings`
+   * fields. Enter/Space cycles the value under the cursor; Esc closes.
+   *
+   * Writes go to the global `~/.pi/agent/settings.json` via
+   * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified
+   * and leave the dialog open with values unchanged.
+   */
+  private async runSettingsMenu(ctx: ExtensionCommandContext): Promise<void> {
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify(
+        "/models settings requires an interactive session (TUI)",
+        "warning",
+      );
+      return;
+    }
+
+    const items = buildSettingsItems();
+
+    await ctx.ui.custom<void>(
+      (_tui, _theme, _kb, done) =>
+        new SettingsList(
+          items,
+          Math.min(items.length + 2, 15),
+          getSettingsListTheme(),
+          (id, newValue) => {
+            applySettingChange(id, newValue).catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              ctx.ui.notify(message, "error");
+            });
+          },
+          () => done(undefined),
+        ),
+    );
   }
 
   /**

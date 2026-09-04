@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action } from "../src/enums/action";
-import { CommandManager } from "../src/managers/command";
+import {
+  applySettingChange,
+  buildSettingsItems,
+  CommandManager,
+  formatMs,
+} from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
+import { settings } from "../src/managers/settings";
 import {
   createMockCtx,
   createMockModel,
@@ -29,8 +35,12 @@ describe("CommandManager", () => {
   describe("getArgumentCompletions", () => {
     it("should provide completions for /models", () => {
       const completions = commandManager.getArgumentCompletions("");
-      expect(completions).toHaveLength(2);
-      expect(completions?.map((c) => c.value)).toEqual(["info", "unload"]);
+      expect(completions).toHaveLength(3);
+      expect(completions?.map((c) => c.value)).toEqual([
+        "info",
+        "unload",
+        "settings",
+      ]);
     });
 
     it("should filter completions by prefix", () => {
@@ -42,6 +52,11 @@ describe("CommandManager", () => {
     it("should return null when no completions match", () => {
       const completions = commandManager.getArgumentCompletions("zzz");
       expect(completions).toBeNull();
+    });
+
+    it("should provide the settings completion by prefix", () => {
+      const completions = commandManager.getArgumentCompletions("s");
+      expect(completions?.map((c) => c.value)).toEqual(["settings"]);
     });
   });
 
@@ -94,6 +109,80 @@ describe("CommandManager", () => {
 
       expect(model1.getInfo).toHaveBeenCalled();
       expect(model2.getInfo).toHaveBeenCalled();
+    });
+  });
+
+  describe("settings menu helpers", () => {
+    it("should format milliseconds compactly", () => {
+      expect(formatMs(500)).toBe("500ms");
+      expect(formatMs(60000)).toBe("60s");
+      expect(formatMs(1500)).toBe("1500ms");
+    });
+
+    it("should build one item per editable scalar field", () => {
+      const items = buildSettingsItems();
+      expect(items.map((i) => i.id)).toEqual([
+        "reactToModelSelect",
+        "autoloadOnMessage",
+        "sortBy",
+        "pollingTimeout",
+        "serverTimeout",
+      ]);
+      // Booleans are displayed as on/off
+      expect(items[0].values).toEqual(["on", "off"]);
+      // Timeouts cycle through formatted presets
+      expect(items[3].values).toEqual(["15s", "30s", "60s", "120s", "300s"]);
+      expect(items[4].values).toEqual(["500ms", "1s", "2s", "5s", "10s"]);
+    });
+
+    it("should map changes to the right key and type", async () => {
+      const spy = vi
+        .spyOn(settings, "setLlamaSetting")
+        .mockResolvedValue(undefined);
+
+      await applySettingChange("reactToModelSelect", "on");
+      expect(spy).toHaveBeenCalledWith("reactToModelSelect", true);
+
+      await applySettingChange("autoloadOnMessage", "off");
+      expect(spy).toHaveBeenCalledWith("autoloadOnMessage", false);
+
+      await applySettingChange("sortBy", "desc-name");
+      expect(spy).toHaveBeenCalledWith("sortBy", "desc-name");
+
+      await applySettingChange("pollingTimeout", "120s");
+      expect(spy).toHaveBeenCalledWith("pollingTimeout", 120000);
+
+      await applySettingChange("serverTimeout", "500ms");
+      expect(spy).toHaveBeenCalledWith("serverTimeout", 500);
+
+      spy.mockRestore();
+    });
+  });
+
+  describe("/models settings menu", () => {
+    it("should open the settings menu without touching servers", async () => {
+      const updateSpy = vi
+        .spyOn(serverManager, "update")
+        .mockResolvedValue(undefined);
+      const ctx = createMockCtx(() => null);
+
+      await commandManager.handleCommand("settings", ctx as any, mockPi as any);
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(ctx.ui.notify).not.toHaveBeenCalled();
+      expect(ctx.ui.custom).toHaveBeenCalledTimes(1);
+    });
+
+    it("should notify instead of opening the menu outside the TUI", async () => {
+      const ctx = { ...createMockCtx(() => null), mode: "rpc" } as any;
+
+      await commandManager.handleCommand("settings", ctx, mockPi as any);
+
+      expect(ctx.ui.custom).not.toHaveBeenCalled();
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        "/models settings requires an interactive session (TUI)",
+        "warning",
+      );
     });
   });
 
