@@ -1,3 +1,4 @@
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   API_KEY_PLACEHOLDER,
@@ -17,6 +18,7 @@ const mockSettingsManager = vi.hoisted(() => ({
   getGlobalSettings: vi.fn(),
   getDefaultThinkingLevel: vi.fn(),
   getThinkingBudgets: vi.fn(),
+  reload: vi.fn(),
 }));
 
 // Mock getAgentDir, readStoredCredential, and SettingsManager before importing resolver
@@ -31,6 +33,8 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 
 vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
+  writeFile: vi.fn(),
+  rename: vi.fn(),
 }));
 
 // Import mocked modules
@@ -640,5 +644,112 @@ describe("Thinking config resolution", () => {
         max: -1,
       }),
     );
+  });
+});
+
+describe("setLlamaSetting", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
+  const mockReload = vi.mocked(mockSettingsManager.reload);
+  const mockReadFile = vi.mocked(readFile);
+  const mockWriteFile = vi.mocked(writeFile);
+  const mockRename = vi.mocked(rename);
+
+  const SETTINGS_PATH = "/fake/agent/dir/settings.json";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
+    mockReload.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue("{}");
+    mockWriteFile.mockResolvedValue(undefined);
+    mockRename.mockResolvedValue(undefined);
+  });
+
+  it("should write the merged llamaSettings key atomically and reload", async () => {
+    mockReadFile.mockResolvedValue(
+      JSON.stringify(
+        { unrelated: true, llamaSettings: { reactToModelSelect: true } },
+        null,
+        2,
+      ),
+    );
+
+    await settings.setLlamaSetting("sortBy", "desc");
+
+    expect(mockWriteFile).toHaveBeenCalledTimes(1);
+    const [tmpPath, written, encoding] = mockWriteFile.mock.calls[0];
+    expect(tmpPath).toBe(`${SETTINGS_PATH}.tmp`);
+    expect(encoding).toBe("utf-8");
+    const parsed = JSON.parse(written as string);
+    expect(parsed).toEqual({
+      unrelated: true,
+      llamaSettings: { reactToModelSelect: true, sortBy: "desc" },
+    });
+    expect(mockRename).toHaveBeenCalledWith(
+      `${SETTINGS_PATH}.tmp`,
+      SETTINGS_PATH,
+    );
+    expect(mockReload).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reflect the new value in resolvers immediately after the write", async () => {
+    mockSettingsManager.reload.mockImplementation(async () => {
+      mockGetGlobalSettings.mockReturnValue({
+        llamaSettings: { sortBy: "desc" },
+      });
+    });
+
+    await settings.setLlamaSetting("sortBy", "desc");
+
+    expect(settings.resolveSortBy()).toBe("desc");
+  });
+
+  it("should reject and skip reload when the write fails", async () => {
+    mockWriteFile.mockRejectedValue(new Error("ENOSPC: simulated"));
+
+    await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
+      "ENOSPC",
+    );
+    expect(mockReload).not.toHaveBeenCalled();
+  });
+
+  it("should reject and leave the file untouched when the JSON is invalid", async () => {
+    mockReadFile.mockResolvedValue("{ broken");
+
+    await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
+      /Cannot parse/,
+    );
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockReload).not.toHaveBeenCalled();
+  });
+
+  it("should persist booleans and numbers with type fidelity", async () => {
+    await settings.setLlamaSetting("reactToModelSelect", false);
+
+    const [, firstWrite] = mockWriteFile.mock.calls[0];
+    expect(JSON.parse(firstWrite as string)).toEqual({
+      llamaSettings: { reactToModelSelect: false },
+    });
+
+    await settings.setLlamaSetting("pollingTimeout", 120000);
+
+    const [, secondWrite] = mockWriteFile.mock.calls[1];
+    expect(JSON.parse(secondWrite as string)).toEqual({
+      llamaSettings: { pollingTimeout: 120000 },
+    });
+  });
+
+  it("should still construct the manager without arguments", async () => {
+    const { LlamaSettingsManager } = await import("../src/managers/settings");
+
+    expect(() => new LlamaSettingsManager()).not.toThrow();
   });
 });

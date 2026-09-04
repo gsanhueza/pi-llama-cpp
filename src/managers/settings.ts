@@ -16,9 +16,12 @@ import {
 } from "../constants";
 import { LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
+import { SettingsStore } from "../utils/settingsStore";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
+
+  constructor(private readonly store: SettingsStore = new SettingsStore()) {}
 
   /**
    * Convenience getter for merged project/global settings
@@ -199,6 +202,27 @@ export class LlamaSettingsManager {
    */
   resolveSortBy(): "asc" | "desc" | "asc-name" | "desc-name" | "api" {
     return this.llamaSettings.sortBy ?? SORT_BY;
+  }
+
+  /**
+   * Persists one llamaSettings field to the global settings file and
+   * reloads the in-memory settings so resolvers see the change immediately.
+   *
+   * Rejects if the file can't be read (e.g. invalid JSON) or written —
+   * in-memory state stays consistent (reload only on success).
+   */
+  async setLlamaSetting<K extends keyof LlamaSettings>(
+    key: K,
+    value: LlamaSettings[K],
+  ): Promise<void> {
+    await this.store.updateKey(SETTINGS_KEY, (current) => {
+      const merged =
+        typeof current === "object" && current !== null
+          ? (current as Record<string, unknown>)
+          : {};
+      return { ...merged, [key]: value };
+    });
+    await this.settingsManager.reload();
   }
 }
 
