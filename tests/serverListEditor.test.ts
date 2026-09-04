@@ -5,8 +5,10 @@ import type { LlamaServer } from "../src/interfaces/settings";
 import {
   ServerListEditor,
   addServer,
+  formatServerSuffix,
   normalizeServerUrl,
   removeServer,
+  updateServerField,
   updateServerUrl,
 } from "../src/ui/serverListEditor";
 
@@ -117,6 +119,63 @@ describe("server URL helpers", () => {
     });
   });
 
+  describe("updateServerField", () => {
+    it("should set id and name immutably", () => {
+      const servers: LlamaServer[] = [{ url: "http://a:1" }];
+
+      const withId = updateServerField(servers, 0, "id", " my-id ");
+      expect(withId).toEqual([{ url: "http://a:1", id: "my-id" }]);
+      expect(servers).toEqual([{ url: "http://a:1" }]);
+
+      const withName = updateServerField(withId, 0, "name", "My Name");
+      expect(withName).toEqual([
+        { url: "http://a:1", id: "my-id", name: "My Name" },
+      ]);
+      expect(withId).toEqual([{ url: "http://a:1", id: "my-id" }]);
+    });
+
+    it("should remove the override key on empty/whitespace input", () => {
+      const servers: LlamaServer[] = [
+        { url: "http://a:1", id: "custom", name: "A" },
+      ];
+
+      expect(updateServerField(servers, 0, "id", "")).toEqual([
+        { url: "http://a:1", name: "A" },
+      ]);
+      expect(updateServerField(servers, 0, "name", "   ")).toEqual([
+        { url: "http://a:1", id: "custom" },
+      ]);
+      expect(servers[0]).toEqual({
+        url: "http://a:1",
+        id: "custom",
+        name: "A",
+      });
+    });
+
+    it("should set the url via the generic helper (delegation)", () => {
+      const servers: LlamaServer[] = [{ url: "http://a:1", id: "custom" }];
+
+      expect(updateServerField(servers, 0, "url", "http://a:9")).toEqual([
+        { url: "http://a:9", id: "custom" },
+      ]);
+    });
+  });
+
+  describe("formatServerSuffix", () => {
+    it("should render id and name, auto-detected id, id only or nothing", () => {
+      expect(
+        formatServerSuffix({ url: "http://a:1", id: "my-id", name: "My Name" }),
+      ).toBe("(my-id - My Name)");
+      expect(formatServerSuffix({ url: "http://a:1", name: "My Name" })).toBe(
+        "(llama-server=http://a:1 - My Name)",
+      );
+      expect(formatServerSuffix({ url: "http://a:1", id: "my-id" })).toBe(
+        "(my-id)",
+      );
+      expect(formatServerSuffix({ url: "http://a:1" })).toBe("");
+    });
+  });
+
   describe("removeServer", () => {
     it("should remove the entry at the index", () => {
       const servers: LlamaServer[] = [
@@ -144,8 +203,10 @@ describe("ServerListEditor", () => {
       const out = render(editor);
       expect(out).toContain("Manage llama.cpp servers");
       expect(out).toContain("→ http://a:1");
-      expect(out).toContain("http://b:2  Bee");
-      expect(out).toContain("Enter/e edit · a add · d delete · Esc done");
+      expect(out).toContain("(llama-server=http://b:2 - Bee)");
+      expect(out).toContain(
+        "Enter/e url · i id · n name · a add · d delete · Esc done",
+      );
     });
 
     it("should render an empty-state hint when there are no servers", () => {
@@ -194,9 +255,36 @@ describe("ServerListEditor", () => {
 
       editor.handleInput(ENTER);
       editor.handleInput("d");
+      editor.handleInput("i");
+      editor.handleInput("n");
 
       expect(render(editor)).not.toContain("URL:");
+      expect(render(editor)).not.toContain("ID:");
+      expect(render(editor)).not.toContain("Name:");
       expect(persist).not.toHaveBeenCalled();
+    });
+
+    it("should open the id/name editors with i/n, prefilling the value", () => {
+      const { editor } = setup([
+        { url: "http://a:1", id: "custom", name: "A" },
+      ]);
+
+      editor.handleInput("i");
+      expect(render(editor)).toContain("ID:");
+      expect(render(editor)).toContain("> custom");
+
+      editor.handleInput(ESC);
+      editor.handleInput("n");
+      expect(render(editor)).toContain("Name:");
+      expect(render(editor)).toContain("> A");
+    });
+
+    it("should prefill an empty input when no id/name override is set", () => {
+      const { editor } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("i");
+      expect(render(editor)).toContain("ID:");
+      expect(render(editor)).toContain("> ");
     });
   });
 
@@ -307,6 +395,83 @@ describe("ServerListEditor", () => {
       // Pre-mutation list unchanged (no new row), still editing
       expect(render(editor)).toContain("→ http://a:1");
       expect(render(editor)).toContain("URL:");
+    });
+  });
+
+  describe("editing id/name", () => {
+    it("should persist id and name overrides", async () => {
+      const { editor, persist } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("i");
+      type(editor, "my-id");
+      editor.handleInput(ENTER);
+      await flush();
+
+      editor.handleInput("n");
+      type(editor, "My Name");
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(persist).toHaveBeenLastCalledWith([
+        { url: "http://a:1", id: "my-id", name: "My Name" },
+      ]);
+    });
+
+    it("should trim id/name values", async () => {
+      const { editor, persist } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("i");
+      type(editor, "  my-id  ");
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(persist).toHaveBeenCalledWith([
+        { url: "http://a:1", id: "my-id" },
+      ]);
+    });
+
+    it("should clear an override on empty input", async () => {
+      const { editor, persist } = setup([
+        { url: "http://a:1", id: "custom", name: "A" },
+      ]);
+
+      editor.handleInput("i");
+      // Clear the prefilled id
+      for (let i = 0; i < "custom".length; i++) {
+        editor.handleInput("\x7f"); // backspace
+      }
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(persist).toHaveBeenCalledWith([{ url: "http://a:1", name: "A" }]);
+    });
+
+    it("should revert without writing on Escape (even after clearing)", async () => {
+      const { editor, persist } = setup([{ url: "http://a:1", id: "custom" }]);
+
+      editor.handleInput("i");
+      for (let i = 0; i < "custom".length; i++) {
+        editor.handleInput("\x7f");
+      }
+      editor.handleInput(ESC);
+      await flush();
+
+      expect(persist).not.toHaveBeenCalled();
+      expect(render(editor)).toContain("(custom)");
+    });
+
+    it("should notify and stay in edit mode when the write fails", async () => {
+      const { editor, persist, onError } = setup([{ url: "http://a:1" }]);
+      persist.mockRejectedValueOnce(new Error("disk boom"));
+
+      editor.handleInput("i");
+      type(editor, "my-id");
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(onError).toHaveBeenCalledWith("disk boom");
+      expect(render(editor)).toContain("ID:");
+      expect(render(editor)).not.toContain("(my-id)");
     });
   });
 

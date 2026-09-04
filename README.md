@@ -128,8 +128,9 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
 Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
 without hand-editing JSON:
 
-- **↑/↓** moves the cursor, **Enter/e** edits the selected URL, **a** adds a
-  new entry, **d** deletes it, **Esc** closes the editor.
+- **↑/↓** moves the cursor, **Enter/e** edits the selected URL, **i** edits
+  its `id`, **n** its `name`, **a** adds a new entry, **d** deletes it,
+  **Esc** closes the editor.
 - One URL per entry (`http://host:port`). Trailing slashes are stripped on
   save; `;`-separated values are rejected — use separate entries instead.
 - Each change is written immediately to the **global**
@@ -140,8 +141,10 @@ without hand-editing JSON:
   them.
 - The editor shows a warning when the `LLAMA_SERVER_URL` environment variable
   is set, since it overrides the configured servers.
-- Per-server `id`/`name` overrides are preserved when editing; they remain
-  hand-edited in JSON (advanced use).
+- Per-server `id`/`name` overrides can be edited with **i**/**n**; saving an
+  empty value clears the override. The list shows them as a
+  `(<id> - <name>)` suffix, falling back to the auto-detected
+  `llama-server=<url>` id when no custom `id` is set.
 
 #### Environment variable
 

@@ -7,6 +7,7 @@ import {
   type KeybindingsManager,
   type TUI,
 } from "@earendil-works/pi-tui";
+import { PROVIDER_PREFIX } from "../constants";
 import type { LlamaServer } from "../interfaces/settings";
 
 /**
@@ -34,6 +35,11 @@ export const addServer = (
 ): LlamaServer[] => [...servers, { url }];
 
 /**
+ * Fields of a `LlamaServer` editable through the inline Input.
+ */
+type EditableField = "url" | "id" | "name";
+
+/**
  * Returns a new list with the URL at `index` replaced, preserving any
  * `id`/`name` overrides. Immutable.
  */
@@ -41,8 +47,44 @@ export const updateServerUrl = (
   servers: LlamaServer[],
   index: number,
   url: string,
-): LlamaServer[] =>
-  servers.map((server, i) => (i === index ? { ...server, url } : server));
+): LlamaServer[] => updateServerField(servers, index, "url", url);
+
+/**
+ * Returns a new list with `field` at `index` set to `value` (trimmed).
+ * An empty `value` removes the `id`/`name` key instead of storing an empty
+ * string, so the settings JSON stays clean. Only the edited field is
+ * touched — the other override is preserved. Immutable.
+ */
+export const updateServerField = (
+  servers: LlamaServer[],
+  index: number,
+  field: EditableField,
+  value: string,
+): LlamaServer[] => {
+  const v = value.trim();
+  return servers.map((server, i) => {
+    if (i !== index) return server;
+    if (field === "url") return { ...server, url: v }; // validated upstream
+    if (field === "id") {
+      const { id, ...rest } = server; // drop the old id override…
+      return v.length === 0 ? rest : { ...rest, id: v }; // …clear or replace
+    }
+    const { name, ...rest } = server; // drop the old name override…
+    return v.length === 0 ? rest : { ...rest, name: v }; // …clear or replace
+  });
+};
+
+/**
+ * Formats the dim `(...)` suffix shown after a server's URL:
+ * `(<id> - <name>)`, with the auto-detected URL-based id used when no
+ * custom id override exists (mirrors `Server.providerId`). Returns the
+ * empty string when there is nothing to show.
+ */
+export const formatServerSuffix = (server: LlamaServer): string => {
+  if (!server.id && !server.name) return "";
+  const id = server.id ?? `${PROVIDER_PREFIX}=${server.url}`;
+  return server.name ? `(${id} - ${server.name})` : `(${server.id})`;
+};
 
 /**
  * Returns a new list without the entry at `index`. Immutable.
@@ -75,10 +117,11 @@ const errorMessage = (err: unknown): string =>
 /**
  * Editor for `llamaSettings.servers`, shown by `/models servers`.
  *
- * List mode: up/down move the cursor, Enter/e edits the selected entry,
- * a adds a new entry, d deletes, Esc closes.
+ * List mode: up/down move the cursor, Enter/e edits the selected entry's
+ * URL, i edits its id, n its name, a adds a new entry, d deletes, Esc
+ * closes.
  * Edit mode: all other input goes to an inline `Input`; Enter saves,
- * Esc reverts.
+ * Esc reverts. The edited field (url/id/name) is tracked in `field`.
  *
  * Each mutation is persisted immediately through `persist()` (which maps to
  * `LlamaSettingsManager.setLlamaSetting()`); the in-memory list only updates
@@ -89,6 +132,8 @@ export class ServerListEditor implements Component, Focusable {
   private servers: LlamaServer[];
   private selectedIndex = 0;
   private mode: "list" | "edit" | "add" = "list";
+  /** Which `LlamaServer` field the inline Input is editing (edit/add modes) */
+  private field: EditableField = "url";
   private editingIndex = -1;
   private error: string | undefined;
   private readonly input = new Input();
@@ -151,13 +196,16 @@ export class ServerListEditor implements Component, Focusable {
     this.servers.forEach((server, index) => {
       const selected = index === this.selectedIndex;
       const prefix = selected ? theme.fg("accent", "→ ") : "  ";
-      const name = server.name ? theme.fg("dim", `  ${server.name}`) : "";
-      lines.push(truncate(`${prefix}${server.url}${name}`));
+      const suffix = formatServerSuffix(server);
+      const dim = suffix ? theme.fg("dim", `  ${suffix}`) : "";
+      lines.push(truncate(`${prefix}${server.url}${dim}`));
     });
 
     if (this.mode !== "list") {
+      const label =
+        this.field === "url" ? "URL:" : this.field === "id" ? "ID:" : "Name:";
       lines.push("");
-      lines.push(truncate(theme.fg("dim", "URL:")));
+      lines.push(truncate(theme.fg("dim", label)));
       lines.push(truncate(this.input.render(width)[0] ?? ""));
       if (this.error) {
         lines.push(truncate(theme.fg("error", this.error)));
@@ -177,7 +225,7 @@ export class ServerListEditor implements Component, Focusable {
         theme.fg(
           "dim",
           this.mode === "list"
-            ? "Enter/e edit · a add · d delete · Esc done"
+            ? "Enter/e url · i id · n name · a add · d delete · Esc done"
             : "Enter save · Esc cancel",
         ),
       ),
@@ -220,6 +268,14 @@ export class ServerListEditor implements Component, Focusable {
       this.beginEdit();
       return;
     }
+    if (data === "i") {
+      this.beginEditField("id");
+      return;
+    }
+    if (data === "n") {
+      this.beginEditField("name");
+      return;
+    }
     if (data === "a") {
       this.beginAdd();
       return;
@@ -258,10 +314,20 @@ export class ServerListEditor implements Component, Focusable {
    */
   private beginEdit(): void {
     if (this.servers.length === 0) return;
+    this.beginEditField("url");
+  }
+
+  /**
+   * Opens the selected entry for editing `field`, prefilling the Input with
+   * its current value (empty when unset) and placing the cursor at the end.
+   */
+  private beginEditField(field: EditableField): void {
+    if (this.servers.length === 0) return;
     this.mode = "edit";
+    this.field = field;
     this.editingIndex = this.selectedIndex;
     this.error = undefined;
-    this.input.setValue(this.servers[this.selectedIndex].url);
+    this.input.setValue(this.servers[this.selectedIndex][field] ?? "");
     this.moveInputCursorToEnd();
     this.requestRender();
   }
@@ -271,6 +337,7 @@ export class ServerListEditor implements Component, Focusable {
    */
   private beginAdd(): void {
     this.mode = "add";
+    this.field = "url";
     this.editingIndex = -1;
     this.error = undefined;
     this.input.setValue("");
@@ -278,23 +345,43 @@ export class ServerListEditor implements Component, Focusable {
   }
 
   /**
-   * Saves the edited/added URL: validates and normalizes it, persists the
-   * new list and returns to list mode. Invalid input shows an inline error
-   * and keeps editing; a failed write notifies via `onError` and keeps
-   * editing too.
+   * Saves the edited/added value: validates it per field, persists the new
+   * list and returns to list mode. Invalid input shows an inline error and
+   * keeps editing; a failed write notifies via `onError` and keeps editing
+   * too.
    */
   private async saveEdit(): Promise<void> {
-    const url = normalizeServerUrl(this.input.getValue());
-    if (!url) {
-      this.error = "Invalid URL — use http://host:port (one URL per entry)";
-      this.requestRender();
+    const raw = this.input.getValue();
+    if (this.field === "url") {
+      const url = normalizeServerUrl(raw);
+      if (!url) {
+        this.error = "Invalid URL — use http://host:port (one URL per entry)";
+        this.requestRender();
+        return;
+      }
+      await this.applySave((servers) =>
+        this.mode === "add"
+          ? addServer(servers, url)
+          : updateServerUrl(servers, this.editingIndex, url),
+      );
       return;
     }
+    // id/name: free-form; empty/whitespace clears the override
+    await this.applySave((servers) =>
+      updateServerField(servers, this.editingIndex, this.field, raw),
+    );
+  }
 
+  /**
+   * Persists `build(this.servers)`. On success, adopts the new list and
+   * returns to list mode; on failure, notifies via `onError` and stays in
+   * edit mode with the pre-mutation list.
+   */
+  private async applySave(
+    build: (servers: LlamaServer[]) => LlamaServer[],
+  ): Promise<void> {
     const isAdd = this.mode === "add";
-    const next = isAdd
-      ? addServer(this.servers, url)
-      : updateServerUrl(this.servers, this.editingIndex, url);
+    const next = build(this.servers);
 
     try {
       await this.options.persist(next);
