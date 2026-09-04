@@ -118,8 +118,10 @@ const errorMessage = (err: unknown): string =>
  * Editor for `llamaSettings.servers`, shown by `/models servers`.
  *
  * List mode: up/down move the cursor, Enter/e edits the selected entry's
- * URL, i edits its id, n its name, a adds a new entry, d deletes, Esc
- * closes.
+ * URL, i edits its id, n its name, a adds a new entry, d asks for
+ * confirmation before deleting, Esc closes.
+ * Confirm mode: y deletes the selected entry, Esc/n aborts (Enter is
+ * deliberately ignored).
  * Edit mode: all other input goes to an inline `Input`; Enter saves,
  * Esc reverts. The edited field (url/id/name) is tracked in `field`.
  *
@@ -131,7 +133,7 @@ const errorMessage = (err: unknown): string =>
 export class ServerListEditor implements Component, Focusable {
   private servers: LlamaServer[];
   private selectedIndex = 0;
-  private mode: "list" | "edit" | "add" = "list";
+  private mode: "list" | "edit" | "add" | "confirm" = "list";
   /** Which `LlamaServer` field the inline Input is editing (edit/add modes) */
   private field: EditableField = "url";
   private editingIndex = -1;
@@ -162,6 +164,8 @@ export class ServerListEditor implements Component, Focusable {
   handleInput(data: string): void {
     if (this.mode === "list") {
       this.handleListInput(data);
+    } else if (this.mode === "confirm") {
+      this.handleConfirmInput(data);
     } else {
       this.handleEditInput(data);
     }
@@ -201,7 +205,17 @@ export class ServerListEditor implements Component, Focusable {
       lines.push(truncate(`${prefix}${server.url}${dim}`));
     });
 
-    if (this.mode !== "list") {
+    if (this.mode === "confirm") {
+      lines.push(
+        truncate(
+          theme.fg(
+            "error",
+            `About to delete "${this.servers[this.selectedIndex]?.url}"`,
+          ),
+        ),
+      );
+      lines.push(truncate(theme.fg("error", "Are you sure?")));
+    } else if (this.mode !== "list") {
       const label =
         this.field === "url" ? "URL:" : this.field === "id" ? "ID:" : "Name:";
       lines.push("");
@@ -226,7 +240,9 @@ export class ServerListEditor implements Component, Focusable {
           "dim",
           this.mode === "list"
             ? "Enter/e url · i id · n name · a add · d delete · Esc done"
-            : "Enter save · Esc cancel",
+            : this.mode === "confirm"
+              ? "y delete · Esc/n cancel"
+              : "Enter save · Esc cancel",
         ),
       ),
     );
@@ -281,8 +297,26 @@ export class ServerListEditor implements Component, Focusable {
       return;
     }
     if (data === "d") {
-      void this.deleteSelected();
+      this.beginConfirm();
       return;
+    }
+  }
+
+  /**
+   * Confirm mode: only `y` deletes the selected entry, Esc/n returns to the
+   * list without changing anything; every other key — Enter included, so a
+   * stray keypress can't confirm — is ignored.
+   */
+  private handleConfirmInput(data: string): void {
+    const kb = this.options.keybindings;
+
+    if (data === "y") {
+      this.deleteSelected();
+      return;
+    }
+    if (kb.matches(data, "tui.select.cancel") || data === "n") {
+      this.mode = "list";
+      this.requestRender();
     }
   }
 
@@ -293,7 +327,7 @@ export class ServerListEditor implements Component, Focusable {
     const kb = this.options.keybindings;
 
     if (kb.matches(data, "tui.select.confirm")) {
-      void this.saveEdit();
+      this.saveEdit();
       return;
     }
     if (kb.matches(data, "tui.select.cancel")) {
@@ -329,6 +363,16 @@ export class ServerListEditor implements Component, Focusable {
     this.error = undefined;
     this.input.setValue(this.servers[this.selectedIndex][field] ?? "");
     this.moveInputCursorToEnd();
+    this.requestRender();
+  }
+
+  /**
+   * Enters confirm mode for the selected entry: deletion only proceeds
+   * after an explicit Enter/y, guarding against accidental presses of d.
+   */
+  private beginConfirm(): void {
+    if (this.servers.length === 0) return;
+    this.mode = "confirm";
     this.requestRender();
   }
 
@@ -398,10 +442,13 @@ export class ServerListEditor implements Component, Focusable {
   }
 
   /**
-   * Deletes the selected entry and persists immediately.
+   * Deletes the selected entry and persists immediately. Leaves confirm
+   * mode synchronously so a second Enter while the write is pending cannot
+   * queue a duplicate deletion.
    */
   private async deleteSelected(): Promise<void> {
     if (this.servers.length === 0) return;
+    this.mode = "list";
     const next = removeServer(this.servers, this.selectedIndex);
 
     try {

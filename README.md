@@ -129,8 +129,9 @@ Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
 without hand-editing JSON:
 
 - **↑/↓** moves the cursor, **Enter/e** edits the selected URL, **i** edits
-  its `id`, **n** its `name`, **a** adds a new entry, **d** deletes it,
-  **Esc** closes the editor.
+  its `id`, **n** its `name`, **a** adds a new entry, **d** deletes it
+  (after an "Are you sure?" confirmation — only **y** confirms;
+  **Enter** is ignored, **Esc/n** cancels), **Esc** closes the editor.
 - One URL per entry (`http://host:port`). Trailing slashes are stripped on
   save; `;`-separated values are rejected — use separate entries instead.
 - Each change is written immediately to the **global**

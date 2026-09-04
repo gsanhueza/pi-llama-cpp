@@ -266,7 +266,7 @@ export class CommandManager {
   /**
    * Runs the interactive servers editor for `llamaSettings.servers`.
    * Enter/e edits the selected URL, i its id, n its name, a adds,
-   * d deletes; Esc closes.
+   * d deletes (after a confirmation prompt); Esc closes.
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and

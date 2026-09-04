@@ -57,7 +57,14 @@ const setup = (servers: LlamaServer[] = []) => {
 /** Flushes the microtask queue so awaited persist calls settle */
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-const render = (editor: ServerListEditor) => editor.render(80).join("\n");
+/**
+ * Stand-in terminal width in columns passed to render(), mirroring what
+ * pi-tui supplies at runtime; wide enough that no line gets truncated.
+ */
+const RENDER_WIDTH = 80;
+
+const render = (editor: ServerListEditor) =>
+  editor.render(RENDER_WIDTH).join("\n");
 
 const type = (editor: ServerListEditor, text: string) => {
   for (const ch of text) editor.handleInput(ch);
@@ -476,16 +483,104 @@ describe("ServerListEditor", () => {
   });
 
   describe("deleting", () => {
-    it("should persist the list without the selected entry", async () => {
+    it("should ask for confirmation before deleting", () => {
       const { editor, persist } = setup([
         { url: "http://a:1" },
         { url: "http://b:2" },
       ]);
 
       editor.handleInput("d");
+
+      expect(render(editor)).toContain('About to delete "http://a:1"');
+      expect(render(editor)).toContain("Are you sure?");
+      expect(render(editor)).toContain("y delete · Esc/n cancel");
+      expect(persist).not.toHaveBeenCalled();
+    });
+
+    it("should persist the list without the selected entry on y", async () => {
+      const { editor, persist } = setup([
+        { url: "http://a:1" },
+        { url: "http://b:2" },
+      ]);
+
+      editor.handleInput("d");
+      editor.handleInput("y");
       await flush();
 
       expect(persist).toHaveBeenCalledWith([{ url: "http://b:2" }]);
+    });
+
+    it("should ignore Enter so it cannot accidentally confirm", () => {
+      const { editor, persist } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("d");
+      editor.handleInput(ENTER);
+
+      expect(render(editor)).toContain("Are you sure?");
+      expect(persist).not.toHaveBeenCalled();
+    });
+
+    it("should cancel on Esc without persisting", async () => {
+      const { editor, persist, done } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("d");
+      editor.handleInput(ESC);
+      await flush();
+
+      expect(persist).not.toHaveBeenCalled();
+      expect(done).not.toHaveBeenCalled();
+      expect(render(editor)).toContain("→ http://a:1");
+      expect(render(editor)).not.toContain("Are you sure?");
+    });
+
+    it("should return to the original line count after canceling", () => {
+      const { editor } = setup([{ url: "http://a:1" }]);
+
+      const before = editor.render(RENDER_WIDTH).length;
+      editor.handleInput("d");
+      // "About to delete …" + "Are you sure?"
+      expect(editor.render(RENDER_WIDTH).length).toBe(before + 2);
+      editor.handleInput(ESC);
+
+      expect(editor.render(RENDER_WIDTH).length).toBe(before);
+      expect(render(editor)).not.toContain("Are you sure?");
+    });
+
+    it("should never embed newlines in rendered lines", () => {
+      // pi-tui's diff renderer assumes one rendered line == one terminal
+      // row; a raw \n inside a line leaves stale residue after the prompt
+      // shrinks.
+      const { editor } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("d");
+
+      for (const line of editor.render(RENDER_WIDTH)) {
+        expect(line).not.toContain("\n");
+      }
+    });
+
+    it("should cancel on n without persisting", async () => {
+      const { editor, persist } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("d");
+      editor.handleInput("n");
+      await flush();
+
+      expect(persist).not.toHaveBeenCalled();
+      expect(render(editor)).toContain("→ http://a:1");
+      expect(render(editor)).not.toContain("Are you sure?");
+    });
+
+    it("should ignore other keys while confirming", () => {
+      const { editor, persist } = setup([{ url: "http://a:1" }]);
+
+      editor.handleInput("d");
+      editor.handleInput(DOWN);
+      editor.handleInput(ENTER);
+      editor.handleInput("x");
+
+      expect(render(editor)).toContain("Are you sure?");
+      expect(persist).not.toHaveBeenCalled();
     });
 
     it("should clamp the selection when the last entry is removed", async () => {
@@ -493,6 +588,7 @@ describe("ServerListEditor", () => {
 
       editor.handleInput(DOWN);
       editor.handleInput("d");
+      editor.handleInput("y");
       await flush();
 
       expect(render(editor)).toContain("→ http://a:1");
@@ -502,6 +598,7 @@ describe("ServerListEditor", () => {
       const { editor, persist } = setup([{ url: "http://a:1" }]);
 
       editor.handleInput("d");
+      editor.handleInput("y");
       await flush();
 
       expect(persist).toHaveBeenCalledWith([]);
@@ -513,6 +610,7 @@ describe("ServerListEditor", () => {
       persist.mockRejectedValueOnce(new Error("disk boom"));
 
       editor.handleInput("d");
+      editor.handleInput("y");
       await flush();
 
       expect(onError).toHaveBeenCalledWith("disk boom");
