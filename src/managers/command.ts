@@ -14,6 +14,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
+import { ServerListEditor } from "../ui/serverListEditor";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
 import { settings } from "./settings";
@@ -159,6 +160,11 @@ export class CommandManager {
         description: "Unload all models",
       },
       {
+        value: "servers",
+        label: "servers",
+        description: "Manage llama.cpp server URLs",
+      },
+      {
         value: "settings",
         label: "settings",
         description: "Configure llamaSettings",
@@ -184,6 +190,12 @@ export class CommandManager {
     // server updates / unreachable-server notifications
     if (args === "settings") {
       await this.runSettingsMenu(ctx);
+      return;
+    }
+
+    // Servers editor: same — edits are passive until the next provider scan
+    if (args === "servers") {
+      await this.runServersEditor(ctx);
       return;
     }
 
@@ -248,6 +260,40 @@ export class CommandManager {
           },
           () => done(undefined),
         ),
+    );
+  }
+
+  /**
+   * Runs the interactive servers editor for `llamaSettings.servers`.
+   * Enter/e edits the selected URL, a adds, d deletes; Esc closes.
+   *
+   * Writes go to the global `~/.pi/agent/settings.json` via
+   * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
+   * the editor stays open with the pre-mutation list. Changes apply the
+   * next time providers are scanned (passive, like `sortBy`).
+   */
+  private async runServersEditor(ctx: ExtensionCommandContext): Promise<void> {
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify(
+        "/models servers requires an interactive session (TUI)",
+        "warning",
+      );
+      return;
+    }
+
+    const servers = settings.llamaServers;
+
+    await ctx.ui.custom<void>(
+      (tui, theme, keybindings, done) =>
+        new ServerListEditor({
+          tui,
+          theme,
+          keybindings,
+          servers,
+          persist: (next) => settings.setLlamaSetting("servers", next),
+          done: () => done(undefined),
+          onError: (message) => ctx.ui.notify(message, "error"),
+        }),
     );
   }
 

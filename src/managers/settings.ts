@@ -14,7 +14,7 @@ import {
   SORT_BY,
   THINKING_BUDGETS,
 } from "../constants";
-import { LlamaSettings } from "../interfaces/settings";
+import { LlamaServer, LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
 
@@ -39,6 +39,14 @@ export class LlamaSettingsManager {
    */
   private get llamaSettings(): LlamaSettings {
     return this.mergedSettings[SETTINGS_KEY] ?? {};
+  }
+
+  /**
+   * Convenience getter for the merged `servers` list (project overrides
+   * global, per-key merge)
+   */
+  get llamaServers(): LlamaServer[] {
+    return this.llamaSettings.servers ?? [];
   }
 
   /**

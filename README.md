@@ -121,8 +121,27 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
   the merged view until you remove it there.
 - Boolean and sort changes apply immediately; timeout changes apply on the next
   model load.
-- The `servers` list is not editable from the menu — add or rename servers by
-  editing the JSON directly.
+- The `servers` list is edited with `/models servers` (see below).
+
+#### Server list editor
+
+Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
+without hand-editing JSON:
+
+- **↑/↓** moves the cursor, **Enter/e** edits the selected URL, **a** adds a
+  new entry, **d** deletes it, **Esc** closes the editor.
+- One URL per entry (`http://host:port`). Trailing slashes are stripped on
+  save; `;`-separated values are rejected — use separate entries instead.
+- Each change is written immediately to the **global**
+  `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
+  `servers`, its list keeps winning in the merged view until you remove it
+  there.
+- Changes apply the next time providers are scanned — run `/models` to see
+  them.
+- The editor shows a warning when the `LLAMA_SERVER_URL` environment variable
+  is set, since it overrides the configured servers.
+- Per-server `id`/`name` overrides are preserved when editing; they remain
+  hand-edited in JSON (advanced use).
 
 #### Environment variable
 
@@ -232,6 +251,7 @@ The extension determines the context size as follows:
 | `/models`          | Browse your models with live status. Select a model to load, switch, or unload it. |
 | `/models info`     | Show detailed information for all available models at once.                        |
 | `/models unload`   | Unload all loaded models at once.                                                  |
+| `/models servers`  | Add, edit or remove llama.cpp server URLs via a TUI editor.                        |
 | `/models settings` | Open a menu to edit the scalar `llamaSettings` fields.                             |
 
 > **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.

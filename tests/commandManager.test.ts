@@ -1,3 +1,5 @@
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action } from "../src/enums/action";
 import {
@@ -8,6 +10,7 @@ import {
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import { settings } from "../src/managers/settings";
+import { ServerListEditor } from "../src/ui/serverListEditor";
 import {
   createMockCtx,
   createMockModel,
@@ -35,10 +38,11 @@ describe("CommandManager", () => {
   describe("getArgumentCompletions", () => {
     it("should provide completions for /models", () => {
       const completions = commandManager.getArgumentCompletions("");
-      expect(completions).toHaveLength(3);
+      expect(completions).toHaveLength(4);
       expect(completions?.map((c) => c.value)).toEqual([
         "info",
         "unload",
+        "servers",
         "settings",
       ]);
     });
@@ -54,9 +58,9 @@ describe("CommandManager", () => {
       expect(completions).toBeNull();
     });
 
-    it("should provide the settings completion by prefix", () => {
+    it("should provide the server/settings completions by prefix", () => {
       const completions = commandManager.getArgumentCompletions("s");
-      expect(completions?.map((c) => c.value)).toEqual(["settings"]);
+      expect(completions?.map((c) => c.value)).toEqual(["servers", "settings"]);
     });
   });
 
@@ -183,6 +187,104 @@ describe("CommandManager", () => {
         "/models settings requires an interactive session (TUI)",
         "warning",
       );
+    });
+  });
+
+  describe("/models servers editor", () => {
+    const ESC = "\x1b";
+    const ENTER = "\r";
+
+    const createMockKeybindings = (): KeybindingsManager =>
+      ({
+        matches: vi.fn(
+          (data: string, name: string) =>
+            (data === ENTER && name === "tui.select.confirm") ||
+            (data === ESC && name === "tui.select.cancel"),
+        ),
+      }) as unknown as KeybindingsManager;
+
+    const createMockTheme = (): Theme =>
+      ({
+        fg: (_color: string, text: string) => text,
+        bold: (text: string) => text,
+      }) as unknown as Theme;
+
+    it("should open the editor without touching servers", async () => {
+      const updateSpy = vi
+        .spyOn(serverManager, "update")
+        .mockResolvedValue(undefined);
+      const ctx = createMockCtx(() => null);
+
+      await commandManager.handleCommand("servers", ctx as any, mockPi as any);
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(ctx.ui.custom).toHaveBeenCalledTimes(1);
+    });
+
+    it("should notify instead of opening the editor outside the TUI", async () => {
+      const ctx = { ...createMockCtx(() => null), mode: "rpc" } as any;
+
+      await commandManager.handleCommand("servers", ctx, mockPi as any);
+
+      expect(ctx.ui.custom).not.toHaveBeenCalled();
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        "/models servers requires an interactive session (TUI)",
+        "warning",
+      );
+    });
+
+    it("should wire the editor to the merged servers and the write path", async () => {
+      const llamaServersSpy = vi
+        .spyOn(settings, "llamaServers", "get")
+        .mockReturnValue([{ url: "http://seed:1" }]);
+      const setSpy = vi
+        .spyOn(settings, "setLlamaSetting")
+        .mockResolvedValue(undefined);
+      const ctx = createMockCtx(() => null);
+
+      await commandManager.handleCommand("servers", ctx as any, mockPi as any);
+
+      // Invoke the factory captured from ctx.ui.custom
+      const factory = vi.mocked(ctx.ui.custom).mock.calls[0][0] as (
+        tui: TUI,
+        theme: Theme,
+        kb: KeybindingsManager,
+        done: (result: undefined) => void,
+      ) => ServerListEditor;
+      const done = vi.fn();
+      const editor = factory(
+        { requestRender: vi.fn() } as unknown as TUI,
+        createMockTheme(),
+        {
+          matches: vi.fn(
+            (data: string, name: string) =>
+              (data === ENTER && name === "tui.select.confirm") ||
+              (data === ESC && name === "tui.select.cancel"),
+          ),
+        } as unknown as KeybindingsManager,
+        done,
+      );
+
+      expect(editor).toBeInstanceOf(ServerListEditor);
+      // Seeded with the merged snapshot
+      expect(editor.render(80).join("\n")).toContain("http://seed:1");
+
+      // Add a server through the editor → setLlamaSetting("servers", …)
+      editor.handleInput("a");
+      for (const ch of "http://new:2") editor.handleInput(ch);
+      editor.handleInput(ENTER);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(setSpy).toHaveBeenCalledWith("servers", [
+        { url: "http://seed:1" },
+        { url: "http://new:2" },
+      ]);
+
+      // Esc closes the editor
+      editor.handleInput(ESC);
+      expect(done).toHaveBeenCalledTimes(1);
+
+      llamaServersSpy.mockRestore();
+      setSpy.mockRestore();
     });
   });
 

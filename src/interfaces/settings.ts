@@ -1,7 +1,7 @@
 /**
  * A description of a server in the "llamaSettings" key
  */
-interface LlamaServer {
+export interface LlamaServer {
   /**
    * The URL of the llama.cpp server.
    */
