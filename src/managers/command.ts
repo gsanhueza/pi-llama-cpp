@@ -270,8 +270,9 @@ export class CommandManager {
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
-   * the editor stays open with the pre-mutation list. Changes apply the
-   * next time providers are scanned (passive, like `sortBy`).
+   * the editor stays open with the pre-mutation list. List changes (add,
+   * remove, URL/`id`/`name` edits) apply the next time providers are
+   * scanned — run `/models` to see them.
    */
   private async runServersEditor(ctx: ExtensionCommandContext): Promise<void> {
     if (ctx.mode !== "tui") {
@@ -355,16 +356,20 @@ export class CommandManager {
       ctx.ui.notify(`Loading ${model.name}...`, "info");
       EventManager.inflightModel = model;
 
-      // Subscribe to progress events
-      const cleanupProgress = this.serverManager
-        .getServer(model)
-        .sseManager.subscribeToProgress(model.id, (percentage, stage) => {
-          const stageText = stage ? ` (${stage})` : "";
-          ctx.ui.notify(
-            `Loading ${model.name}... [${percentage}%${stageText}]`,
-            "info",
-          );
-        });
+      // Subscribe to progress events; skip when the server is gone
+      // (removed/edited away mid-load → getServer returns undefined)
+      const server = this.serverManager.getServer(model);
+      const cleanupProgress =
+        server?.sseManager.subscribeToProgress(
+          model.id,
+          (percentage, stage) => {
+            const stageText = stage ? ` (${stage})` : "";
+            ctx.ui.notify(
+              `Loading ${model.name}... [${percentage}%${stageText}]`,
+              "info",
+            );
+          },
+        ) ?? (() => {});
 
       const onSuccess = async () => {
         const { serverId } = model;

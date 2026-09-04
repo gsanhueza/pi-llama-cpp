@@ -7,12 +7,12 @@ import { Status } from "../enums/status";
 import { ModelSelectEvent } from "../interfaces/events";
 import { settings } from "../managers/settings";
 import { BaseModel } from "../models/baseModel";
-import { Server } from "../server";
+import { ServerManager } from "./server";
 
 export class EventManager {
   static inflightModel: BaseModel | null = null;
 
-  constructor(private readonly servers: Server[]) {}
+  constructor(private readonly serverManager: ServerManager) {}
 
   /**
    * Resets the in-flight model reference.
@@ -31,7 +31,7 @@ export class EventManager {
     // Check if the model_select event should be used
     if (!settings.resolveReactToModelSelect()) return;
 
-    for (const { providerId, models } of this.servers) {
+    for (const { providerId, models } of this.serverManager.servers) {
       if (event.model.provider !== providerId) continue;
 
       const model = models.find((m) => m.id === event.model.id);
@@ -99,7 +99,7 @@ export class EventManager {
     if (!model) return payload;
 
     // Check if this model belongs to one of our servers
-    const serverModel = this.servers
+    const serverModel = this.serverManager.servers
       .flatMap((s) => s.models)
       .find((m) => m.id === model);
 

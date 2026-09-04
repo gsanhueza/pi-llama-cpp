@@ -139,7 +139,13 @@ without hand-editing JSON:
   `servers`, its list keeps winning in the merged view until you remove it
   there.
 - Changes apply the next time providers are scanned — run `/models` to see
-  them.
+  them. Additions, removals, and URL/`id`/`name` edits all take effect on
+  the next `/models`: new servers register their providers, removed ones
+  leave pi's registry immediately, and edited ones are re-registered with
+  the fresh config — no restart needed.
+- Limitation: a model already loading in the background on a removed or
+  edited server finishes loading, but its progress notifications stop;
+  re-select it from the (new) provider afterwards.
 - The editor shows a warning when the `LLAMA_SERVER_URL` environment variable
   is set, since it overrides the configured servers.
 - Per-server `id`/`name` overrides can be edited with **i**/**n**; saving an

@@ -11,13 +11,10 @@ import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
 import { ServerManager } from "./managers/server";
-import { settings } from "./managers/settings";
 
 export default async function (pi: ExtensionAPI) {
-  const servers = await settings.resolveServers();
-
-  const eventManager = new EventManager(servers);
-  const serverManager = new ServerManager(servers);
+  const serverManager = new ServerManager();
+  const eventManager = new EventManager(serverManager);
   const commandManager = new CommandManager(serverManager);
 
   // Register providers once at startup

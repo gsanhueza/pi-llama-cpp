@@ -2,27 +2,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServerManager } from "../src/managers/server";
 import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
-import { createMockServer, mockRpc } from "./mocks";
+import { createMockModel, createMockServer, mockRpc } from "./mocks";
 
 const mockSettings = vi.hoisted(() => ({
-  resolveSortBy: vi.fn(() => "asc"),
+  resolveSortBy: vi.fn(
+    (): "asc" | "desc" | "asc-name" | "desc-name" | "api" => "asc",
+  ),
   resolveTimeouts: vi.fn(() => ({ pollingTimeout: 5000, serverTimeout: 1000 })),
-  resolveUrls: vi.fn(() => []),
+  resolveUrls: vi.fn(() => [] as string[]),
+  resolveServers: vi.fn((): Server[] => []),
 }));
 
 vi.mock("../src/managers/settings", () => ({
   settings: mockSettings,
 }));
 
-const getSettings = () =>
-  vi.mocked(require("../src/managers/settings").settings) as {
-    resolveSortBy: () => "asc" | "desc" | "api";
-  };
-
 const mockPi = {
   registerProvider: vi.fn(),
+  unregisterProvider: vi.fn(),
   registerCommand: vi.fn(),
   setModel: vi.fn(),
+};
+
+/**
+ * Creates a ServerManager whose list is driven by the mocked
+ * `settings.resolveServers()` — the same path a real scan takes.
+ */
+const createManager = async (...servers: Server[]): Promise<ServerManager> => {
+  mockSettings.resolveServers.mockReturnValue(servers);
+  const manager = new ServerManager();
+  await manager.update(mockPi as any);
+  return manager;
 };
 
 beforeEach(() => {
@@ -89,9 +99,7 @@ describe("ServerManager", () => {
       providerId: "llama-server=http://127.0.0.1:8081",
       providerName: "Llama.cpp (http://127.0.0.1:8081)",
     });
-    const manager = new ServerManager([server1, server2] as any);
-
-    await manager.initialize(mockPi as any);
+    const manager = await createManager(server1, server2);
 
     expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
@@ -116,25 +124,20 @@ describe("ServerManager", () => {
     );
   });
 
-  it("should return all models from all servers", () => {
-    const mockModel1 = {
-      name: "model-1",
-      id: "model-1",
-    } as unknown as BaseModel;
-    const mockModel2 = {
-      name: "model-2",
-      id: "model-2",
-    } as unknown as BaseModel;
+  it("should return all models from all servers", async () => {
+    const mockModel1 = createMockModel("model-1");
+    const mockModel2 = createMockModel("model-2");
     const server1 = createMockServer({
       baseUrl: "http://127.0.0.1:8080",
+      providerId: "llama-server=http://127.0.0.1:8080",
+      models: [mockModel1],
     });
     const server2 = createMockServer({
       baseUrl: "http://127.0.0.1:8081",
+      providerId: "llama-server=http://127.0.0.1:8081",
+      models: [mockModel2],
     });
-    const manager = new ServerManager([
-      { ...server1, models: [mockModel1] } as any,
-      { ...server2, models: [mockModel2] } as any,
-    ] as any);
+    const manager = await createManager(server1, server2);
 
     const allModels = manager.getAllModels();
 
@@ -143,27 +146,154 @@ describe("ServerManager", () => {
     expect(allModels[1]).toBe(mockModel2);
   });
 
+  describe("live server list (re-derived from settings)", () => {
+    /** Mock server with a stable providerId derived from its URL. */
+    const makeServer = (url: string, modelName?: string): Server =>
+      createMockServer({
+        baseUrl: url,
+        providerId: `llama-server=${url}`,
+        providerName: `Llama.cpp (${url})`,
+        ...(modelName
+          ? { models: [createMockModel(modelName, { serverUrl: url })] }
+          : {}),
+      });
+
+    it("should register servers added after the first scan", async () => {
+      const server1 = makeServer("http://127.0.0.1:8080", "model-1");
+      mockSettings.resolveServers.mockReturnValue([server1]);
+      const manager = new ServerManager();
+      await manager.update(mockPi as any);
+      expect(manager.servers).toHaveLength(1);
+
+      const server2 = makeServer("http://127.0.0.1:8081", "model-2");
+      mockSettings.resolveServers.mockReturnValue([server1, server2]);
+      await manager.update(mockPi as any);
+
+      expect(mockPi.registerProvider).toHaveBeenCalledWith(
+        "llama-server=http://127.0.0.1:8081",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081" }),
+      );
+      expect(manager.servers).toHaveLength(2);
+      expect(manager.getAllModels().map((m) => m.id)).toEqual([
+        "model-1",
+        "model-2",
+      ]);
+    });
+
+    it("should unregister and disconnect removed servers on the next scan", async () => {
+      const disconnectKept = vi.fn();
+      const disconnectRemoved = vi.fn();
+      const server1 = {
+        ...makeServer("http://127.0.0.1:8080", "model-1"),
+        sseManager: { disconnect: disconnectKept },
+      } as unknown as Server;
+      const server2 = {
+        ...makeServer("http://127.0.0.1:8081", "model-2"),
+        sseManager: { disconnect: disconnectRemoved },
+      } as unknown as Server;
+
+      const manager = await createManager(server1, server2);
+      expect(manager.servers).toHaveLength(2);
+
+      mockSettings.resolveServers.mockReturnValue([server1]);
+      await manager.update(mockPi as any);
+
+      expect(mockPi.unregisterProvider).toHaveBeenCalledTimes(1);
+      expect(mockPi.unregisterProvider).toHaveBeenCalledWith(
+        "llama-server=http://127.0.0.1:8081",
+      );
+      expect(disconnectRemoved).toHaveBeenCalledTimes(1);
+      // Surviving providers keep their SSE manager connected (today's behavior)
+      expect(disconnectKept).not.toHaveBeenCalled();
+      expect(manager.getAllModels().map((m) => m.id)).toEqual(["model-1"]);
+    });
+
+    it("should unregister the old provider when a server URL changes", async () => {
+      const manager = await createManager(
+        makeServer("http://127.0.0.1:8080", "model-1"),
+      );
+
+      mockSettings.resolveServers.mockReturnValue([
+        makeServer("http://127.0.0.1:9090", "model-1"),
+      ]);
+      await manager.update(mockPi as any);
+
+      expect(mockPi.unregisterProvider).toHaveBeenCalledWith(
+        "llama-server=http://127.0.0.1:8080",
+      );
+      expect(mockPi.registerProvider).toHaveBeenCalledWith(
+        "llama-server=http://127.0.0.1:9090",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:9090" }),
+      );
+      expect(manager.servers[0]?.providerId).toBe(
+        "llama-server=http://127.0.0.1:9090",
+      );
+    });
+
+    it("should re-register same-id servers without unregistering (name edit)", async () => {
+      const original = createMockServer({
+        baseUrl: "http://127.0.0.1:8080",
+        providerId: "my-custom-id",
+        providerName: "Llama.cpp (A)",
+      });
+      const manager = await createManager(original);
+
+      const renamed = createMockServer({
+        baseUrl: "http://127.0.0.1:8080",
+        providerId: "my-custom-id",
+        providerName: "Llama.cpp (B)",
+      });
+      mockSettings.resolveServers.mockReturnValue([renamed]);
+      await manager.update(mockPi as any);
+
+      expect(mockPi.unregisterProvider).not.toHaveBeenCalled();
+      expect(vi.mocked(mockPi.registerProvider).mock.calls.at(-1)).toEqual([
+        "my-custom-id",
+        expect.objectContaining({ name: "Llama.cpp (B)" }),
+      ]);
+      expect(manager.servers[0]?.providerId).toBe("my-custom-id");
+    });
+
+    it("should collapse duplicate URLs into a single server", async () => {
+      const first = makeServer("http://127.0.0.1:8080", "model-1");
+      const duplicate = makeServer("http://127.0.0.1:8080", "model-1");
+      const manager = await createManager(first, duplicate);
+
+      expect(manager.servers).toHaveLength(1);
+      expect(mockPi.registerProvider).toHaveBeenCalledTimes(1);
+      expect(manager.getAllModels()).toHaveLength(1);
+    });
+
+    it("should return undefined from getServer for a removed server's model", async () => {
+      const manager = await createManager(
+        makeServer("http://127.0.0.1:8080", "model-1"),
+      );
+
+      const live = manager.getAllModels()[0];
+      expect(manager.getServer(live)).toBe(manager.servers[0]);
+
+      const orphan = { serverUrl: "http://gone:1" } as unknown as BaseModel;
+      expect(manager.getServer(orphan)).toBeUndefined();
+    });
+  });
+
   describe("sortBy", () => {
     const getSettings = () =>
       vi.mocked(mockSettings) as {
         resolveSortBy: () => "asc" | "desc" | "asc-name" | "desc-name" | "api";
       };
 
-    it("should return models in API order when sortBy is 'api'", () => {
+    it("should return models in API order when sortBy is 'api'", async () => {
       vi.mocked(getSettings().resolveSortBy).mockReturnValue("api");
 
-      const mockModelA = {
-        name: "model-a",
-        id: "model-a",
-      } as unknown as BaseModel;
-      const mockModelZ = {
-        name: "model-z",
-        id: "model-z",
-      } as unknown as BaseModel;
-      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
-      const manager = new ServerManager([
-        { ...server, models: [mockModelA, mockModelZ] } as any,
-      ] as any);
+      const mockModelA = createMockModel("model-a");
+      const mockModelZ = createMockModel("model-z");
+      const manager = await createManager(
+        createMockServer({
+          baseUrl: "http://127.0.0.1:8080",
+          models: [mockModelA, mockModelZ],
+        }),
+      );
 
       const allModels = manager.getAllModels();
 
@@ -172,21 +302,17 @@ describe("ServerManager", () => {
       expect(allModels[1]).toBe(mockModelZ);
     });
 
-    it("should sort models by ID ascending when sortBy is 'asc'", () => {
+    it("should sort models by ID ascending when sortBy is 'asc'", async () => {
       vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc");
 
-      const mockModelZ = {
-        name: "model-z",
-        id: "model-z",
-      } as unknown as BaseModel;
-      const mockModelA = {
-        name: "model-a",
-        id: "model-a",
-      } as unknown as BaseModel;
-      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
-      const manager = new ServerManager([
-        { ...server, models: [mockModelZ, mockModelA] } as any,
-      ] as any);
+      const mockModelZ = createMockModel("model-z");
+      const mockModelA = createMockModel("model-a");
+      const manager = await createManager(
+        createMockServer({
+          baseUrl: "http://127.0.0.1:8080",
+          models: [mockModelZ, mockModelA],
+        }),
+      );
 
       const allModels = manager.getAllModels();
 
@@ -195,21 +321,17 @@ describe("ServerManager", () => {
       expect(allModels[1]).toBe(mockModelZ);
     });
 
-    it("should sort models by ID descending when sortBy is 'desc'", () => {
+    it("should sort models by ID descending when sortBy is 'desc'", async () => {
       vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc");
 
-      const mockModelA = {
-        name: "model-a",
-        id: "model-a",
-      } as unknown as BaseModel;
-      const mockModelZ = {
-        name: "model-z",
-        id: "model-z",
-      } as unknown as BaseModel;
-      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
-      const manager = new ServerManager([
-        { ...server, models: [mockModelA, mockModelZ] } as any,
-      ] as any);
+      const mockModelA = createMockModel("model-a");
+      const mockModelZ = createMockModel("model-z");
+      const manager = await createManager(
+        createMockServer({
+          baseUrl: "http://127.0.0.1:8080",
+          models: [mockModelA, mockModelZ],
+        }),
+      );
 
       const allModels = manager.getAllModels();
 
@@ -218,21 +340,17 @@ describe("ServerManager", () => {
       expect(allModels[1]).toBe(mockModelA);
     });
 
-    it("should sort models by name ascending when sortBy is 'asc-name'", () => {
+    it("should sort models by name ascending when sortBy is 'asc-name'", async () => {
       vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc-name");
 
-      const mockModelB = {
-        name: "zebra",
-        id: "model-b",
-      } as unknown as BaseModel;
-      const mockModelA = {
-        name: "alpha",
-        id: "model-a",
-      } as unknown as BaseModel;
-      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
-      const manager = new ServerManager([
-        { ...server, models: [mockModelB, mockModelA] } as any,
-      ] as any);
+      const mockModelB = createMockModel("zebra", { id: "model-b" });
+      const mockModelA = createMockModel("alpha", { id: "model-a" });
+      const manager = await createManager(
+        createMockServer({
+          baseUrl: "http://127.0.0.1:8080",
+          models: [mockModelB, mockModelA],
+        }),
+      );
 
       const allModels = manager.getAllModels();
 
@@ -241,21 +359,17 @@ describe("ServerManager", () => {
       expect(allModels[1]).toBe(mockModelB);
     });
 
-    it("should sort models by name descending when sortBy is 'desc-name'", () => {
+    it("should sort models by name descending when sortBy is 'desc-name'", async () => {
       vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc-name");
 
-      const mockModelA = {
-        name: "alpha",
-        id: "model-a",
-      } as unknown as BaseModel;
-      const mockModelB = {
-        name: "zebra",
-        id: "model-b",
-      } as unknown as BaseModel;
-      const server = createMockServer({ baseUrl: "http://127.0.0.1:8080" });
-      const manager = new ServerManager([
-        { ...server, models: [mockModelA, mockModelB] } as any,
-      ] as any);
+      const mockModelA = createMockModel("alpha", { id: "model-a" });
+      const mockModelB = createMockModel("zebra", { id: "model-b" });
+      const manager = await createManager(
+        createMockServer({
+          baseUrl: "http://127.0.0.1:8080",
+          models: [mockModelA, mockModelB],
+        }),
+      );
 
       const allModels = manager.getAllModels();
 

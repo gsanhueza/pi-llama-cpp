@@ -8,8 +8,16 @@ import { settings } from "./settings";
 export class ServerManager {
   readonly failedUrls: string[] = [];
   private readonly warnings: string[] = [];
+  private readonly serverList: Server[] = [];
 
-  constructor(private readonly servers: Server[]) {}
+  /**
+   * Live view of the server list. `update()` re-derives the list from
+   * settings on every scan (in place), so `/models servers` edits apply
+   * without a restart.
+   */
+  get servers(): readonly Server[] {
+    return this.serverList;
+  }
 
   /**
    * Verifies reachability of servers and registers the providers
@@ -31,6 +39,30 @@ export class ServerManager {
    */
   async update(pi: ExtensionAPI, timeout?: number) {
     this.failedUrls.length = 0;
+
+    // Re-derive the server list from settings so `/models servers` edits
+    // (add / remove / URL / id / name) apply on the next scan
+    const fresh: Server[] = [];
+    const seen = new Set<string>(); // dedupe repeated URLs (same providerId)
+    for (const server of settings.resolveServers()) {
+      if (seen.has(server.providerId)) continue;
+      seen.add(server.providerId);
+      fresh.push(server);
+    }
+
+    // Unregister providers that disappeared (removed or edited away);
+    // no-op for providers that were never registered
+    for (const old of this.servers) {
+      if (fresh.some((f) => f.providerId === old.providerId)) continue;
+      pi.unregisterProvider(old.providerId);
+      // Optional chain is intentional despite the non-optional type: `sse`
+      // is undefined until initialize() runs (async-constructor hack — see Server)
+      old.sseManager?.disconnect();
+    }
+
+    // Replace in place so the live `servers` view stays valid (D1)
+    this.serverList.length = 0;
+    this.serverList.push(...fresh);
 
     const registrableServers = timeout
       ? await this.findRegistrableServers(timeout)
@@ -123,10 +155,11 @@ export class ServerManager {
    * Returns the server for a given model.
    *
    * @param model - The model to find the server for
-   * @returns The server containing the model
+   * @returns The server containing the model, or `undefined` when no
+   * current server matches (e.g. removed while a model was loading)
    */
-  getServer(model: BaseModel): Server {
-    return this.servers.find((s) => s.baseUrl === model.serverUrl)!;
+  getServer(model: BaseModel): Server | undefined {
+    return this.servers.find((s) => s.baseUrl === model.serverUrl);
   }
 
   /**

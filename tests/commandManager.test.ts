@@ -31,7 +31,7 @@ describe("CommandManager", () => {
 
   beforeEach(() => {
     mockPi = createMockPi();
-    serverManager = new ServerManager([]);
+    serverManager = new ServerManager();
     commandManager = new CommandManager(serverManager);
   });
 
@@ -72,7 +72,8 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager([server] as any);
+      serverManager = new ServerManager();
+      vi.spyOn(settings, "resolveServers").mockReturnValue([server]);
       commandManager = new CommandManager(serverManager);
 
       const ctx = {
@@ -99,7 +100,8 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager([server] as any);
+      serverManager = new ServerManager();
+      vi.spyOn(settings, "resolveServers").mockReturnValue([server]);
       commandManager = new CommandManager(serverManager);
 
       const ctx = {
@@ -304,7 +306,8 @@ describe("CommandManager", () => {
           models: [model],
         }),
       );
-      const serverManager = new ServerManager(servers as any);
+      const serverManager = new ServerManager();
+      vi.spyOn(settings, "resolveServers").mockReturnValue(servers as any);
       return {
         commandManager: new CommandManager(serverManager),
         serverManager,
@@ -388,6 +391,45 @@ describe("CommandManager", () => {
 
       expect(ctx.ui.select).toHaveBeenCalledTimes(3);
       expect(ctx.ui.notify).not.toHaveBeenCalled();
+    });
+
+    it("should pick up servers added via the editor on the next /models scan", async () => {
+      const modelA = createMockModel("model-a");
+      const serverA = createMockServer({
+        baseUrl: "http://127.0.0.1:8080",
+        providerId: "llama-server=http://127.0.0.1:8080",
+        models: [modelA],
+      });
+      const resolveSpy = vi
+        .spyOn(settings, "resolveServers")
+        .mockReturnValue([serverA]);
+      const serverManager = new ServerManager();
+      const commandManager = new CommandManager(serverManager);
+
+      const ctx = createMockCtx(() => null);
+      await commandManager.handleCommand("", ctx as any, mockPi as any);
+
+      // First scan: only model-a is offered
+      let choices = vi.mocked(ctx.ui.select).mock.calls[0][1] as string[];
+      expect(choices).toHaveLength(1);
+      expect(choices[0]).toContain("model-a");
+
+      // Editor persist → settings change → resolveServers now returns both
+      const modelB = createMockModel("model-b", {
+        serverUrl: "http://127.0.0.1:8081",
+      });
+      const serverB = createMockServer({
+        baseUrl: "http://127.0.0.1:8081",
+        providerId: "llama-server=http://127.0.0.1:8081",
+        models: [modelB],
+      });
+      resolveSpy.mockReturnValue([serverA, serverB]);
+
+      await commandManager.handleCommand("", ctx as any, mockPi as any);
+
+      choices = vi.mocked(ctx.ui.select).mock.calls[1][1] as string[];
+      expect(choices).toHaveLength(2);
+      expect(choices[1]).toContain("model-b");
     });
   });
 });

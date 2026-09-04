@@ -91,6 +91,7 @@ export const createMockCtx = (
 export const createMockPi = () => ({
   setModel: vi.fn(),
   registerProvider: vi.fn(),
+  unregisterProvider: vi.fn(),
 });
 
 /** Create a mock Pi context for EventManager */
