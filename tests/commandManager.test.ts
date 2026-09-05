@@ -9,13 +9,15 @@ import {
   formatMs,
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
-import { settings } from "../src/managers/settings";
+import type { LlamaSettingsManager } from "../src/managers/settings";
+import type { Server } from "../src/server";
 import { ServerListEditor } from "../src/ui/serverListEditor";
 import {
   createMockCtx,
   createMockModel,
   createMockPi,
   createMockServer,
+  makeSettingsStub,
   mockRpc,
 } from "./mocks";
 
@@ -27,12 +29,14 @@ beforeEach(() => {
 describe("CommandManager", () => {
   let serverManager: ServerManager;
   let commandManager: CommandManager;
+  let settingsStub: LlamaSettingsManager;
   let mockPi: ReturnType<typeof createMockPi>;
 
   beforeEach(() => {
     mockPi = createMockPi();
-    serverManager = new ServerManager();
-    commandManager = new CommandManager(serverManager);
+    settingsStub = makeSettingsStub();
+    serverManager = new ServerManager(settingsStub);
+    commandManager = new CommandManager(serverManager, settingsStub);
   });
 
   describe("getArgumentCompletions", () => {
@@ -72,9 +76,11 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager();
-      vi.spyOn(settings, "resolveServers").mockReturnValue([server]);
-      commandManager = new CommandManager(serverManager);
+      const unloadSettings = makeSettingsStub({
+        resolveServers: vi.fn((): Server[] => [server]),
+      });
+      serverManager = new ServerManager(unloadSettings);
+      commandManager = new CommandManager(serverManager, unloadSettings);
 
       const ctx = {
         ui: {
@@ -100,9 +106,11 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8080",
         models: [model1, model2],
       });
-      serverManager = new ServerManager();
-      vi.spyOn(settings, "resolveServers").mockReturnValue([server]);
-      commandManager = new CommandManager(serverManager);
+      const infoSettings = makeSettingsStub({
+        resolveServers: vi.fn((): Server[] => [server]),
+      });
+      serverManager = new ServerManager(infoSettings);
+      commandManager = new CommandManager(serverManager, infoSettings);
 
       const ctx = {
         ui: {
@@ -126,7 +134,7 @@ describe("CommandManager", () => {
     });
 
     it("should build one item per editable scalar field", () => {
-      const items = buildSettingsItems();
+      const items = buildSettingsItems(settingsStub);
       expect(items.map((i) => i.id)).toEqual([
         "reactToModelSelect",
         "autoloadOnMessage",
@@ -142,26 +150,37 @@ describe("CommandManager", () => {
     });
 
     it("should map changes to the right key and type", async () => {
-      const spy = vi
-        .spyOn(settings, "setLlamaSetting")
-        .mockResolvedValue(undefined);
+      const settingsStub = makeSettingsStub();
 
-      await applySettingChange("reactToModelSelect", "on");
-      expect(spy).toHaveBeenCalledWith("reactToModelSelect", true);
+      await applySettingChange("reactToModelSelect", "on", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "reactToModelSelect",
+        true,
+      );
 
-      await applySettingChange("autoloadOnMessage", "off");
-      expect(spy).toHaveBeenCalledWith("autoloadOnMessage", false);
+      await applySettingChange("autoloadOnMessage", "off", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "autoloadOnMessage",
+        false,
+      );
 
-      await applySettingChange("sortBy", "desc-name");
-      expect(spy).toHaveBeenCalledWith("sortBy", "desc-name");
+      await applySettingChange("sortBy", "desc-name", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "sortBy",
+        "desc-name",
+      );
 
-      await applySettingChange("pollingTimeout", "120s");
-      expect(spy).toHaveBeenCalledWith("pollingTimeout", 120000);
+      await applySettingChange("pollingTimeout", "120s", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "pollingTimeout",
+        120000,
+      );
 
-      await applySettingChange("serverTimeout", "500ms");
-      expect(spy).toHaveBeenCalledWith("serverTimeout", 500);
-
-      spy.mockRestore();
+      await applySettingChange("serverTimeout", "500ms", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "serverTimeout",
+        500,
+      );
     });
   });
 
@@ -236,12 +255,10 @@ describe("CommandManager", () => {
     });
 
     it("should wire the editor to the merged servers and the write path", async () => {
-      const llamaServersSpy = vi
-        .spyOn(settings, "llamaServers", "get")
-        .mockReturnValue([{ url: "http://seed:1" }]);
-      const setSpy = vi
-        .spyOn(settings, "setLlamaSetting")
-        .mockResolvedValue(undefined);
+      const editorSettings = makeSettingsStub({
+        llamaServers: [{ url: "http://seed:1" }],
+      });
+      commandManager = new CommandManager(serverManager, editorSettings);
       const ctx = createMockCtx(() => null);
 
       await commandManager.handleCommand("servers", ctx as any, mockPi as any);
@@ -276,7 +293,7 @@ describe("CommandManager", () => {
       for (const ch of "http://new:2") editor.handleInput(ch);
       editor.handleInput(ENTER);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(setSpy).toHaveBeenCalledWith("servers", [
+      expect(editorSettings.setLlamaSetting).toHaveBeenCalledWith("servers", [
         { url: "http://seed:1" },
         { url: "http://new:2" },
       ]);
@@ -284,9 +301,6 @@ describe("CommandManager", () => {
       // Esc closes the editor
       editor.handleInput(ESC);
       expect(done).toHaveBeenCalledTimes(1);
-
-      llamaServersSpy.mockRestore();
-      setSpy.mockRestore();
     });
   });
 
@@ -306,11 +320,15 @@ describe("CommandManager", () => {
           models: [model],
         }),
       );
-      const serverManager = new ServerManager();
-      vi.spyOn(settings, "resolveServers").mockReturnValue(servers as any);
+      const settingsStub = makeSettingsStub({
+        resolveServers: vi.fn((): Server[] => servers),
+      });
+      const serverManager = new ServerManager(settingsStub);
       return {
-        commandManager: new CommandManager(serverManager),
+        commandManager: new CommandManager(serverManager, settingsStub),
         serverManager,
+        settingsStub,
+        servers,
         mockPi,
       };
     };
@@ -394,17 +412,9 @@ describe("CommandManager", () => {
     });
 
     it("should pick up servers added via the editor on the next /models scan", async () => {
-      const modelA = createMockModel("model-a");
-      const serverA = createMockServer({
-        baseUrl: "http://127.0.0.1:8080",
-        providerId: "llama-server=http://127.0.0.1:8080",
-        models: [modelA],
-      });
-      const resolveSpy = vi
-        .spyOn(settings, "resolveServers")
-        .mockReturnValue([serverA]);
-      const serverManager = new ServerManager();
-      const commandManager = new CommandManager(serverManager);
+      const { commandManager, settingsStub, servers } = createCommandManager([
+        createMockModel("model-a"),
+      ]);
 
       const ctx = createMockCtx(() => null);
       await commandManager.handleCommand("", ctx as any, mockPi as any);
@@ -423,7 +433,10 @@ describe("CommandManager", () => {
         providerId: "llama-server=http://127.0.0.1:8081",
         models: [modelB],
       });
-      resolveSpy.mockReturnValue([serverA, serverB]);
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([
+        ...servers,
+        serverB,
+      ]);
 
       await commandManager.handleCommand("", ctx as any, mockPi as any);
 

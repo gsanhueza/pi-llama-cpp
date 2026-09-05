@@ -5,7 +5,7 @@ import {
 import { READABLE_TIMEOUT } from "../constants";
 import { Status } from "../enums/status";
 import { ModelSelectEvent } from "../interfaces/events";
-import { settings } from "../managers/settings";
+import type { LlamaSettingsManager } from "../managers/settings";
 import { BaseModel } from "../models/baseModel";
 import { ServerManager } from "./server";
 
@@ -26,7 +26,10 @@ export class EventManager {
    */
   static inflightModel: BaseModel | null = null;
 
-  constructor(private readonly serverManager: ServerManager) {}
+  constructor(
+    private readonly serverManager: ServerManager,
+    private readonly settings: LlamaSettingsManager,
+  ) {}
 
   /**
    * Resets the in-flight model reference. Called by CommandManager when
@@ -44,7 +47,7 @@ export class EventManager {
    */
   async onModelSelect(event: ModelSelectEvent, ctx: ExtensionContext) {
     // Check if the model_select event should be used
-    if (!settings.resolveReactToModelSelect()) return;
+    if (!this.settings.resolveReactToModelSelect()) return;
 
     for (const { providerId, models } of this.serverManager.servers) {
       if (event.model.provider !== providerId) continue;
@@ -69,7 +72,7 @@ export class EventManager {
    * @param model The model to potentially auto-load
    */
   private async autoLoadIfNeeded(model: BaseModel): Promise<void> {
-    if (!settings.resolveAutoloadOnMessage()) return;
+    if (!this.settings.resolveAutoloadOnMessage()) return;
 
     const status = await model.getStatus();
     if (status !== Status.UNLOADED) return;
@@ -125,8 +128,8 @@ export class EventManager {
 
     // Retrieve pi's current thinking level, so we can setup a budget
     const level =
-      ctx.thinkingLevel ?? settings.resolveThinkingLevel() ?? "medium";
-    const budgets = settings.resolveThinkingBudgets();
+      ctx.thinkingLevel ?? this.settings.resolveThinkingLevel() ?? "medium";
+    const budgets = this.settings.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 
     // Setup payload

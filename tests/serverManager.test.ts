@@ -9,27 +9,11 @@ import {
   mockRpc,
 } from "./mocks";
 
-// Injected into the real `new Server(...)` constructions below; their eager
-// getApiKey() resolves the stub's placeholder, which is never consumed.
-// (ServerManager itself still reads the module-mocked singleton until Phase 2.)
-const stubSettings = makeSettingsStub();
-
-const mockSettings = vi.hoisted(() => ({
-  resolveSortBy: vi.fn(
-    (): "asc" | "desc" | "asc-name" | "desc-name" | "api" => "asc",
-  ),
-  resolveTimeouts: vi.fn(() => ({ pollingTimeout: 5000, serverTimeout: 1000 })),
-  // Server's constructor resolves the API key eagerly (ApiClient built
-  // there); the key is never consumed by these tests
-  resolveApiKey: vi.fn(),
-  resolveUrls: vi.fn(() => [] as string[]),
-  resolveServers: vi.fn((): Server[] => []),
-  takeWarnings: vi.fn(() => [] as string[]),
-}));
-
-vi.mock("../src/managers/settings", () => ({
-  settings: mockSettings,
-}));
+// Injected settings stub — the single instance passed to ServerManager and
+// to every real `new Server(...)` construction below (Server's eager
+// getApiKey() resolves the stub's placeholder, never consumed). Tests
+// re-stub members per case instead of module-mocking the singleton.
+const settingsStub = makeSettingsStub();
 
 const mockPi = {
   registerProvider: vi.fn(),
@@ -43,8 +27,8 @@ const mockPi = {
  * `settings.resolveServers()` — the same path a real scan takes.
  */
 const createManager = async (...servers: Server[]): Promise<ServerManager> => {
-  mockSettings.resolveServers.mockReturnValue(servers);
-  const manager = new ServerManager();
+  vi.mocked(settingsStub.resolveServers).mockReturnValue(servers);
+  const manager = new ServerManager(settingsStub);
   await manager.update(mockPi as any);
   return manager;
 };
@@ -63,32 +47,32 @@ beforeEach(() => {
 
 describe("Server", () => {
   it("should generate provider IDs from URLs", () => {
-    const server1 = new Server(stubSettings, {
+    const server1 = new Server(settingsStub, {
       baseUrl: "http://127.0.0.1:8080",
     });
     expect(server1.providerId).toBe("llama-server=http://127.0.0.1:8080");
-    const server2 = new Server(stubSettings, {
+    const server2 = new Server(settingsStub, {
       baseUrl: "http://10.0.0.5:8080",
     });
     expect(server2.providerId).toBe("llama-server=http://10.0.0.5:8080");
-    const server3 = new Server(stubSettings, { baseUrl: "http://127.0.0.1" });
+    const server3 = new Server(settingsStub, { baseUrl: "http://127.0.0.1" });
     expect(server3.providerId).toBe("llama-server=http://127.0.0.1");
-    const server4 = new Server(stubSettings, {
+    const server4 = new Server(settingsStub, {
       baseUrl: "http://127.0.0.1:80",
     });
     expect(server4.providerId).toBe("llama-server=http://127.0.0.1:80");
-    const server5 = new Server(stubSettings, {
+    const server5 = new Server(settingsStub, {
       baseUrl: "https://127.0.0.1:443",
     });
     expect(server5.providerId).toBe("llama-server=https://127.0.0.1:443");
   });
 
   it("should generate provider names from URLs", () => {
-    const server1 = new Server(stubSettings, {
+    const server1 = new Server(settingsStub, {
       baseUrl: "http://127.0.0.1:8080",
     });
     expect(server1.providerName).toBe("Llama.cpp (http://127.0.0.1:8080)");
-    const server2 = new Server(stubSettings, {
+    const server2 = new Server(settingsStub, {
       baseUrl: "http://10.0.0.5:8080",
     });
     expect(server2.providerName).toBe("Llama.cpp (http://10.0.0.5:8080)");
@@ -186,13 +170,16 @@ describe("ServerManager", () => {
 
     it("should register servers added after the first scan", async () => {
       const server1 = makeServer("http://127.0.0.1:8080", "model-1");
-      mockSettings.resolveServers.mockReturnValue([server1]);
-      const manager = new ServerManager();
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([server1]);
+      const manager = new ServerManager(settingsStub);
       await manager.update(mockPi as any);
       expect(manager.servers).toHaveLength(1);
 
       const server2 = makeServer("http://127.0.0.1:8081", "model-2");
-      mockSettings.resolveServers.mockReturnValue([server1, server2]);
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([
+        server1,
+        server2,
+      ]);
       await manager.update(mockPi as any);
 
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
@@ -221,7 +208,7 @@ describe("ServerManager", () => {
       const manager = await createManager(server1, server2);
       expect(manager.servers).toHaveLength(2);
 
-      mockSettings.resolveServers.mockReturnValue([server1]);
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([server1]);
       await manager.update(mockPi as any);
 
       expect(mockPi.unregisterProvider).toHaveBeenCalledTimes(1);
@@ -239,7 +226,7 @@ describe("ServerManager", () => {
         makeServer("http://127.0.0.1:8080", "model-1"),
       );
 
-      mockSettings.resolveServers.mockReturnValue([
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([
         makeServer("http://127.0.0.1:9090", "model-1"),
       ]);
       await manager.update(mockPi as any);
@@ -269,7 +256,7 @@ describe("ServerManager", () => {
         providerId: "my-custom-id",
         providerName: "Llama.cpp (B)",
       });
-      mockSettings.resolveServers.mockReturnValue([renamed]);
+      vi.mocked(settingsStub.resolveServers).mockReturnValue([renamed]);
       await manager.update(mockPi as any);
 
       expect(mockPi.unregisterProvider).not.toHaveBeenCalled();
@@ -304,13 +291,10 @@ describe("ServerManager", () => {
   });
 
   describe("sortBy", () => {
-    const getSettings = () =>
-      vi.mocked(mockSettings) as {
-        resolveSortBy: () => "asc" | "desc" | "asc-name" | "desc-name" | "api";
-      };
+    const sortBy = () => vi.mocked(settingsStub.resolveSortBy);
 
     it("should return models in API order when sortBy is 'api'", async () => {
-      vi.mocked(getSettings().resolveSortBy).mockReturnValue("api");
+      sortBy().mockReturnValue("api");
 
       const mockModelA = createMockModel("model-a");
       const mockModelZ = createMockModel("model-z");
@@ -329,7 +313,7 @@ describe("ServerManager", () => {
     });
 
     it("should sort models by ID ascending when sortBy is 'asc'", async () => {
-      vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc");
+      sortBy().mockReturnValue("asc");
 
       const mockModelZ = createMockModel("model-z");
       const mockModelA = createMockModel("model-a");
@@ -348,7 +332,7 @@ describe("ServerManager", () => {
     });
 
     it("should sort models by ID descending when sortBy is 'desc'", async () => {
-      vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc");
+      sortBy().mockReturnValue("desc");
 
       const mockModelA = createMockModel("model-a");
       const mockModelZ = createMockModel("model-z");
@@ -367,7 +351,7 @@ describe("ServerManager", () => {
     });
 
     it("should sort models by name ascending when sortBy is 'asc-name'", async () => {
-      vi.mocked(getSettings().resolveSortBy).mockReturnValue("asc-name");
+      sortBy().mockReturnValue("asc-name");
 
       const mockModelB = createMockModel("zebra", { id: "model-b" });
       const mockModelA = createMockModel("alpha", { id: "model-a" });
@@ -386,7 +370,7 @@ describe("ServerManager", () => {
     });
 
     it("should sort models by name descending when sortBy is 'desc-name'", async () => {
-      vi.mocked(getSettings().resolveSortBy).mockReturnValue("desc-name");
+      sortBy().mockReturnValue("desc-name");
 
       const mockModelA = createMockModel("alpha", { id: "model-a" });
       const mockModelB = createMockModel("zebra", { id: "model-b" });

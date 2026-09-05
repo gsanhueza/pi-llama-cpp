@@ -3,12 +3,13 @@ import { API_TYPE, PROVIDER_NAME, type SortBy } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
-import { settings } from "./settings";
+import type { LlamaSettingsManager } from "./settings";
 
 /** Model-list comparator: negative if a sorts first, positive if b does. */
 type ModelComparator = (a: BaseModel, b: BaseModel) => number;
 
 export class ServerManager {
+  constructor(private readonly settings: LlamaSettingsManager) {}
   readonly failedUrls: string[] = [];
   private readonly warnings: string[] = [];
   private readonly serverList: Server[] = [];
@@ -29,7 +30,7 @@ export class ServerManager {
    */
   async initialize(pi: ExtensionAPI) {
     // Register the providers with the configured server timeout
-    const { serverTimeout } = settings.resolveTimeouts();
+    const { serverTimeout } = this.settings.resolveTimeouts();
     await this.update(pi, serverTimeout);
   }
 
@@ -44,13 +45,13 @@ export class ServerManager {
     this.failedUrls.length = 0;
 
     // Surface warnings from strict URL parsing (dropped invalid entries)
-    this.warnings.push(...settings.takeWarnings());
+    this.warnings.push(...this.settings.takeWarnings());
 
     // Re-derive the server list from settings so `/models servers` edits
     // (add / remove / URL / id / name) apply on the next scan
     const fresh: Server[] = [];
     const seen = new Set<string>(); // dedupe repeated URLs (same providerId)
-    for (const server of settings.resolveServers()) {
+    for (const server of this.settings.resolveServers()) {
       if (seen.has(server.providerId)) continue;
       seen.add(server.providerId);
       fresh.push(server);
@@ -174,7 +175,7 @@ export class ServerManager {
    * @returns Flat array of all models across all servers
    */
   getAllModels(): BaseModel[] {
-    const sortBy = settings.resolveSortBy();
+    const sortBy = this.settings.resolveSortBy();
     const allModels = this.servers.flatMap((s) => s.models);
 
     if (sortBy === "api") return allModels;

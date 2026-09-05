@@ -18,7 +18,7 @@ import { ServerListEditor } from "../ui/serverListEditor";
 import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
-import { settings } from "./settings";
+import type { LlamaSettingsManager } from "./settings";
 
 /**
  * Identifiers of the editable fields shown in `/models settings`.
@@ -96,7 +96,9 @@ const parseMs = (value: string): number =>
  * Builds the `SettingsList` items for `/models settings` from the current
  * (merged) values of the scalar `llamaSettings` fields.
  */
-export const buildSettingsItems = (): SettingItem[] => {
+export const buildSettingsItems = (
+  settings: LlamaSettingsManager,
+): SettingItem[] => {
   const { pollingTimeout, serverTimeout } = settings.resolveTimeouts();
 
   return [
@@ -147,6 +149,7 @@ export const buildSettingsItems = (): SettingItem[] => {
 export const applySettingChange = async (
   id: string,
   newValue: string,
+  settings: LlamaSettingsManager,
 ): Promise<void> => {
   switch (id) {
     case Options.REACT_TO_MODEL_SELECT:
@@ -168,7 +171,10 @@ export const applySettingChange = async (
 };
 
 export class CommandManager {
-  constructor(private readonly serverManager: ServerManager) {}
+  constructor(
+    private readonly serverManager: ServerManager,
+    private readonly settings: LlamaSettingsManager,
+  ) {}
 
   /**
    * Sets up the argument completions for the `/models` command
@@ -253,7 +259,7 @@ export class CommandManager {
       return;
     }
 
-    const items = buildSettingsItems();
+    const items = buildSettingsItems(this.settings);
 
     await ctx.ui.custom<void>(
       (_tui, _theme, _kb, done) =>
@@ -262,10 +268,12 @@ export class CommandManager {
           Math.min(items.length + 2, 15),
           getSettingsListTheme(),
           (id, newValue) => {
-            applySettingChange(id, newValue).catch((err: unknown) => {
-              const message = errorMessage(err);
-              ctx.ui.notify(message, "error");
-            });
+            applySettingChange(id, newValue, this.settings).catch(
+              (err: unknown) => {
+                const message = errorMessage(err);
+                ctx.ui.notify(message, "error");
+              },
+            );
           },
           () => done(undefined),
         ),
@@ -292,7 +300,7 @@ export class CommandManager {
       return;
     }
 
-    const servers = settings.llamaServers;
+    const servers = this.settings.llamaServers;
 
     await ctx.ui.custom<void>(
       (tui, theme, keybindings, done) =>
@@ -301,7 +309,7 @@ export class CommandManager {
           theme,
           keybindings,
           servers,
-          persist: (next) => settings.setLlamaSetting("servers", next),
+          persist: (next) => this.settings.setLlamaSetting("servers", next),
           done: () => done(undefined),
           onError: (message) => ctx.ui.notify(message, "error"),
         }),
