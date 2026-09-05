@@ -10,12 +10,27 @@ import { BaseModel } from "../models/baseModel";
 import { ServerManager } from "./server";
 
 export class EventManager {
+  /**
+   * Model with a load currently in flight. Deliberately a class static
+   * (REFACTOR.md §3.3): the load is started by CommandManager
+   * (fire-and-forget from the /models editor) while the "session switched
+   * mid-load" warning must be emitted here, from the session_before_switch
+   * hook — a shared static is the least-plumbing bridge between the two
+   * event-owning managers.
+   *
+   * Known limits, accepted: (1) single slot — a second overlapping load
+   * overwrites the first, and the first load's onFinished reset can clear
+   * the flag while the second is still loading, so the session-switch
+   * warning may be missed; (2) loads initiated from this class
+   * (onModelSelect / autoLoadIfNeeded) never set the flag.
+   */
   static inflightModel: BaseModel | null = null;
 
   constructor(private readonly serverManager: ServerManager) {}
 
   /**
-   * Resets the in-flight model reference.
+   * Resets the in-flight model reference. Called by CommandManager when
+   * its load settles (see `inflightModel` for why this lives on a static).
    */
   static resetInflightModel() {
     EventManager.inflightModel = null;

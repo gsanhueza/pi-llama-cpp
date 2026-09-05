@@ -363,6 +363,8 @@ export class CommandManager {
     const loadActions = [Action.LOAD, Action.LOAD_AND_SWITCH, Action.RETRY];
     if (loadActions.includes(action)) {
       ctx.ui.notify(`Loading ${model.name}...`, "info");
+      // Mark the load as in-flight so session_before_switch can warn about
+      // it (see EventManager.inflightModel for the coupling rationale)
       EventManager.inflightModel = model;
 
       // Subscribe to progress events; skip when the server is gone
