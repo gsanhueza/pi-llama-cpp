@@ -25,6 +25,10 @@ export class SSEClient {
   private subscribers: Map<string, SSECallback> = new Map();
   private connected: boolean = false;
   private reconnecting: boolean = false; // tracks if EventSource auto-reconnect is in progress
+  /**
+   * Single shared slot — each setOnConnectFailed call overwrites the
+   * previous callback (see there for the constraint this imposes).
+   */
   private _onConnectFailed: (() => void) | null = null;
   private _hasReceivedEvents: boolean = false;
 
@@ -39,6 +43,10 @@ export class SSEClient {
 
   /**
    * Connects to the SSE endpoint.
+   *
+   * No current caller consumes the result: `subscribe()` triggers the
+   * connection without awaiting it, and connection failures before the
+   * first event are surfaced through the `setOnConnectFailed` callback.
    *
    * @returns true if the connection was established successfully
    */
@@ -97,6 +105,13 @@ export class SSEClient {
   /**
    * Sets a callback to be called when the connection fails before
    * any event is received. Useful for rejecting promises early.
+   *
+   * Single shared slot: each call overwrites the previous callback, so at
+   * most one caller may depend on it at a time. The only caller today is
+   * `SSEManager.subscribeToStatus`, which must therefore not be invoked
+   * twice concurrently on the same client — the second registration would
+   * take over the failure signal and the first promise would only reject
+   * via its own timeout.
    *
    * @param callback - Called once when connection fails
    */
