@@ -12,22 +12,13 @@ import {
   PropsEndpoint,
   PropsModelEndpoint,
 } from "./interfaces/endpoints/props";
+import type { ServerOptions } from "./interfaces/server";
 import type { LlamaSettingsManager } from "./managers/settings";
 import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { SSEManager } from "./sse/manager";
-
-/** Identity of a llama.cpp server endpoint. */
-export interface ServerOptions {
-  /** Base URL of the llama.cpp server (e.g. "http://127.0.0.1:8080"). */
-  baseUrl: string;
-  /** Custom provider ID; falls back to a URL-based one. */
-  customId?: string;
-  /** Custom provider name suffix; falls back to the base URL. */
-  customName?: string;
-}
 
 export class Server {
   public readonly models: BaseModel[] = [];
