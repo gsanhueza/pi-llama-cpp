@@ -43,6 +43,9 @@ export class ServerManager {
   async update(pi: ExtensionAPI, timeout?: number) {
     this.failedUrls.length = 0;
 
+    // Surface warnings from strict URL parsing (dropped invalid entries)
+    this.warnings.push(...settings.takeWarnings());
+
     // Re-derive the server list from settings so `/models servers` edits
     // (add / remove / URL / id / name) apply on the next scan
     const fresh: Server[] = [];

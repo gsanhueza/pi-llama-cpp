@@ -135,6 +135,34 @@ describe("URL resolution fallback chain", () => {
 
     expect(result).toEqual(["http://first:8080", "http://second:9090"]);
   });
+
+  it("should drop env URLs without an http(s) scheme, warn, and fall through", async () => {
+    process.env.LLAMA_SERVER_URL = "127.0.0.1:8080";
+
+    const result = settings.resolveUrls();
+
+    expect(result).toEqual([LLAMA_SERVER_URL]);
+    expect(settings.takeWarnings()).toEqual([
+      "Ignoring invalid server URL '127.0.0.1:8080' (needs http(s)://)",
+    ]);
+    expect(settings.takeWarnings()).toEqual([]); // drained
+  });
+
+  it("should drop server entries without an http(s) scheme and warn", async () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [{ url: "127.0.0.1:8080" }, { url: "http://good:8080/" }],
+      },
+    });
+
+    const result = settings.resolveUrls();
+
+    expect(result).toEqual(["http://good:8080"]);
+    expect(settings.takeWarnings()).toEqual([
+      "Ignoring invalid server URL '127.0.0.1:8080' (needs http(s)://)",
+    ]);
+    expect(settings.takeWarnings()).toEqual([]); // drained
+  });
 });
 
 describe("llamaSettings.servers resolution", () => {

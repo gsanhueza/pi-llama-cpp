@@ -18,12 +18,24 @@ import {
 import { LlamaServer, LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
-import { normalizeUrl } from "../utils/urls";
+import { isValidServerUrl, normalizeUrl } from "../utils/urls";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
 
   constructor(private readonly store: SettingsStore = new SettingsStore()) {}
+
+  /** Warnings collected during URL resolution (dropped invalid entries). */
+  private warnings: string[] = [];
+
+  /**
+   * Returns and clears warnings collected during URL resolution.
+   */
+  takeWarnings(): string[] {
+    const warnings = [...this.warnings];
+    this.warnings.length = 0;
+    return warnings;
+  }
 
   /**
    * Convenience getter for merged project/global settings
@@ -112,8 +124,10 @@ export class LlamaSettingsManager {
 
   /**
    * Parses a raw URL string into an array of cleaned URLs.
-   * Splits on semicolons, trims whitespace, filters empty strings,
-   * and strips trailing slashes.
+   * Splits on semicolons, trims whitespace, filters empty strings, strips
+   * trailing slashes, and drops entries without an http(s) scheme —
+   * collecting a warning for each dropped entry (same validation the
+   * `/models servers` editor applies).
    *
    * @returns A sanitized URL
    */
@@ -121,7 +135,16 @@ export class LlamaSettingsManager {
     return raw
       .split(";")
       .map(normalizeUrl)
-      .filter((u) => u.length > 0);
+      .filter((u) => {
+        if (u.length === 0) return false;
+        if (!isValidServerUrl(u)) {
+          this.warnings.push(
+            `Ignoring invalid server URL '${u}' (needs http(s)://)`,
+          );
+          return false;
+        }
+        return true;
+      });
   }
 
   /**

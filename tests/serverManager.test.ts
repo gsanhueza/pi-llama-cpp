@@ -11,6 +11,7 @@ const mockSettings = vi.hoisted(() => ({
   resolveTimeouts: vi.fn(() => ({ pollingTimeout: 5000, serverTimeout: 1000 })),
   resolveUrls: vi.fn(() => [] as string[]),
   resolveServers: vi.fn((): Server[] => []),
+  takeWarnings: vi.fn(() => [] as string[]),
 }));
 
 vi.mock("../src/managers/settings", () => ({

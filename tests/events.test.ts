@@ -10,6 +10,7 @@ const mockSettings = {
   resolveAutoloadOnMessage: vi.fn(() => false),
   resolveSortBy: vi.fn(() => "asc"),
   resolveServers: vi.fn((): Server[] => []),
+  takeWarnings: vi.fn(() => [] as string[]),
   resolveThinkingLevel: vi.fn(() => "medium"),
   resolveThinkingBudgets: vi.fn(() => ({ ...THINKING_BUDGETS })),
 };
