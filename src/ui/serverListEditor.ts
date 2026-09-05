@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { PROVIDER_PREFIX } from "../constants";
 import type { LlamaServer } from "../interfaces/settings";
+import { errorMessage } from "../utils/errors";
 
 /**
  * Validates and normalizes a user-entered server URL: trims whitespace,
@@ -110,9 +111,6 @@ export interface ServerListEditorOptions {
   /** Notifies about persistence errors */
   onError: (message: string) => void;
 }
-
-const errorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
 
 /**
  * Editor for `llamaSettings.servers`, shown by `/models servers`.

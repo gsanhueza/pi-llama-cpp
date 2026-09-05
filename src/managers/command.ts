@@ -15,6 +15,7 @@ import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
 import { ServerListEditor } from "../ui/serverListEditor";
+import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
 import { settings } from "./settings";
@@ -254,7 +255,7 @@ export class CommandManager {
           getSettingsListTheme(),
           (id, newValue) => {
             applySettingChange(id, newValue).catch((err: unknown) => {
-              const message = err instanceof Error ? err.message : String(err);
+              const message = errorMessage(err);
               ctx.ui.notify(message, "error");
             });
           },
@@ -394,7 +395,7 @@ export class CommandManager {
       };
 
       const onFailure = (err: any) => {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = errorMessage(err);
 
         try {
           ctx.ui.notify(message, "error");

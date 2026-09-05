@@ -1,5 +1,5 @@
 import type { Server } from "../server";
-import { SSEClient } from "./client";
+import { SSEClient, buildSSEUrl } from "./client";
 import {
   DownloadProgressData,
   ProgressData,
@@ -62,10 +62,7 @@ export class SSEManager {
     if (this.sseSupported !== null) return this.sseSupported;
 
     try {
-      let url = this.sseEndpoint;
-      if (this.apiKey) {
-        url = `${url}?api_key=${encodeURIComponent(this.apiKey)}`;
-      }
+      const url = buildSSEUrl(this.sseEndpoint, this.apiKey);
       const response = await fetch(url, {
         method: "GET",
         signal: AbortSignal.timeout(this.serverTimeout),

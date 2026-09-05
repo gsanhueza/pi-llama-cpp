@@ -2,6 +2,18 @@ import { POLLING_INTERVAL } from "../constants";
 import type { SSECallback, SSECleanup, SSEEvent } from "./types";
 
 /**
+ * Builds the full SSE endpoint URL, appending the API key as a query
+ * parameter when one is set. Shared by {@link SSEClient} and
+ * {@link SSEManager.probeSSE} so the two can't drift.
+ */
+export const buildSSEUrl = (endpoint: string, apiKey?: string): string => {
+  if (apiKey) {
+    return `${endpoint}?api_key=${encodeURIComponent(apiKey)}`;
+  }
+  return endpoint;
+};
+
+/**
  * SSE client for llama-server's /models/sse endpoint.
  *
  * Uses a single shared EventSource per server instance.
@@ -33,7 +45,7 @@ export class SSEClient {
   async connect(): Promise<boolean> {
     if (this.connected) return true;
 
-    const url = this.buildUrl();
+    const url = buildSSEUrl(this.sseEndpoint, this.apiKey);
 
     try {
       this.eventSource = new EventSource(url);
@@ -122,16 +134,6 @@ export class SSEClient {
     }
     this.connected = false;
     this.subscribers.clear();
-  }
-
-  /**
-   * Builds the full URL with optional API key query param.
-   */
-  private buildUrl(): string {
-    if (this.apiKey) {
-      return `${this.sseEndpoint}?api_key=${encodeURIComponent(this.apiKey)}`;
-    }
-    return this.sseEndpoint;
   }
 
   /**
