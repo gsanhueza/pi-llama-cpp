@@ -31,6 +31,14 @@ export class Server {
   ) {}
 
   /**
+   * Maximum time (ms) for server verification and SSE support probe.
+   * Resolved live from the settings singleton.
+   */
+  get serverTimeout(): number {
+    return settings.resolveTimeouts().serverTimeout;
+  }
+
+  /**
    * Maximum time (ms) to wait for model loading before giving up.
    * Resolved live from the settings singleton.
    */
@@ -87,7 +95,7 @@ export class Server {
   async initialize() {
     const apiKey = this.getApiKey();
     this.apiClient = new ApiClient(this.baseUrl, apiKey);
-    this.sse = new SSEManager(this.baseUrl, apiKey);
+    this.sse = new SSEManager(this, apiKey);
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode();
 

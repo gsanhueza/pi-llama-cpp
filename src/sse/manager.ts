@@ -1,4 +1,4 @@
-import { settings } from "../managers/settings";
+import type { Server } from "../server";
 import { SSEClient } from "./client";
 import {
   DownloadProgressData,
@@ -25,31 +25,31 @@ export class SSEManager {
   private sseSupported: boolean | null = null;
 
   constructor(
-    private readonly baseUrl: string,
+    private readonly server: Server,
     private readonly apiKey: string,
   ) {}
 
   /**
    * Maximum time (ms) for server verification and SSE support probe.
-   * Resolved live from the settings singleton.
+   * Delegates to the owning {@link Server}.
    */
   get serverTimeout(): number {
-    return settings.resolveTimeouts().serverTimeout;
+    return this.server.serverTimeout;
   }
 
   /**
    * Maximum time (ms) to wait for model loading before giving up.
-   * Resolved live from the settings singleton.
+   * Delegates to the owning {@link Server}.
    */
   get pollingTimeout(): number {
-    return settings.resolveTimeouts().pollingTimeout;
+    return this.server.pollingTimeout;
   }
 
   /**
    * The SSE endpoint URL.
    */
   private get sseEndpoint(): string {
-    return `${this.baseUrl}/models/sse`;
+    return `${this.server.baseUrl}/models/sse`;
   }
 
   /**

@@ -1,67 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../src/constants";
+import { describe, expect, it, vi } from "vitest";
 import { SSEManager } from "../src/sse/manager";
+import { createMockServer } from "./mocks";
 
-const mockSettings = vi.hoisted(() => ({
-  resolveTimeouts: vi.fn(),
-}));
+/**
+ * Builds an SSEManager bound to a stub server, mirroring how
+ * `Server.initialize()` wires it up (timeouts are read through the server).
+ */
+const createManager = (
+  pollingTimeout = 60000,
+  serverTimeout = 1000,
+): SSEManager =>
+  new SSEManager(
+    createMockServer({
+      baseUrl: "http://127.0.0.1:8080",
+      pollingTimeout,
+      serverTimeout,
+    }),
+    "",
+  );
 
-vi.mock("../src/managers/settings", () => ({
-  settings: mockSettings,
-}));
+describe("SSEManager timeouts", () => {
+  it("should expose the timeouts of its server", () => {
+    const manager = createManager(5678, 1234);
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockSettings.resolveTimeouts.mockReturnValue({
-    pollingTimeout: POLLING_TIMEOUT,
-    serverTimeout: SERVER_TIMEOUT,
-  });
-});
-
-describe("SSEManager serverTimeout", () => {
-  it("should resolve serverTimeout from the settings singleton", () => {
-    const manager = new SSEManager("http://127.0.0.1:8080", "");
-
-    expect(manager.serverTimeout).toBe(SERVER_TIMEOUT);
-  });
-
-  it("should read serverTimeout live from settings", () => {
-    const manager = new SSEManager("http://127.0.0.1:8080", "");
-
-    mockSettings.resolveTimeouts.mockReturnValue({
-      pollingTimeout: POLLING_TIMEOUT,
-      serverTimeout: 3000,
-    });
-    expect(manager.serverTimeout).toBe(3000);
-
-    mockSettings.resolveTimeouts.mockReturnValue({
-      pollingTimeout: POLLING_TIMEOUT,
-      serverTimeout: 2000,
-    });
-    expect(manager.serverTimeout).toBe(2000);
-  });
-});
-
-describe("SSEManager pollingTimeout", () => {
-  it("should resolve pollingTimeout from the settings singleton", () => {
-    const manager = new SSEManager("http://127.0.0.1:8080", "");
-
-    expect(manager.pollingTimeout).toBe(POLLING_TIMEOUT);
-  });
-
-  it("should read pollingTimeout live from settings", () => {
-    const manager = new SSEManager("http://127.0.0.1:8080", "");
-
-    mockSettings.resolveTimeouts.mockReturnValue({
-      pollingTimeout: 120000,
-      serverTimeout: SERVER_TIMEOUT,
-    });
-    expect(manager.pollingTimeout).toBe(120000);
+    expect(manager.pollingTimeout).toBe(5678);
+    expect(manager.serverTimeout).toBe(1234);
   });
 });
 
 describe("SSEManager subscribeToStatus", () => {
-  it("should reject after the live pollingTimeout, not the constant", async () => {
+  it("should reject after the server's pollingTimeout, not the constant", async () => {
     vi.useFakeTimers();
     vi.stubGlobal(
       "EventSource",
@@ -74,12 +42,7 @@ describe("SSEManager subscribeToStatus", () => {
     );
 
     try {
-      mockSettings.resolveTimeouts.mockReturnValue({
-        pollingTimeout: 5000,
-        serverTimeout: SERVER_TIMEOUT,
-      });
-
-      const manager = new SSEManager("http://127.0.0.1:8080", "");
+      const manager = createManager(5000);
       const promise = manager.subscribeToStatus("test-model");
       const expectation = expect(promise).rejects.toThrow(
         "SSE status timeout for model: test-model",
@@ -108,12 +71,7 @@ describe("SSEManager subscribeToStatus", () => {
     );
 
     try {
-      mockSettings.resolveTimeouts.mockReturnValue({
-        pollingTimeout: 5000,
-        serverTimeout: SERVER_TIMEOUT,
-      });
-
-      const manager = new SSEManager("http://127.0.0.1:8080", "");
+      const manager = createManager(5000);
       const promise = manager.subscribeToStatus("test-model");
       const expectation = expect(promise).resolves.toMatchObject({
         status: "loaded",

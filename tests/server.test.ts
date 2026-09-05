@@ -163,6 +163,7 @@ describe("Server timeouts", () => {
   it("should resolve timeouts from the settings singleton", () => {
     const server = new Server("http://127.0.0.1:8080");
 
+    expect(server.serverTimeout).toBe(SERVER_TIMEOUT);
     expect(server.pollingTimeout).toBe(POLLING_TIMEOUT);
   });
 
