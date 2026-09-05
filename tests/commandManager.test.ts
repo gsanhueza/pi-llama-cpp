@@ -430,7 +430,6 @@ describe("CommandManager", () => {
       });
       const serverB = createMockServer({
         baseUrl: "http://127.0.0.1:8081",
-        providerId: "llama-server=http://127.0.0.1:8081",
         models: [modelB],
       });
       vi.mocked(settingsStub.resolveServers).mockReturnValue([

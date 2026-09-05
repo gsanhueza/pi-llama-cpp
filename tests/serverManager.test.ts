@@ -86,28 +86,15 @@ describe("ServerManager", () => {
       id: "test-model",
       toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
     } as unknown as BaseModel;
-    mockRpc.mockImplementation((endpoint: string, fallback?: unknown) => {
-      if (endpoint === "/v1/models") {
-        return Promise.resolve({ data: [mockModel], object: "list" });
-      }
-      const defaults: Record<string, unknown> = {
-        "/health": { status: "ok" },
-        "/props?autoload=false": { role: "router" },
-      };
-      return Promise.resolve(defaults[endpoint] ?? fallback ?? {});
-    });
-
     const server1 = createMockServer({
       baseUrl: "http://127.0.0.1:8080",
       apiKey: "key-1",
-      providerId: "llama-server=http://127.0.0.1:8080",
-      providerName: "Llama.cpp (http://127.0.0.1:8080)",
+      models: [mockModel],
     });
     const server2 = createMockServer({
       baseUrl: "http://127.0.0.1:8081",
       apiKey: "key-2",
-      providerId: "llama-server=http://127.0.0.1:8081",
-      providerName: "Llama.cpp (http://127.0.0.1:8081)",
+      models: [mockModel],
     });
     const manager = await createManager(server1, server2);
 
@@ -139,12 +126,10 @@ describe("ServerManager", () => {
     const mockModel2 = createMockModel("model-2");
     const server1 = createMockServer({
       baseUrl: "http://127.0.0.1:8080",
-      providerId: "llama-server=http://127.0.0.1:8080",
       models: [mockModel1],
     });
     const server2 = createMockServer({
       baseUrl: "http://127.0.0.1:8081",
-      providerId: "llama-server=http://127.0.0.1:8081",
       models: [mockModel2],
     });
     const manager = await createManager(server1, server2);
@@ -157,12 +142,10 @@ describe("ServerManager", () => {
   });
 
   describe("live server list (re-derived from settings)", () => {
-    /** Mock server with a stable providerId derived from its URL. */
+    /** Mock server; providerId/name derive from the URL as in production. */
     const makeServer = (url: string, modelName?: string): Server =>
       createMockServer({
         baseUrl: url,
-        providerId: `llama-server=${url}`,
-        providerName: `Llama.cpp (${url})`,
         ...(modelName
           ? { models: [createMockModel(modelName, { serverUrl: url })] }
           : {}),
@@ -196,14 +179,13 @@ describe("ServerManager", () => {
     it("should unregister and disconnect removed servers on the next scan", async () => {
       const disconnectKept = vi.fn();
       const disconnectRemoved = vi.fn();
-      const server1 = {
-        ...makeServer("http://127.0.0.1:8080", "model-1"),
-        sseManager: { disconnect: disconnectKept },
-      } as unknown as Server;
-      const server2 = {
-        ...makeServer("http://127.0.0.1:8081", "model-2"),
-        sseManager: { disconnect: disconnectRemoved },
-      } as unknown as Server;
+      const server1 = makeServer("http://127.0.0.1:8080", "model-1");
+      const server2 = makeServer("http://127.0.0.1:8081", "model-2");
+      // createMockServer stubs initialize out (models are pre-seeded), so the
+      // SSE managers never get wired; seed the slots ServerManager reaches
+      // disconnect through, mirroring an initialized server.
+      (server1 as any).sse = { disconnect: disconnectKept };
+      (server2 as any).sse = { disconnect: disconnectRemoved };
 
       const manager = await createManager(server1, server2);
       expect(manager.servers).toHaveLength(2);
@@ -246,15 +228,15 @@ describe("ServerManager", () => {
     it("should re-register same-id servers without unregistering (name edit)", async () => {
       const original = createMockServer({
         baseUrl: "http://127.0.0.1:8080",
-        providerId: "my-custom-id",
-        providerName: "Llama.cpp (A)",
+        customId: "my-custom-id",
+        customName: "A",
       });
       const manager = await createManager(original);
 
       const renamed = createMockServer({
         baseUrl: "http://127.0.0.1:8080",
-        providerId: "my-custom-id",
-        providerName: "Llama.cpp (B)",
+        customId: "my-custom-id",
+        customName: "B",
       });
       vi.mocked(settingsStub.resolveServers).mockReturnValue([renamed]);
       await manager.update(mockPi as any);

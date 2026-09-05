@@ -418,17 +418,13 @@ describe("EventManager.autoLoadIfNeeded", () => {
 describe("EventManager with a live ServerManager", () => {
   it("should observe servers added after construction", async () => {
     const serverA = createMockServer({
-      providerId: "llama-server=http://127.0.0.1:8080",
       models: [createMockModel("model-a")],
-      initialize: async () => {},
     });
     const serverB = createMockServer({
       baseUrl: "http://127.0.0.1:8081",
-      providerId: "llama-server=http://127.0.0.1:8081",
       models: [
         createMockModel("model-b", { serverUrl: "http://127.0.0.1:8081" }),
       ],
-      initialize: async () => {},
     });
 
     vi.mocked(settingsStub.resolveServers).mockReturnValue([serverA]);
