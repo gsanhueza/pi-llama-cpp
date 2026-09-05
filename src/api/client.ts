@@ -1,13 +1,29 @@
 import { POLLING_INTERVAL } from "../constants";
-import { Cache } from "../utils/cache";
-import { Mutex } from "../utils/mutex";
 
 /**
- * HTTP client for llama-server with caching and deduplication.
+ * How long GET responses stay cached: half the polling interval, so a poll
+ * tick always reaches the server while multiple reads within one tick
+ * (fan-outs like `toProviderConfig`, concurrent model polls) do not.
+ */
+const CACHE_TTL = POLLING_INTERVAL / 2;
+
+/**
+ * HTTP client for llama-server with GET caching and request deduplication.
+ *
+ * Two complementary mechanisms keep repeated reads from reaching the server:
+ * - the TTL cache absorbs time-spaced repeats (poll loops, sequential reads);
+ * - the in-flight map absorbs simultaneous bursts: concurrent callers for the
+ *   same key share one request's promise.
+ *
+ * POST requests are deduplicated but never cached — they are not idempotent
+ * reads, and the only caller (`Server.postRequest()`) clears the cache around
+ * them. The dedup matters: independent load triggers (command, auto-load,
+ * model-select) can race, and merging their duplicate `POST /models/load`
+ * into one server call avoids load-state glitches.
  */
 export class ApiClient {
-  private cache = new Cache(POLLING_INTERVAL / 2);
-  private mutex = new Mutex();
+  private cache = new Map<string, { data: unknown; timestamp: number }>();
+  private inflight = new Map<string, Promise<unknown>>();
 
   /**
    * Creates a new ApiClient.
@@ -22,40 +38,34 @@ export class ApiClient {
 
   /**
    * Makes a cached, deduplicated GET request to the llama-server.
-   * Results are cached for half the polling interval and in-flight requests are deduplicated.
    *
    * @param endpoint The endpoint path to fetch (e.g. "/health")
    * @returns The parsed JSON response from the server
    */
   async get<T>(endpoint: string): Promise<T> {
-    const cached = this.cache.get<T>(endpoint);
+    const cached = this.cacheGet<T>(endpoint);
     if (cached !== undefined) return cached;
 
-    return this.mutex.getOrCreate(endpoint, async () => {
-      const data = (await this.do_get<T>(endpoint)) as T;
-      this.cache.set(endpoint, data);
+    return this.dedupe(endpoint, async () => {
+      const data = await this.do_get<T>(endpoint);
+      this.cacheSet(endpoint, data);
       return data;
     });
   }
 
   /**
-   * Makes a cached, deduplicated POST request to the llama-server.
-   * Results are cached for half the polling interval and in-flight requests are deduplicated.
+   * Makes a deduplicated POST request to the llama-server.
+   * Concurrent duplicate requests share one server call; responses are
+   * never cached.
    *
    * @param endpoint The endpoint path to post to
    * @param body The optional request body
    * @returns The parsed JSON response from the server
    */
   async post<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
-    const key = this.cacheKey(endpoint, body);
-    const cached = this.cache.get<T>(key);
-    if (cached !== undefined) return cached;
-
-    return this.mutex.getOrCreate(key, async () => {
-      const data = (await this.do_post<T>(endpoint, body)) as T;
-      this.cache.set(key, data);
-      return data;
-    });
+    return this.dedupe(this.cacheKey(endpoint, body), async () =>
+      this.do_post<T>(endpoint, body),
+    );
   }
 
   /**
@@ -63,6 +73,51 @@ export class ApiClient {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * Runs `fn` for the given key, or returns an existing in-flight promise.
+   * Concurrent callers for the same key share the same promise.
+   */
+  private dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.inflight.get(key);
+    if (existing) return existing as Promise<T>;
+
+    const promise = fn().finally(() => {
+      this.inflight.delete(key);
+    });
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
+  /**
+   * Gets a cached GET response. Returns `undefined` if missing or expired.
+   */
+  private cacheGet<T>(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.timestamp > CACHE_TTL) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    return entry.data as T;
+  }
+
+  /**
+   * Stores a GET response in the cache with the current timestamp.
+   */
+  private cacheSet(key: string, data: unknown): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  /**
+   * Builds the dedup key for a POST request.
+   *
+   * @param endpoint The endpoint path to post to
+   * @param body The optional request body
+   */
+  private cacheKey(endpoint: string, body?: Record<string, unknown>): string {
+    return body ? `${endpoint}:${JSON.stringify(body)}` : endpoint;
   }
 
   /**
@@ -106,16 +161,5 @@ export class ApiClient {
     });
 
     return res.json();
-  }
-
-  /**
-   * Sets a cache key
-   *
-   * @param endpoint The endpoint path to post to
-   * @param body The optional request body
-   * @returns The cache key
-   */
-  private cacheKey(endpoint: string, body?: Record<string, unknown>): string {
-    return body ? `${endpoint}:${JSON.stringify(body)}` : endpoint;
   }
 }
