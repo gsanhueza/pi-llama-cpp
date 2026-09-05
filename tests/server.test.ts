@@ -163,7 +163,6 @@ describe("Server timeouts", () => {
   it("should resolve timeouts from the settings singleton", () => {
     const server = new Server("http://127.0.0.1:8080");
 
-    expect(server.serverTimeout).toBe(SERVER_TIMEOUT);
     expect(server.pollingTimeout).toBe(POLLING_TIMEOUT);
   });
 
@@ -175,7 +174,6 @@ describe("Server timeouts", () => {
 
     const server = new Server("http://127.0.0.1:8080", "my-id", "My Server");
 
-    expect(server.serverTimeout).toBe(2000);
     expect(server.pollingTimeout).toBe(90000);
   });
 
@@ -186,14 +184,12 @@ describe("Server timeouts", () => {
       pollingTimeout: 120000,
       serverTimeout: 3000,
     });
-    expect(server.serverTimeout).toBe(3000);
     expect(server.pollingTimeout).toBe(120000);
 
     mockSettings.resolveTimeouts.mockReturnValue({
       pollingTimeout: 90000,
       serverTimeout: 2000,
     });
-    expect(server.serverTimeout).toBe(2000);
     expect(server.pollingTimeout).toBe(90000);
   });
 });

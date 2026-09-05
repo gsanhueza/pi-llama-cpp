@@ -31,14 +31,6 @@ export class Server {
   ) {}
 
   /**
-   * Maximum time (ms) for server verification and SSE support probe.
-   * Resolved live from the settings singleton.
-   */
-  get serverTimeout(): number {
-    return settings.resolveTimeouts().serverTimeout;
-  }
-
-  /**
    * Maximum time (ms) to wait for model loading before giving up.
    * Resolved live from the settings singleton.
    */

@@ -1,3 +1,5 @@
+import type { SortBy } from "../constants";
+
 /**
  * A description of a server in the "llamaSettings" key
  */
@@ -62,5 +64,5 @@ export interface LlamaSettings {
    * How to sort models in the /models command.
    * @default "asc"
    */
-  sortBy?: "asc" | "desc" | "asc-name" | "desc-name" | "api";
+  sortBy?: SortBy;
 }

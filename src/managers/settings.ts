@@ -13,6 +13,7 @@ import {
   SETTINGS_KEY,
   SORT_BY,
   THINKING_BUDGETS,
+  type SortBy,
 } from "../constants";
 import { LlamaServer, LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
@@ -208,7 +209,7 @@ export class LlamaSettingsManager {
    *
    * @returns The sort order: "asc", "desc", "asc-name", "desc-name", or "api"
    */
-  resolveSortBy(): "asc" | "desc" | "asc-name" | "desc-name" | "api" {
+  resolveSortBy(): SortBy {
     return this.llamaSettings.sortBy ?? SORT_BY;
   }
 

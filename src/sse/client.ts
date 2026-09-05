@@ -42,11 +42,6 @@ export class SSEClient {
       return false;
     }
 
-    this.eventSource.onopen = () => {
-      this.connected = true;
-      this.reconnecting = false;
-    };
-
     this.eventSource.onerror = () => {
       // EventSource will auto-reconnect; we just track state
       this.connected = false;

@@ -16,14 +16,6 @@ export abstract class BaseModel {
     protected readonly server: Server,
   ) {}
 
-  protected readonly statusMapper: Record<string, Status> = {
-    loaded: Status.LOADED,
-    loading: Status.LOADING,
-    failed: Status.FAILED,
-    sleeping: Status.SLEEPING,
-    unloaded: Status.UNLOADED,
-  };
-
   protected readonly labelIcons: Record<Status, string> = {
     [Status.LOADED]: "🟢",
     [Status.LOADING]: "🟡",
