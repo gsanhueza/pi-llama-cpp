@@ -49,6 +49,34 @@ const POLLING_PRESETS = [15000, 30000, 60000, 120000, 300000];
 const SERVER_PRESETS = [500, 1000, 2000, 5000, 10000];
 
 /**
+ * `/models` subcommand completions. Module-level so
+ * {@link CommandManager.getArgumentCompletions} doesn't rebuild the
+ * table on every keystroke.
+ */
+const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
+  {
+    value: "info",
+    label: "info",
+    description: "Show information of all models",
+  },
+  {
+    value: "unload",
+    label: "unload",
+    description: "Unload all models",
+  },
+  {
+    value: "servers",
+    label: "servers",
+    description: "Manage llama.cpp server URLs",
+  },
+  {
+    value: "settings",
+    label: "settings",
+    description: "Configure llamaSettings",
+  },
+];
+
+/**
  * Formats milliseconds compactly for display (e.g. `500 -> "500ms"`,
  * `60000 -> "60s"`).
  */
@@ -149,29 +177,9 @@ export class CommandManager {
    * @returns Completions with that prefix
    */
   getArgumentCompletions(prefix: string): AutocompleteItem[] | null {
-    const available = [
-      {
-        value: "info",
-        label: "info",
-        description: "Show information of all models",
-      },
-      {
-        value: "unload",
-        label: "unload",
-        description: "Unload all models",
-      },
-      {
-        value: "servers",
-        label: "servers",
-        description: "Manage llama.cpp server URLs",
-      },
-      {
-        value: "settings",
-        label: "settings",
-        description: "Configure llamaSettings",
-      },
-    ];
-    const filtered = available.filter((a) => a.value.startsWith(prefix));
+    const filtered = ARGUMENT_COMPLETIONS.filter((a) =>
+      a.value.startsWith(prefix),
+    );
     return filtered.length > 0 ? filtered : null;
   }
 

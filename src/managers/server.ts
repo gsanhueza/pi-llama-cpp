@@ -1,9 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API_TYPE, PROVIDER_NAME } from "../constants";
+import { API_TYPE, PROVIDER_NAME, type SortBy } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 import { settings } from "./settings";
+
+/** Model-list comparator: negative if a sorts first, positive if b does. */
+type ModelComparator = (a: BaseModel, b: BaseModel) => number;
 
 export class ServerManager {
   readonly failedUrls: string[] = [];
@@ -169,70 +172,44 @@ export class ServerManager {
    */
   getAllModels(): BaseModel[] {
     const sortBy = settings.resolveSortBy();
-    const allModels = this.flattenModels();
+    const allModels = this.servers.flatMap((s) => s.models);
 
     if (sortBy === "api") return allModels;
 
-    const sorters = {
-      asc: this.sortByIdAsc,
-      desc: this.sortByIdDesc,
-      "asc-name": this.sortByNameAsc,
-      "desc-name": this.sortByNameDesc,
-    };
-
-    return allModels.sort(sorters[sortBy]);
+    return allModels.sort(ServerManager.SORTERS[sortBy]);
   }
 
-  /**
-   * Flattens all models from all servers into a single array.
-   *
-   * @returns Flat array of all models across all servers
-   */
-  private flattenModels(): BaseModel[] {
-    const response: BaseModel[] = [];
-
-    for (const { models } of this.servers) {
-      for (const model of models) {
-        response.push(model);
-      }
-    }
-
-    return response;
+  private static sortByIdAsc(a: BaseModel, b: BaseModel): number {
+    return a.id.localeCompare(b.id);
   }
 
-  /**
-   * Sorts models by ID in ascending order.
-   *
-   * @returns Negative if a < b, zero if equal, positive if a > b
-   */
-  private sortByIdAsc = (a: BaseModel, b: BaseModel): number =>
-    a.id.localeCompare(b.id);
+  private static sortByIdDesc(a: BaseModel, b: BaseModel): number {
+    return b.id.localeCompare(a.id);
+  }
 
-  /**
-   * Sorts models by ID in descending order.
-   *
-   * @returns Negative if a > b, zero if equal, positive if a < b
-   */
-  private sortByIdDesc = (a: BaseModel, b: BaseModel): number =>
-    b.id.localeCompare(a.id);
-
-  /**
-   * Sorts models by name in ascending order, with ID as tiebreaker.
-   *
-   * @returns Negative if a < b, zero if equal, positive if a > b
-   */
-  private sortByNameAsc = (a: BaseModel, b: BaseModel): number => {
+  /** Name ascending, with ID as tiebreaker. */
+  private static sortByNameAsc(a: BaseModel, b: BaseModel): number {
     const cmp = a.name.localeCompare(b.name);
     return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
-  };
+  }
 
-  /**
-   * Sorts models by name in descending order, with ID as tiebreaker.
-   *
-   * @returns Negative if a > b, zero if equal, positive if a < b
-   */
-  private sortByNameDesc = (a: BaseModel, b: BaseModel): number => {
+  /** Name descending, with ID as tiebreaker. */
+  private static sortByNameDesc(a: BaseModel, b: BaseModel): number {
     const cmp = b.name.localeCompare(a.name);
     return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+  }
+
+  /**
+   * Comparators for each sort mode except "api", which preserves server
+   * order (short-circuited in {@link ServerManager.getAllModels}).
+   */
+  private static readonly SORTERS: Record<
+    Exclude<SortBy, "api">,
+    ModelComparator
+  > = {
+    asc: ServerManager.sortByIdAsc,
+    desc: ServerManager.sortByIdDesc,
+    "asc-name": ServerManager.sortByNameAsc,
+    "desc-name": ServerManager.sortByNameDesc,
   };
 }

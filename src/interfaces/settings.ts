@@ -38,8 +38,9 @@ export interface LlamaServer {
 export interface LlamaSettings {
   /**
    * List of servers to connect to.
+   * @default []
    */
-  servers: LlamaServer[];
+  servers?: LlamaServer[];
   /**
    * Whether to react to model selection events by loading the model.
    * @default true
