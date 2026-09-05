@@ -18,6 +18,7 @@ import {
 import { LlamaServer, LlamaSettings } from "../interfaces/settings";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
+import { normalizeUrl } from "../utils/urls";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
@@ -119,9 +120,8 @@ export class LlamaSettingsManager {
   private parseUrls(raw: string): string[] {
     return raw
       .split(";")
-      .map((u) => u.trim())
-      .filter((u) => u.length > 0)
-      .map((u) => u.replace(/\/+$/, ""));
+      .map(normalizeUrl)
+      .filter((u) => u.length > 0);
   }
 
   /**
