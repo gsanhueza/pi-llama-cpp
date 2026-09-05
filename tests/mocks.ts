@@ -1,13 +1,52 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { vi } from "vitest";
+import {
+  API_KEY_PLACEHOLDER,
+  AUTOLOAD_ON_MESSAGE,
+  POLLING_TIMEOUT,
+  REACT_TO_MODEL_SELECT,
+  SERVER_TIMEOUT,
+  SORT_BY,
+  THINKING_BUDGETS,
+} from "../src/constants";
 import { Mode } from "../src/enums/mode";
 import { ServerStatus } from "../src/enums/serverStatus";
 import { Status } from "../src/enums/status";
+import type { LlamaServer } from "../src/interfaces/settings";
+import type { LlamaSettingsManager } from "../src/managers/settings";
 import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
 
 /** Shared mock RPC — each test configures it */
 export const mockRpc = vi.fn();
+
+/**
+ * Hand-made stub of `LlamaSettingsManager` for constructor injection —
+ * replaces whole-module `vi.mock` blocks and per-case `vi.spyOn` on the
+ * real singleton. Defaults give every consumer-used member a benign value;
+ * a case that cares passes just that member as an override. The single
+ * `as unknown as` cast lives here so test bodies stay cast-free.
+ */
+export const makeSettingsStub = (
+  overrides: Partial<LlamaSettingsManager> = {},
+): LlamaSettingsManager =>
+  ({
+    resolveTimeouts: vi.fn(() => ({
+      pollingTimeout: POLLING_TIMEOUT,
+      serverTimeout: SERVER_TIMEOUT,
+    })),
+    resolveServers: vi.fn((): Server[] => []),
+    resolveSortBy: vi.fn(() => SORT_BY),
+    resolveApiKey: vi.fn(() => API_KEY_PLACEHOLDER),
+    resolveReactToModelSelect: vi.fn(() => REACT_TO_MODEL_SELECT),
+    resolveAutoloadOnMessage: vi.fn(() => AUTOLOAD_ON_MESSAGE),
+    resolveThinkingLevel: vi.fn(() => undefined),
+    resolveThinkingBudgets: vi.fn(() => ({ ...THINKING_BUDGETS })),
+    llamaServers: [] as LlamaServer[],
+    takeWarnings: vi.fn((): string[] => []),
+    setLlamaSetting: vi.fn(() => Promise.resolve()),
+    ...overrides,
+  }) as unknown as LlamaSettingsManager;
 
 /** Default mock server that assumes everything works */
 export const createMockServer = (

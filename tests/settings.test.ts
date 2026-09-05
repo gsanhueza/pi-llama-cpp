@@ -347,13 +347,16 @@ describe("API key resolution", () => {
 
 describe("Server with custom id", () => {
   it("should use custom id as providerId when provided", () => {
-    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      customId: "my-custom-id",
+    });
 
     expect(server.providerId).toEqual("my-custom-id");
   });
 
   it("should fall back to URL-based providerId when no custom id", () => {
-    const server = new Server("http://127.0.0.1:8080");
+    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
 
     expect(server.providerId).toEqual(
       `${PROVIDER_PREFIX}=http://127.0.0.1:8080`,
@@ -361,7 +364,10 @@ describe("Server with custom id", () => {
   });
 
   it("should try custom id first in getApiKey(), then fall back to URL-based", () => {
-    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      customId: "my-custom-id",
+    });
 
     // Server construction resolves the key eagerly (ApiClient built there);
     // clear so the assertions below observe only the explicit getApiKey() call
@@ -384,7 +390,10 @@ describe("Server with custom id", () => {
   it("should return custom id key directly when found", () => {
     mockReadStoredCredential.mockReturnValue({ key: "custom-key" });
 
-    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      customId: "my-custom-id",
+    });
 
     const result = server.getApiKey();
 
@@ -395,27 +404,26 @@ describe("Server with custom id", () => {
 
 describe("Server with custom name", () => {
   it("should use custom name as suffix in providerName", () => {
-    const server = new Server(
-      "http://127.0.0.1:8080",
-      undefined,
-      "Remote Server",
-    );
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      customName: "Remote Server",
+    });
 
     expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);
   });
 
   it("should fall back to URL-based name when no custom name", () => {
-    const server = new Server("http://127.0.0.1:8080");
+    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
 
     expect(server.providerName).toEqual(`Llama.cpp (http://127.0.0.1:8080)`);
   });
 
   it("should use custom name even with custom id", () => {
-    const server = new Server(
-      "http://127.0.0.1:8080",
-      "my-custom-id",
-      "Remote Server",
-    );
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      customId: "my-custom-id",
+      customName: "Remote Server",
+    });
 
     expect(server.providerId).toEqual("my-custom-id");
     expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);

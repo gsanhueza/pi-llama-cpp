@@ -161,7 +161,11 @@ export class LlamaSettingsManager {
 
     return urls.map((url) => {
       const config = serverConfigs.find((s) => s.url === url);
-      return new Server(url, config?.id, config?.name);
+      return new Server(this, {
+        baseUrl: url,
+        customId: config?.id,
+        customName: config?.name,
+      });
     });
   }
 

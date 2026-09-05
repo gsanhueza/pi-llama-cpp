@@ -12,12 +12,22 @@ import {
   PropsEndpoint,
   PropsModelEndpoint,
 } from "./interfaces/endpoints/props";
-import { settings } from "./managers/settings";
+import type { LlamaSettingsManager } from "./managers/settings";
 import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
 import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { SSEManager } from "./sse/manager";
+
+/** Identity of a llama.cpp server endpoint. */
+export interface ServerOptions {
+  /** Base URL of the llama.cpp server (e.g. "http://127.0.0.1:8080"). */
+  baseUrl: string;
+  /** Custom provider ID; falls back to a URL-based one. */
+  customId?: string;
+  /** Custom provider name suffix; falls back to the base URL. */
+  customName?: string;
+}
 
 export class Server {
   public readonly models: BaseModel[] = [];
@@ -25,30 +35,34 @@ export class Server {
   private sse!: SSEManager;
 
   constructor(
-    readonly baseUrl: string,
-    private readonly customId?: string,
-    private readonly customName?: string,
+    private readonly settings: LlamaSettingsManager,
+    private readonly options: ServerOptions,
   ) {
     // Eager client: `isReady` may run before `initialize()` (health probing
     // in ServerManager), so no lazy fallback is needed. initialize()
     // rebuilds the client to re-resolve the API key.
-    this.apiClient = new ApiClient(baseUrl, this.getApiKey());
+    this.apiClient = new ApiClient(options.baseUrl, this.getApiKey());
+  }
+
+  /** Base URL of this server endpoint. */
+  get baseUrl(): string {
+    return this.options.baseUrl;
   }
 
   /**
    * Maximum time (ms) for server verification and SSE support probe.
-   * Resolved live from the settings singleton.
+   * Resolved live from the injected settings manager.
    */
   get serverTimeout(): number {
-    return settings.resolveTimeouts().serverTimeout;
+    return this.settings.resolveTimeouts().serverTimeout;
   }
 
   /**
    * Maximum time (ms) to wait for model loading before giving up.
-   * Resolved live from the settings singleton.
+   * Resolved live from the injected settings manager.
    */
   get pollingTimeout(): number {
-    return settings.resolveTimeouts().pollingTimeout;
+    return this.settings.resolveTimeouts().pollingTimeout;
   }
 
   /**
@@ -63,7 +77,7 @@ export class Server {
    * Uses custom ID if provided, otherwise falls back to URL-based ID.
    */
   get providerId(): string {
-    return this.customId ?? `${PROVIDER_PREFIX}=${this.baseUrl}`;
+    return this.options.customId ?? `${PROVIDER_PREFIX}=${this.baseUrl}`;
   }
 
   /**
@@ -71,8 +85,8 @@ export class Server {
    * Uses custom name as suffix if provided.
    */
   get providerName(): string {
-    if (this.customName) {
-      return `${PROVIDER_NAME} (${this.customName})`;
+    if (this.options.customName) {
+      return `${PROVIDER_NAME} (${this.options.customName})`;
     }
     return `${PROVIDER_NAME} (${this.baseUrl})`;
   }
@@ -85,12 +99,12 @@ export class Server {
    */
   getApiKey(): string {
     // Try custom ID first
-    if (this.customId) {
-      const key = settings.resolveApiKey(this.customId);
+    if (this.options.customId) {
+      const key = this.settings.resolveApiKey(this.options.customId);
       if (key !== API_KEY_PLACEHOLDER) return key;
     }
     // Fall back to URL-based ID
-    return settings.resolveApiKey(`${PROVIDER_PREFIX}=${this.baseUrl}`);
+    return this.settings.resolveApiKey(`${PROVIDER_PREFIX}=${this.baseUrl}`);
   }
 
   /**

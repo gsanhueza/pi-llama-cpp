@@ -2,7 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServerManager } from "../src/managers/server";
 import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
-import { createMockModel, createMockServer, mockRpc } from "./mocks";
+import {
+  createMockModel,
+  createMockServer,
+  makeSettingsStub,
+  mockRpc,
+} from "./mocks";
+
+// Injected into the real `new Server(...)` constructions below; their eager
+// getApiKey() resolves the stub's placeholder, which is never consumed.
+// (ServerManager itself still reads the module-mocked singleton until Phase 2.)
+const stubSettings = makeSettingsStub();
 
 const mockSettings = vi.hoisted(() => ({
   resolveSortBy: vi.fn(
@@ -53,22 +63,34 @@ beforeEach(() => {
 
 describe("Server", () => {
   it("should generate provider IDs from URLs", () => {
-    const server1 = new Server("http://127.0.0.1:8080");
+    const server1 = new Server(stubSettings, {
+      baseUrl: "http://127.0.0.1:8080",
+    });
     expect(server1.providerId).toBe("llama-server=http://127.0.0.1:8080");
-    const server2 = new Server("http://10.0.0.5:8080");
+    const server2 = new Server(stubSettings, {
+      baseUrl: "http://10.0.0.5:8080",
+    });
     expect(server2.providerId).toBe("llama-server=http://10.0.0.5:8080");
-    const server3 = new Server("http://127.0.0.1");
+    const server3 = new Server(stubSettings, { baseUrl: "http://127.0.0.1" });
     expect(server3.providerId).toBe("llama-server=http://127.0.0.1");
-    const server4 = new Server("http://127.0.0.1:80");
+    const server4 = new Server(stubSettings, {
+      baseUrl: "http://127.0.0.1:80",
+    });
     expect(server4.providerId).toBe("llama-server=http://127.0.0.1:80");
-    const server5 = new Server("https://127.0.0.1:443");
+    const server5 = new Server(stubSettings, {
+      baseUrl: "https://127.0.0.1:443",
+    });
     expect(server5.providerId).toBe("llama-server=https://127.0.0.1:443");
   });
 
   it("should generate provider names from URLs", () => {
-    const server1 = new Server("http://127.0.0.1:8080");
+    const server1 = new Server(stubSettings, {
+      baseUrl: "http://127.0.0.1:8080",
+    });
     expect(server1.providerName).toBe("Llama.cpp (http://127.0.0.1:8080)");
-    const server2 = new Server("http://10.0.0.5:8080");
+    const server2 = new Server(stubSettings, {
+      baseUrl: "http://10.0.0.5:8080",
+    });
     expect(server2.providerName).toBe("Llama.cpp (http://10.0.0.5:8080)");
   });
 });
