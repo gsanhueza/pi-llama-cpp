@@ -9,6 +9,9 @@ const mockSettings = vi.hoisted(() => ({
     (): "asc" | "desc" | "asc-name" | "desc-name" | "api" => "asc",
   ),
   resolveTimeouts: vi.fn(() => ({ pollingTimeout: 5000, serverTimeout: 1000 })),
+  // Server's constructor resolves the API key eagerly (ApiClient built
+  // there); the key is never consumed by these tests
+  resolveApiKey: vi.fn(),
   resolveUrls: vi.fn(() => [] as string[]),
   resolveServers: vi.fn((): Server[] => []),
   takeWarnings: vi.fn(() => [] as string[]),

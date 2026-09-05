@@ -21,14 +21,19 @@ import { SSEManager } from "./sse/manager";
 
 export class Server {
   public readonly models: BaseModel[] = [];
-  private apiClient!: ApiClient;
+  private apiClient: ApiClient;
   private sse!: SSEManager;
 
   constructor(
     readonly baseUrl: string,
     private readonly customId?: string,
     private readonly customName?: string,
-  ) {}
+  ) {
+    // Eager client: `isReady` may run before `initialize()` (health probing
+    // in ServerManager), so no lazy fallback is needed. initialize()
+    // rebuilds the client to re-resolve the API key.
+    this.apiClient = new ApiClient(baseUrl, this.getApiKey());
+  }
 
   /**
    * Maximum time (ms) for server verification and SSE support probe.
@@ -97,7 +102,7 @@ export class Server {
     this.apiClient = new ApiClient(this.baseUrl, apiKey);
     this.sse = new SSEManager(this, apiKey);
     const { data } = await this.fetchModels();
-    const mode = await this.detectServerMode();
+    const mode = await this.detectServerMode(data);
 
     // Setup models
     const modelCtor = {
@@ -113,13 +118,14 @@ export class Server {
   }
 
   /**
-   * Detects the mode of the server
+   * Detects the mode of the server from the models data already fetched by
+   * {@link initialize} — no second /v1/models round-trip.
    *
+   * @param data Models endpoint data fetched by initialize()
    * @returns The detected mode
    */
-  private async detectServerMode(): Promise<Mode> {
+  private async detectServerMode(data: ModelsEndpoint["data"]): Promise<Mode> {
     const { role } = await this.fetchServerProps();
-    const { data } = await this.fetchModels();
 
     if (role === "router") return Mode.ROUTER;
     if ("max_model_len" in data[0]) return Mode.LEGACY;
@@ -133,8 +139,6 @@ export class Server {
    * @returns The server status
    */
   async isReady(timeout: number): Promise<ServerStatus> {
-    this.apiClient ??= new ApiClient(this.baseUrl, await this.getApiKey());
-
     try {
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), timeout),

@@ -361,13 +361,15 @@ describe("Server with custom id", () => {
   });
 
   it("should try custom id first in getApiKey(), then fall back to URL-based", () => {
+    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
+
+    // Server construction resolves the key eagerly (ApiClient built there);
+    // clear so the assertions below observe only the explicit getApiKey() call
     vi.clearAllMocks();
     // Mock: custom id returns placeholder (no key found)
     mockReadStoredCredential
       .mockReturnValueOnce(API_KEY_PLACEHOLDER)
       .mockReturnValueOnce({ key: "fallback-key" });
-
-    const server = new Server("http://127.0.0.1:8080", "my-custom-id");
 
     const result = server.getApiKey();
 

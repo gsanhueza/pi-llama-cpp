@@ -6,6 +6,9 @@ import { createMockServer, mockRpc } from "./mocks";
 
 const mockSettings = vi.hoisted(() => ({
   resolveTimeouts: vi.fn(),
+  // Server's constructor resolves the API key eagerly (ApiClient built
+  // there); the key is never consumed by these tests
+  resolveApiKey: vi.fn(),
 }));
 
 vi.mock("../src/managers/settings", () => ({
