@@ -18,17 +18,26 @@ export interface LlamaServer {
    */
   name?: string;
   /**
-   * Per-model token pricing for this server. Keys are exact model IDs;
-   * values define custom cost rates (input, output, cacheRead, cacheWrite).
-   * All four fields are optional — unspecified fields default to zero.
+   * Per-model token pricing for this server. Keys are **prefix filters** —
+   * a model ID matches if it starts with the key. When multiple patterns
+   * match, the **longest (most specific) match wins**.
+   *
+   * All four cost fields are optional — unspecified fields default to zero.
    *
    * Example:
    * ```json
    * {
-   *   "llama-3-8b": { "input": 0.2, "output": 0.6 },
-   *   "llama-3-70b": { "input": 0.1, "output": 0.3, "cacheRead": 0.01 }
+   *   "llama": { "input": 0.01, "output": 0.02 },
+   *   "llama-3": { "input": 0.05, "output": 0.1 },
+   *   "llama-3-8b": { "input": 0.2, "output": 0.6, "cacheRead": 0.01 }
    * }
    * ```
+   *
+   * For model `"llama-3-8b"`:
+   * - `"llama"` matches → cost `{ input: 0.01, output: 0.02 }`
+   * - `"llama-3"` matches → cost `{ input: 0.05, output: 0.1 }`
+   * - `"llama-3-8b"` matches → cost `{ input: 0.2, output: 0.6, cacheRead: 0.01 }`
+   * - **Winner**: `"llama-3-8b"` (longest match)
    */
   costs?: Record<string, Partial<ModelCost>>;
 }

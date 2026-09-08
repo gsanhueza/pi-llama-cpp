@@ -234,6 +234,32 @@ export class Server {
   }
 
   /**
+   * Resolves the cost for a given model ID using prefix matching.
+   *
+   * Keys in the costs map are treated as prefix filters — a model ID
+   * matches if it starts with the key. When multiple keys match, the
+   * longest (most specific) key wins. Empty keys are ignored.
+   *
+   * @param modelId — The model ID to look up.
+   * @returns The matching cost entry, or `undefined` if no key matches.
+   */
+  findCostForModel(modelId: string): Partial<ModelCost> | undefined {
+    const costs = this.getCosts();
+    let best: Partial<ModelCost> | undefined;
+    let bestLen = 0;
+
+    for (const [key, cost] of Object.entries(costs)) {
+      if (!key) continue;
+      if (modelId.startsWith(key) && key.length > bestLen) {
+        best = cost;
+        bestLen = key.length;
+      }
+    }
+
+    return best;
+  }
+
+  /**
    * Sends a request associated to a specific model from the server
    *
    * @param resource The specified resource ("load" | "unload")

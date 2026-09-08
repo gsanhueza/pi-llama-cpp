@@ -165,7 +165,7 @@ export abstract class BaseModel {
   async toProviderConfig(): Promise<ProviderModelConfig> {
     // Merge user-provided costs with zero defaults
     const serverCosts = this.server.getCosts();
-    const userCost = serverCosts[this.id] ?? {};
+    const userCost = this.server.findCostForModel(this.id) ?? {};
     const cost: ModelCost = {
       input: userCost.input ?? 0,
       output: userCost.output ?? 0,

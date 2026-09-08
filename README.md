@@ -364,7 +364,29 @@ Add costs to your server configuration:
 
 All four fields are optional — unspecified fields default to zero.
 
-Model matching is **exact ID only** — the model ID must match exactly what the server returns.
+### Prefix matching
+
+Cost keys are treated as **prefix filters** — a model ID matches if it starts with the key. When multiple patterns match, the **longest (most specific) match wins**. This lets you define broad patterns at the top of your costs and override them with more specific ones below.
+
+Example:
+
+```json
+{
+  "llama": { "input": 0.01, "output": 0.02 },
+  "llama-3": { "input": 0.05, "output": 0.1 },
+  "llama-3-8b": { "input": 0.2, "output": 0.6 }
+}
+```
+
+| Model ID      | Matching keys                    | Winner (longest) | Effective cost                 |
+| ------------- | -------------------------------- | ---------------- | ------------------------------ |
+| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ input: 0.2, output: 0.6 }`  |
+| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ input: 0.05, output: 0.1 }` |
+| `mistral-7b`  | `llama` (no)                     | none             | defaults to zero               |
+
+> **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Existing configurations continue to work without changes. Empty keys are silently ignored.
+
+Model matching uses this prefix system — the model ID must start with the cost key for a match.
 
 > **Note:** Costs are resolved through the same settings merge logic (project overrides global), so costs follow the same precedence chain as other server settings. If the same URL appears multiple times with different `costs`, only the first one's costs will be used (consistent with existing dedup behavior).
 

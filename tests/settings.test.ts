@@ -1,3 +1,4 @@
+import type { ModelCost } from "@earendil-works/pi-ai";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -1016,5 +1017,109 @@ describe("resolveServers passes costs", () => {
       "model-x": { input: 0.5, output: 1.0 },
     });
     expect(result[1].getCosts()).toEqual({});
+  });
+});
+
+describe("Server.findCostForModel", () => {
+  function createServer(costs: Record<string, Partial<ModelCost>>): Server {
+    return new Server(settings as any, {
+      baseUrl: "http://127.0.0.1:8080",
+      costs,
+    });
+  }
+
+  it("should return undefined when costs is empty", () => {
+    const server = createServer({});
+    expect(server.findCostForModel("llama-3-8b")).toBeUndefined();
+  });
+
+  it("should return undefined when no key matches", () => {
+    const server = createServer({
+      mistral: { input: 0.1 },
+      "gpt-4": { input: 0.3 },
+    });
+    expect(server.findCostForModel("llama-3-8b")).toBeUndefined();
+  });
+
+  it("should match exact ID", () => {
+    const server = createServer({
+      "llama-3-8b": { input: 0.2, output: 0.6 },
+    });
+    expect(server.findCostForModel("llama-3-8b")).toEqual({
+      input: 0.2,
+      output: 0.6,
+    });
+  });
+
+  it("should match prefix", () => {
+    const server = createServer({
+      llama: { input: 0.01, output: 0.02 },
+    });
+    expect(server.findCostForModel("llama-3-8b")).toEqual({
+      input: 0.01,
+      output: 0.02,
+    });
+  });
+
+  it("should prefer longest match (most specific)", () => {
+    const server = createServer({
+      llama: { input: 0.01, output: 0.02 },
+      "llama-3": { input: 0.05, output: 0.1 },
+      "llama-3-8b": { input: 0.2, output: 0.6 },
+    });
+    expect(server.findCostForModel("llama-3-8b")).toEqual({
+      input: 0.2,
+      output: 0.6,
+    });
+  });
+
+  it("should match the second-longest when exact match is absent", () => {
+    const server = createServer({
+      llama: { input: 0.01, output: 0.02 },
+      "llama-3": { input: 0.05, output: 0.1 },
+      "llama-3-8b": { input: 0.2, output: 0.6 },
+    });
+    expect(server.findCostForModel("llama-3-70b")).toEqual({
+      input: 0.05,
+      output: 0.1,
+    });
+  });
+
+  it("should skip empty keys", () => {
+    const server = createServer({
+      "": { input: 0.001 },
+      llama: { input: 0.01 },
+    });
+    expect(server.findCostForModel("llama-3-8b")).toEqual({
+      input: 0.01,
+    });
+  });
+
+  it("should not match when model ID is shorter than key", () => {
+    const server = createServer({
+      "llama-3-8b": { input: 0.2 },
+    });
+    expect(server.findCostForModel("llama")).toBeUndefined();
+  });
+
+  it("should handle single matching key", () => {
+    const server = createServer({
+      qwen: { input: 0.1, output: 0.3 },
+    });
+    expect(server.findCostForModel("qwen-3-8b")).toEqual({
+      input: 0.1,
+      output: 0.3,
+    });
+  });
+
+  it("should handle overlapping but non-prefix matches", () => {
+    const server = createServer({
+      model: { input: 0.1 },
+      "model-a": { input: 0.2 },
+    });
+    // "model" matches "model-a" and "model-b"
+    // "model-a" matches only "model-a"
+    expect(server.findCostForModel("model-a")).toEqual({ input: 0.2 });
+    expect(server.findCostForModel("model-b")).toEqual({ input: 0.1 });
   });
 });
