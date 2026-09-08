@@ -92,7 +92,7 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 | ------ | ------ | -------- | ---------------------------------------------------------------------------- |
 | `url`  | string | Yes      | The URL of the llama.cpp server                                              |
 | `id`   | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>` |
-| `name` | string | No       | Display name for the server in the UI (shown as `Llama.cpp — <name>`)        |
+| `name` | string | No       | Display name for the server in the UI (shown as `Llama.cpp (<name>)`)        |
 
 > **Note:** If you set a custom `id`, you can use it in `~/.pi/agent/auth.json`. The extension will also fall back to the URL-based ID if no key is found for the custom `id`.
 
@@ -327,6 +327,47 @@ User-defined budgets can override the defaults by adding a `thinkingBudgets` obj
 Only `minimal`, `low`, `medium`, `high` and `xhigh` are configurable — `off` (0) and `max` (-1, unlimited) are fixed.
 The extension automatically injects the appropriate `thinking_budget_tokens` into each request payload based on the selected level.
 
+### Model Costs
+
+A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes.
+
+This extension supports **per-model, per-server cost configuration** via the `costs` key inside each server entry of `llamaSettings.servers`. This allows you to define custom token pricing for models hosted on local or remote llama.cpp servers.
+
+Add costs to your server configuration:
+
+```json
+{
+  "llamaSettings": {
+    "servers": [
+      {
+        "url": "http://127.0.0.1:8080",
+        "costs": {
+          "qwen-3.8-27b": { "input": 0.42, "output": 3.0, "cacheRead": 0.085 },
+          "glm-5.3-flash": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 }
+        }
+      }
+    ]
+  }
+}
+```
+
+> **Note:** If your server has more models than the `costs` object, the cost of the remaining models default to zero.
+
+#### Cost Fields
+
+| Field        | Type   | Description                         |
+| ------------ | ------ | ----------------------------------- |
+| `input`      | number | Cost per million input tokens       |
+| `output`     | number | Cost per million output tokens      |
+| `cacheRead`  | number | Cost per million cache read tokens  |
+| `cacheWrite` | number | Cost per million cache write tokens |
+
+All four fields are optional — unspecified fields default to zero.
+
+Model matching is **exact ID only** — the model ID must match exactly what the server returns.
+
+> **Note:** Costs are resolved through the same settings merge logic (project overrides global), so costs follow the same precedence chain as other server settings. If the same URL appears multiple times with different `costs`, only the first one's costs will be used (consistent with existing dedup behavior).
+
 ### Model Selection Event
 
 When you switch models via Pi's model picker (instead of using the `/models` command), the extension listens for the `model_select` event, which also loads the requested model before the conversation begins.
@@ -351,7 +392,7 @@ Each model exposed to Pi includes the following defaults:
 
 - **`maxTokens`** — dynamically set to the model's context window (detected from llama-server)
 - **`reasoning`** — `true` (assumed, as llama.cpp's `/v1/models` endpoint does not expose it)
-- **`cost`** — all zero (local models)
+- **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].costs` (see [Model Costs](#model-costs))
 
 ## Dependencies
 

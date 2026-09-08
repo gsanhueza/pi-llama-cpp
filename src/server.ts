@@ -1,3 +1,4 @@
+import type { ModelCost } from "@earendil-works/pi-ai";
 import { ApiClient } from "./api/client";
 import {
   API_KEY_PLACEHOLDER,
@@ -223,6 +224,13 @@ export class Server {
     return await this.apiClient.get<PropsModelEndpoint>(
       `/props?model=${modelId}&autoload=false`,
     );
+  }
+
+  /**
+   * Returns the per-model cost configuration for this server.
+   */
+  getCosts(): Record<string, Partial<ModelCost>> {
+    return this.options.costs ?? {};
   }
 
   /**

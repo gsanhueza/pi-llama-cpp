@@ -1,3 +1,5 @@
+import type { ModelCost } from "@earendil-works/pi-ai";
+
 /**
  * Identity of a llama.cpp server endpoint.
  *
@@ -17,4 +19,9 @@ export interface ServerOptions {
    * Custom provider name suffix; falls back to the base URL.
    */
   customName?: string;
+  /**
+   * Per-model cost configuration resolved from `llamaSettings.servers`.
+   * All four cost fields are optional — unspecified fields default to zero.
+   */
+  costs?: Record<string, Partial<ModelCost>>;
 }

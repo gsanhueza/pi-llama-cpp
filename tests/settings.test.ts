@@ -791,3 +791,230 @@ describe("setLlamaSetting", () => {
     expect(() => new LlamaSettingsManager()).not.toThrow();
   });
 });
+
+describe("resolveServerCosts", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
+
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
+  });
+
+  it("should return costs for a server that has them configured", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://127.0.0.1:8080",
+            costs: {
+              "llama-3-8b": { input: 0.2, output: 0.6 },
+              "llama-3-70b": {
+                input: 0.1,
+                output: 0.3,
+                cacheRead: 0.01,
+                cacheWrite: 0.02,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({
+      "llama-3-8b": { input: 0.2, output: 0.6 },
+      "llama-3-70b": {
+        input: 0.1,
+        output: 0.3,
+        cacheRead: 0.01,
+        cacheWrite: 0.02,
+      },
+    });
+  });
+
+  it("should return empty object for a server without costs", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [{ url: "http://127.0.0.1:8080" }],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({});
+  });
+
+  it("should return empty object when server URL is not in config", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [{ url: "http://127.0.0.1:9090" }],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({});
+  });
+
+  it("should use global settings when no project config exists", () => {
+    mockGetGlobalSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://global:8080",
+            costs: { "model-a": { input: 0.5 } },
+          },
+        ],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://global:8080");
+
+    expect(result).toEqual({ "model-a": { input: 0.5 } });
+  });
+
+  it("should prioritize project costs over global costs", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://shared:8080",
+            costs: { "model-b": { input: 0.1, output: 0.2 } },
+          },
+        ],
+      },
+    });
+    mockGetGlobalSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://shared:8080",
+            costs: { "model-b": { input: 0.5, output: 0.5 } },
+          },
+        ],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://shared:8080");
+
+    expect(result).toEqual({ "model-b": { input: 0.1, output: 0.2 } });
+  });
+
+  it("should return empty object when servers list is empty", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: { servers: [] },
+    });
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({});
+  });
+
+  it("should return empty object when llamaSettings is missing", () => {
+    mockGetProjectSettings.mockReturnValue({});
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({});
+  });
+
+  it("should support partial cost objects", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://127.0.0.1:8080",
+            costs: { "partial-model": { input: 0.1 } },
+          },
+        ],
+      },
+    });
+
+    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+
+    expect(result).toEqual({ "partial-model": { input: 0.1 } });
+  });
+});
+
+describe("Server with costs", () => {
+  it("should store and expose resolved costs", () => {
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+      costs: {
+        "model-a": { input: 0.2, output: 0.6 },
+        "model-b": { input: 0.1, output: 0.3, cacheRead: 0.01 },
+      },
+    });
+
+    expect(server.getCosts()).toEqual({
+      "model-a": { input: 0.2, output: 0.6 },
+      "model-b": { input: 0.1, output: 0.3, cacheRead: 0.01 },
+    });
+  });
+
+  it("should return empty object when no costs are provided", () => {
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080",
+    });
+
+    expect(server.getCosts()).toEqual({});
+  });
+});
+
+describe("resolveServers passes costs", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
+
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
+  });
+
+  it("should pass resolved costs to Server instances", () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://costs-server:8080",
+            costs: { "model-x": { input: 0.5, output: 1.0 } },
+          },
+          {
+            url: "http://no-costs-server:9090",
+          },
+        ],
+      },
+    });
+
+    const result = settings.resolveServers();
+
+    expect(result).toHaveLength(2);
+    expect(result[0].getCosts()).toEqual({
+      "model-x": { input: 0.5, output: 1.0 },
+    });
+    expect(result[1].getCosts()).toEqual({});
+  });
+});

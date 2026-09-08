@@ -1,3 +1,4 @@
+import type { ModelCost } from "@earendil-works/pi-ai";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { FALLBACK_CTX, POLLING_INTERVAL } from "../constants";
 import { Mode } from "../enums/mode";
@@ -162,6 +163,16 @@ export abstract class BaseModel {
    * @returns A Pi configuration object
    */
   async toProviderConfig(): Promise<ProviderModelConfig> {
+    // Merge user-provided costs with zero defaults
+    const serverCosts = this.server.getCosts();
+    const userCost = serverCosts[this.id] ?? {};
+    const cost: ModelCost = {
+      input: userCost.input ?? 0,
+      output: userCost.output ?? 0,
+      cacheRead: userCost.cacheRead ?? 0,
+      cacheWrite: userCost.cacheWrite ?? 0,
+    };
+
     const response = {
       id: this.id,
       name: this.name,
@@ -176,7 +187,7 @@ export abstract class BaseModel {
       },
       input: await this.getCapabilities(),
       contextWindow: await this.getContextSize(),
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost,
       maxTokens: await this.getContextSize(),
     };
 

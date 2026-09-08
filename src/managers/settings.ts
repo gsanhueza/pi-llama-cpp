@@ -1,4 +1,8 @@
-import { ApiKeyCredential, ModelThinkingLevel } from "@earendil-works/pi-ai";
+import {
+  ApiKeyCredential,
+  ModelCost,
+  ModelThinkingLevel,
+} from "@earendil-works/pi-ai";
 import {
   readStoredCredential,
   SettingsManager,
@@ -148,10 +152,28 @@ export class LlamaSettingsManager {
   }
 
   /**
+   * Resolves the cost map for a given server URL.
+   *
+   * Reads the `costs` field from the matching server config and returns a
+   * map of model ID → cost. Returns an empty object when the server has no
+   * `costs` defined.
+   *
+   * @param serverUrl - The URL of the server to resolve costs for
+   * @returns A map of model ID to cost configuration (partial, defaults
+   *          applied at consumption time)
+   */
+  resolveServerCosts(serverUrl: string): Record<string, Partial<ModelCost>> {
+    const serverConfig = this.llamaSettings.servers?.find(
+      (s) => s.url === serverUrl,
+    );
+    return serverConfig?.costs ?? {};
+  }
+
+  /**
    * Resolves the servers that this extension will use.
    * Uses `resolveUrls()` as the source of truth for URLs (env > settings >
-   * legacy > default), then applies `id`/`name` from `llamaSettings.servers`
-   * as overrides when available.
+   * legacy > default), then applies `id`/`name`/`costs` from
+   * `llamaSettings.servers` as overrides when available.
    *
    * @returns A list of Server objects
    */
@@ -165,6 +187,7 @@ export class LlamaSettingsManager {
         baseUrl: url,
         customId: config?.id,
         customName: config?.name,
+        costs: this.resolveServerCosts(url),
       });
     });
   }
