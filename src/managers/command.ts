@@ -102,17 +102,17 @@ const parseMs = (value: string): number =>
  * Builds the `SettingsList` items for `/models settings` from the current
  * (merged) values of the scalar `llamaSettings` fields.
  */
-export const buildSettingsItems = (
+export const buildSettingsItems = async (
   settings: LlamaSettingsManager,
-): SettingItem[] => {
-  const { pollingTimeout, serverTimeout } = settings.resolveTimeouts();
+): Promise<SettingItem[]> => {
+  const { pollingTimeout, serverTimeout } = await settings.resolveTimeouts();
 
   return [
     {
       id: Options.REACT_TO_MODEL_SELECT,
       label: "React to model selection",
       description: "Load the model when you pick it in Pi (immediate)",
-      currentValue: settings.resolveReactToModelSelect() ? "on" : "off",
+      currentValue: (await settings.resolveReactToModelSelect()) ? "on" : "off",
       values: ["on", "off"],
     },
     {
@@ -120,14 +120,14 @@ export const buildSettingsItems = (
       label: "Autoload on message",
       description:
         "Auto-load the selected model when you send a message (immediate)",
-      currentValue: settings.resolveAutoloadOnMessage() ? "on" : "off",
+      currentValue: (await settings.resolveAutoloadOnMessage()) ? "on" : "off",
       values: ["on", "off"],
     },
     {
       id: Options.SORT_BY,
       label: "Sort models by",
       description: "Order of models in /models (next open)",
-      currentValue: settings.resolveSortBy(),
+      currentValue: await settings.resolveSortBy(),
       values: [...SORT_VALUES],
     },
     {
@@ -235,17 +235,15 @@ export class CommandManager {
     }
 
     if (args === "unload") {
-      await Promise.all(
-        this.serverManager.getAllModels().map((model) => model.unload()),
-      );
+      const models = await this.serverManager.getAllModels();
+      await Promise.all(models.map((model) => model.unload()));
       ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
       return;
     }
 
     if (args === "info") {
-      const infos = await Promise.all(
-        this.serverManager.getAllModels().map((model) => model.getInfo()),
-      );
+      const models = await this.serverManager.getAllModels();
+      const infos = await Promise.all(models.map((model) => model.getInfo()));
       ctx.ui.notify(ctx.ui.theme.fg("accent", infos.join("\n")), "info");
       return;
     }
@@ -271,7 +269,7 @@ export class CommandManager {
       return;
     }
 
-    const items = buildSettingsItems(this.settings);
+    const items = await buildSettingsItems(this.settings);
 
     await ctx.ui.custom<void>(
       (_tui, _theme, _kb, done) =>
@@ -312,7 +310,7 @@ export class CommandManager {
       return;
     }
 
-    const servers = this.settings.llamaServers;
+    const servers = await this.settings.getLlamaServers();
 
     await ctx.ui.custom<void>(
       (tui, theme, keybindings, done) =>
@@ -353,12 +351,13 @@ export class CommandManager {
       return;
     }
 
+    const servers = await this.settings.getLlamaServers();
     await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
       createCostsEditor({
         tui,
         keybindings,
         theme,
-        servers: this.settings.llamaServers,
+        servers,
         persist: (next) => this.settings.setLlamaSetting("servers", next),
         done: () => done(undefined),
         onError: (message) => ctx.ui.notify(message, "error"),
@@ -387,7 +386,7 @@ export class CommandManager {
   ): Promise<void> {
     const event = await this.modelSelectionHandler(
       ctx,
-      this.serverManager.getAllModels(),
+      await this.serverManager.getAllModels(),
     );
 
     if (!event) return;

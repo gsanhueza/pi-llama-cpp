@@ -63,16 +63,16 @@ export class Server {
    * Maximum time (ms) for server verification and SSE support probe.
    * Resolved live from the injected settings manager.
    */
-  get serverTimeout(): number {
-    return this.settings.resolveTimeouts().serverTimeout;
+  async getServerTimeout(): Promise<number> {
+    return (await this.settings.resolveTimeouts()).serverTimeout;
   }
 
   /**
    * Maximum time (ms) to wait for model loading before giving up.
    * Resolved live from the injected settings manager.
    */
-  get pollingTimeout(): number {
-    return this.settings.resolveTimeouts().pollingTimeout;
+  async getPollingTimeout(): Promise<number> {
+    return (await this.settings.resolveTimeouts()).pollingTimeout;
   }
 
   /**

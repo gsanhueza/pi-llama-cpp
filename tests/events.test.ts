@@ -299,7 +299,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
 
 describe("EventManager.onModelSelect", () => {
   beforeEach(() => {
-    vi.mocked(settingsStub.resolveReactToModelSelect).mockReturnValue(true);
+    vi.mocked(settingsStub.resolveReactToModelSelect).mockResolvedValue(true);
   });
 
   it("should load the model when reactToModelSelect is true", async () => {
@@ -319,7 +319,7 @@ describe("EventManager.onModelSelect", () => {
   });
 
   it("should return early when reactToModelSelect is false", async () => {
-    vi.mocked(settingsStub.resolveReactToModelSelect).mockReturnValue(false);
+    vi.mocked(settingsStub.resolveReactToModelSelect).mockResolvedValue(false);
 
     const server = createMockServer({
       models: ["model-a"].map((id) => createMockModel(id)),
@@ -339,7 +339,7 @@ describe("EventManager.onModelSelect", () => {
 
 describe("EventManager.autoLoadIfNeeded", () => {
   it("should load the model when autoloadOnMessage is true and model is UNLOADED", async () => {
-    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockReturnValue(true);
+    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockResolvedValue(true);
 
     const server = createMockServer({
       models: [
@@ -358,7 +358,7 @@ describe("EventManager.autoLoadIfNeeded", () => {
   });
 
   it("should not load the model when autoloadOnMessage is false", async () => {
-    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockReturnValue(false);
+    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockResolvedValue(false);
 
     const server = createMockServer({
       models: [
@@ -377,7 +377,7 @@ describe("EventManager.autoLoadIfNeeded", () => {
   });
 
   it("should not load the model when model is already LOADED", async () => {
-    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockReturnValue(true);
+    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockResolvedValue(true);
 
     const server = createMockServer({
       models: [
@@ -396,7 +396,7 @@ describe("EventManager.autoLoadIfNeeded", () => {
   });
 
   it("should not load the model when model is SLEEPING", async () => {
-    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockReturnValue(true);
+    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockResolvedValue(true);
 
     const server = createMockServer({
       models: [
@@ -427,7 +427,7 @@ describe("EventManager with a live ServerManager", () => {
       ],
     });
 
-    vi.mocked(settingsStub.resolveServers).mockReturnValue([serverA]);
+    vi.mocked(settingsStub.resolveServers).mockResolvedValue([serverA]);
     const serverManager = new ServerManager(settingsStub);
     const mockPi = { registerProvider: vi.fn(), unregisterProvider: vi.fn() };
     await serverManager.update(mockPi as any);
@@ -435,7 +435,10 @@ describe("EventManager with a live ServerManager", () => {
     const eventManager = new EventManager(serverManager, settingsStub);
 
     // Second scan adds serverB — no manager re-construction
-    vi.mocked(settingsStub.resolveServers).mockReturnValue([serverA, serverB]);
+    vi.mocked(settingsStub.resolveServers).mockResolvedValue([
+      serverA,
+      serverB,
+    ]);
     await serverManager.update(mockPi as any);
 
     // onBeforeProviderRequest sees the new server's models
@@ -447,7 +450,7 @@ describe("EventManager with a live ServerManager", () => {
     expect(result.thinking_budget_tokens).toBe(THINKING_BUDGETS.medium);
 
     // onModelSelect sees the new server's models too
-    vi.mocked(settingsStub.resolveReactToModelSelect).mockReturnValue(true);
+    vi.mocked(settingsStub.resolveReactToModelSelect).mockResolvedValue(true);
     const selectCtx = createMockCtx();
     await eventManager.onModelSelect(
       { model: { provider: serverB.providerId, id: "model-b" } } as any,

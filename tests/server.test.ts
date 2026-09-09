@@ -154,16 +154,16 @@ describe("Server postRequest", () => {
   });
 });
 
-describe("Server timeouts", () => {
-  it("should resolve timeouts from the injected settings", () => {
+describe("Server timeouts", async () => {
+  it("should resolve timeouts from the injected settings", async () => {
     const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
 
-    expect(server.serverTimeout).toBe(SERVER_TIMEOUT);
-    expect(server.pollingTimeout).toBe(POLLING_TIMEOUT);
+    expect(await server.getServerTimeout()).toBe(SERVER_TIMEOUT);
+    expect(await server.getPollingTimeout()).toBe(POLLING_TIMEOUT);
   });
 
-  it("should return resolved custom values", () => {
-    vi.mocked(settings.resolveTimeouts).mockReturnValue({
+  it("should return resolved custom values", async () => {
+    vi.mocked(settings.resolveTimeouts).mockResolvedValue({
       pollingTimeout: 90000,
       serverTimeout: 2000,
     });
@@ -174,23 +174,23 @@ describe("Server timeouts", () => {
       customName: "My Server",
     });
 
-    expect(server.pollingTimeout).toBe(90000);
+    expect(await server.getPollingTimeout()).toBe(90000);
   });
 
-  it("should read timeouts live from settings", () => {
+  it("should read timeouts live from settings", async () => {
     const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
 
-    vi.mocked(settings.resolveTimeouts).mockReturnValue({
+    vi.mocked(settings.resolveTimeouts).mockResolvedValue({
       pollingTimeout: 120000,
       serverTimeout: 3000,
     });
-    expect(server.pollingTimeout).toBe(120000);
+    expect(await server.getPollingTimeout()).toBe(120000);
 
-    vi.mocked(settings.resolveTimeouts).mockReturnValue({
+    vi.mocked(settings.resolveTimeouts).mockResolvedValue({
       pollingTimeout: 90000,
       serverTimeout: 2000,
     });
-    expect(server.pollingTimeout).toBe(90000);
+    expect(await server.getPollingTimeout()).toBe(90000);
   });
 });
 

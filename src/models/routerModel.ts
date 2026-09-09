@@ -41,7 +41,8 @@ export class RouterModel extends BaseModel {
       }
     }
 
-    const timeout = this.server.pollingTimeout - elapsed;
+    const pollingTimeout = await this.server.getPollingTimeout();
+    const timeout = pollingTimeout - elapsed;
     return await super.pollStatus(startTime, timeout);
   }
 

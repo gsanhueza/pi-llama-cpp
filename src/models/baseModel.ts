@@ -256,7 +256,7 @@ export abstract class BaseModel {
     interval: number = POLLING_INTERVAL,
   ): Promise<void> {
     if (timeout === undefined) {
-      timeout = this.server.pollingTimeout;
+      timeout = await this.server.getPollingTimeout();
     }
     while ((await this.getStatus()) === Status.LOADING) {
       // Force a timeout if we wasted too much time polling

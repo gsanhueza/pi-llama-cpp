@@ -10,7 +10,6 @@ import {
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import type { LlamaSettingsManager } from "../src/managers/settings";
-import type { Server } from "../src/server";
 import { ServerListEditor } from "../src/ui/serverListEditor";
 import {
   createMockCtx,
@@ -78,7 +77,7 @@ describe("CommandManager", () => {
         models: [model1, model2],
       });
       const unloadSettings = makeSettingsStub({
-        resolveServers: vi.fn((): Server[] => [server]),
+        resolveServers: vi.fn(async () => [server]),
       });
       serverManager = new ServerManager(unloadSettings);
       commandManager = new CommandManager(serverManager, unloadSettings);
@@ -108,7 +107,7 @@ describe("CommandManager", () => {
         models: [model1, model2],
       });
       const infoSettings = makeSettingsStub({
-        resolveServers: vi.fn((): Server[] => [server]),
+        resolveServers: vi.fn(async () => [server]),
       });
       serverManager = new ServerManager(infoSettings);
       commandManager = new CommandManager(serverManager, infoSettings);
@@ -134,8 +133,8 @@ describe("CommandManager", () => {
       expect(formatMs(1500)).toBe("1500ms");
     });
 
-    it("should build one item per editable scalar field", () => {
-      const items = buildSettingsItems(settingsStub);
+    it("should build one item per editable scalar field", async () => {
+      const items = await buildSettingsItems(settingsStub);
       expect(items.map((i) => i.id)).toEqual([
         "reactToModelSelect",
         "autoloadOnMessage",
@@ -257,7 +256,7 @@ describe("CommandManager", () => {
 
     it("should wire the editor to the merged servers and the write path", async () => {
       const editorSettings = makeSettingsStub({
-        llamaServers: [{ url: "http://seed:1" }],
+        getLlamaServers: vi.fn(async () => [{ url: "http://seed:1" }]),
       });
       commandManager = new CommandManager(serverManager, editorSettings);
       const ctx = createMockCtx(() => null);
@@ -322,7 +321,7 @@ describe("CommandManager", () => {
         }),
       );
       const settingsStub = makeSettingsStub({
-        resolveServers: vi.fn((): Server[] => servers),
+        resolveServers: vi.fn(async () => servers),
       });
       const serverManager = new ServerManager(settingsStub);
       return {
@@ -433,7 +432,7 @@ describe("CommandManager", () => {
         baseUrl: "http://127.0.0.1:8081",
         models: [modelB],
       });
-      vi.mocked(settingsStub.resolveServers).mockReturnValue([
+      vi.mocked(settingsStub.resolveServers).mockResolvedValue([
         ...servers,
         serverB,
       ]);

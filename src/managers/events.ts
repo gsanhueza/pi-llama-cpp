@@ -47,7 +47,7 @@ export class EventManager {
    */
   async onModelSelect(event: ModelSelectEvent, ctx: ExtensionContext) {
     // Check if the model_select event should be used
-    if (!this.settings.resolveReactToModelSelect()) return;
+    if (!(await this.settings.resolveReactToModelSelect())) return;
 
     for (const { providerId, models } of this.serverManager.servers) {
       if (event.model.provider !== providerId) continue;
@@ -72,7 +72,7 @@ export class EventManager {
    * @param model The model to potentially auto-load
    */
   private async autoLoadIfNeeded(model: BaseModel): Promise<void> {
-    if (!this.settings.resolveAutoloadOnMessage()) return;
+    if (!(await this.settings.resolveAutoloadOnMessage())) return;
 
     const status = await model.getStatus();
     if (status !== Status.UNLOADED) return;

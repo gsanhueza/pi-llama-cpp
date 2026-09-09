@@ -30,7 +30,7 @@ export class ServerManager {
    */
   async initialize(pi: ExtensionAPI) {
     // Register the providers with the configured server timeout
-    const { serverTimeout } = this.settings.resolveTimeouts();
+    const { serverTimeout } = await this.settings.resolveTimeouts();
     await this.update(pi, serverTimeout);
   }
 
@@ -51,7 +51,7 @@ export class ServerManager {
     // (add / remove / URL / id / name) apply on the next scan
     const fresh: Server[] = [];
     const seen = new Set<string>(); // dedupe repeated URLs (same providerId)
-    for (const server of this.settings.resolveServers()) {
+    for (const server of await this.settings.resolveServers()) {
       if (seen.has(server.providerId)) continue;
       seen.add(server.providerId);
       fresh.push(server);
@@ -174,8 +174,8 @@ export class ServerManager {
    *
    * @returns Flat array of all models across all servers
    */
-  getAllModels(): BaseModel[] {
-    const sortBy = this.settings.resolveSortBy();
+  async getAllModels(): Promise<BaseModel[]> {
+    const sortBy = await this.settings.resolveSortBy();
     const allModels = this.servers.flatMap((s) => s.models);
 
     if (sortBy === "api") return allModels;

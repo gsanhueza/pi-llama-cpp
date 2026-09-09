@@ -67,7 +67,7 @@ describe("URL resolution fallback chain", () => {
     // Ensure env var is not set (and not inherited from environment)
     delete process.env.LLAMA_SERVER_URL;
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual([LLAMA_SERVER_URL]);
   });
@@ -78,7 +78,7 @@ describe("URL resolution fallback chain", () => {
     });
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://env-url:8080"]);
   });
@@ -86,7 +86,7 @@ describe("URL resolution fallback chain", () => {
   it("should use env variable when no other config exists", async () => {
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://env-url:8080"]);
   });
@@ -96,7 +96,7 @@ describe("URL resolution fallback chain", () => {
       llamaServerUrl: "http://project:9999",
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://project:9999"]);
   });
@@ -106,7 +106,7 @@ describe("URL resolution fallback chain", () => {
       llamaServerUrl: "http://global:8080",
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://global:8080"]);
   });
@@ -114,7 +114,7 @@ describe("URL resolution fallback chain", () => {
   it("should strip trailing slashes from resolved URL", async () => {
     process.env.LLAMA_SERVER_URL = "http://localhost:8080/";
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://localhost:8080"]);
   });
@@ -122,8 +122,8 @@ describe("URL resolution fallback chain", () => {
   it("should cache the resolved URL on subsequent calls", async () => {
     process.env.LLAMA_SERVER_URL = "http://first:8080";
 
-    const result1 = settings.resolveUrls();
-    const result2 = settings.resolveUrls();
+    const result1 = await settings.resolveUrls();
+    const result2 = await settings.resolveUrls();
 
     expect(result1).toEqual(["http://first:8080"]);
     expect(result2).toEqual(["http://first:8080"]);
@@ -132,7 +132,7 @@ describe("URL resolution fallback chain", () => {
   it("should handle multiple URLs separated by semicolons", async () => {
     process.env.LLAMA_SERVER_URL = "http://first:8080;http://second:9090/";
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://first:8080", "http://second:9090"]);
   });
@@ -140,7 +140,7 @@ describe("URL resolution fallback chain", () => {
   it("should drop env URLs without an http(s) scheme, warn, and fall through", async () => {
     process.env.LLAMA_SERVER_URL = "127.0.0.1:8080";
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual([LLAMA_SERVER_URL]);
     expect(settings.takeWarnings()).toEqual([
@@ -156,7 +156,7 @@ describe("URL resolution fallback chain", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://good:8080"]);
     expect(settings.takeWarnings()).toEqual([
@@ -197,7 +197,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual([
       "http://project-server:8080",
@@ -217,7 +217,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://project:8080"]);
   });
@@ -229,7 +229,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://global:8080"]);
   });
@@ -242,7 +242,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://env:8080"]);
   });
@@ -254,7 +254,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://server:9090"]);
   });
@@ -267,7 +267,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://server:9090"]);
   });
@@ -280,7 +280,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://legacy:8080"]);
   });
@@ -292,7 +292,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = settings.resolveUrls();
+    const result = await settings.resolveUrls();
 
     expect(result).toEqual(["http://localhost:8080"]);
   });
@@ -439,7 +439,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   it("should return true when reactToModelSelect is not set", async () => {
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveReactToModelSelect();
+    const result = await settings.resolveReactToModelSelect();
 
     expect(result).toBe(true);
   });
@@ -447,7 +447,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   it("should return false when autoloadOnMessage is not set", async () => {
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveAutoloadOnMessage();
+    const result = await settings.resolveAutoloadOnMessage();
 
     expect(result).toBe(false);
   });
@@ -455,7 +455,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   it("should return 'asc' when sortBy is not set", async () => {
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveSortBy();
+    const result = await settings.resolveSortBy();
 
     expect(result).toBe("asc");
   });
@@ -470,8 +470,8 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
 
     const { settings } = await import("../src/managers/settings");
 
-    expect(settings.resolveReactToModelSelect()).toBe(false);
-    expect(settings.resolveAutoloadOnMessage()).toBe(true);
+    expect(await settings.resolveReactToModelSelect()).toBe(false);
+    expect(await settings.resolveAutoloadOnMessage()).toBe(true);
   });
 });
 
@@ -496,7 +496,7 @@ describe("resolveServers", () => {
     mockGetGlobalSettings.mockReturnValue({});
   });
 
-  it("should use llamaSettings.servers when configured", () => {
+  it("should use llamaSettings.servers when configured", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -505,7 +505,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://custom:8080");
@@ -515,20 +515,20 @@ describe("resolveServers", () => {
   it("should fall back to resolveUrls when servers is empty", async () => {
     process.env.LLAMA_SERVER_URL = "http://env-server:9090";
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://env-server:9090");
   });
 
-  it("should fall back to default URL when no config exists", () => {
-    const result = settings.resolveServers();
+  it("should fall back to default URL when no config exists", async () => {
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe(LLAMA_SERVER_URL);
   });
 
-  it("should apply id/name from llamaSettings.servers as overrides", () => {
+  it("should apply id/name from llamaSettings.servers as overrides", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -537,7 +537,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://127.0.0.1:8080");
@@ -545,7 +545,7 @@ describe("resolveServers", () => {
     expect(result[0].providerName).toBe(`Llama.cpp (Custom)`);
   });
 
-  it("should handle multiple URLs with partial id/name overrides", () => {
+  it("should handle multiple URLs with partial id/name overrides", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [{ url: "http://first:8080", id: "first-server" }],
@@ -553,7 +553,7 @@ describe("resolveServers", () => {
     });
     process.env.LLAMA_SERVER_URL = "http://first:8080;http://second:9090";
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(2);
     expect(result[0].baseUrl).toBe("http://first:8080");
@@ -570,7 +570,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     // env variable takes precedence via resolveUrls
     expect(result).toHaveLength(1);
@@ -586,7 +586,7 @@ describe("resolveTimeouts", () => {
   it("should return default timeouts when not configured", async () => {
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveTimeouts();
+    const result = await settings.resolveTimeouts();
 
     expect(result).toEqual({
       pollingTimeout: POLLING_TIMEOUT,
@@ -603,7 +603,7 @@ describe("resolveTimeouts", () => {
 
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveTimeouts();
+    const result = await settings.resolveTimeouts();
 
     expect(result.pollingTimeout).toBe(120000);
     expect(result.serverTimeout).toBe(SERVER_TIMEOUT);
@@ -618,7 +618,7 @@ describe("resolveTimeouts", () => {
 
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveTimeouts();
+    const result = await settings.resolveTimeouts();
 
     expect(result.pollingTimeout).toBe(POLLING_TIMEOUT);
     expect(result.serverTimeout).toBe(3000);
@@ -634,7 +634,7 @@ describe("resolveTimeouts", () => {
 
     const { settings } = await import("../src/managers/settings");
 
-    const result = settings.resolveTimeouts();
+    const result = await settings.resolveTimeouts();
 
     expect(result).toEqual({
       pollingTimeout: 90000,
@@ -748,7 +748,7 @@ describe("setLlamaSetting", () => {
 
     await settings.setLlamaSetting("sortBy", "desc");
 
-    expect(settings.resolveSortBy()).toBe("desc");
+    expect(await settings.resolveSortBy()).toBe("desc");
   });
 
   it("should reject and skip reload when the write fails", async () => {
@@ -813,7 +813,7 @@ describe("resolveServerCosts", () => {
     mockGetGlobalSettings.mockReturnValue({});
   });
 
-  it("should return costs for a server that has them configured", () => {
+  it("should return costs for a server that has them configured", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -833,7 +833,7 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({
       "llama-3-8b": { input: 0.2, output: 0.6 },
@@ -846,31 +846,31 @@ describe("resolveServerCosts", () => {
     });
   });
 
-  it("should return empty object for a server without costs", () => {
+  it("should return empty object for a server without costs", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [{ url: "http://127.0.0.1:8080" }],
       },
     });
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({});
   });
 
-  it("should return empty object when server URL is not in config", () => {
+  it("should return empty object when server URL is not in config", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [{ url: "http://127.0.0.1:9090" }],
       },
     });
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({});
   });
 
-  it("should use global settings when no project config exists", () => {
+  it("should use global settings when no project config exists", async () => {
     mockGetGlobalSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -882,12 +882,12 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = settings.resolveServerCosts("http://global:8080");
+    const result = await settings.resolveServerCosts("http://global:8080");
 
     expect(result).toEqual({ "model-a": { input: 0.5 } });
   });
 
-  it("should prioritize project costs over global costs", () => {
+  it("should prioritize project costs over global costs", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -909,30 +909,30 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = settings.resolveServerCosts("http://shared:8080");
+    const result = await settings.resolveServerCosts("http://shared:8080");
 
     expect(result).toEqual({ "model-b": { input: 0.1, output: 0.2 } });
   });
 
-  it("should return empty object when servers list is empty", () => {
+  it("should return empty object when servers list is empty", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: { servers: [] },
     });
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({});
   });
 
-  it("should return empty object when llamaSettings is missing", () => {
+  it("should return empty object when llamaSettings is missing", async () => {
     mockGetProjectSettings.mockReturnValue({});
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({});
   });
 
-  it("should support partial cost objects", () => {
+  it("should support partial cost objects", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -944,7 +944,7 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
 
     expect(result).toEqual({ "partial-model": { input: 0.1 } });
   });
@@ -995,7 +995,7 @@ describe("resolveServers passes costs", () => {
     mockGetGlobalSettings.mockReturnValue({});
   });
 
-  it("should pass resolved costs to Server instances", () => {
+  it("should pass resolved costs to Server instances", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
@@ -1010,7 +1010,7 @@ describe("resolveServers passes costs", () => {
       },
     });
 
-    const result = settings.resolveServers();
+    const result = await settings.resolveServers();
 
     expect(result).toHaveLength(2);
     expect(result[0].getCosts()).toEqual({

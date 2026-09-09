@@ -33,16 +33,16 @@ export class SSEManager {
    * Maximum time (ms) for server verification and SSE support probe.
    * Delegates to the owning {@link Server}.
    */
-  get serverTimeout(): number {
-    return this.server.serverTimeout;
+  async getServerTimeout(): Promise<number> {
+    return this.server.getServerTimeout();
   }
 
   /**
    * Maximum time (ms) to wait for model loading before giving up.
    * Delegates to the owning {@link Server}.
    */
-  get pollingTimeout(): number {
-    return this.server.pollingTimeout;
+  async getPollingTimeout(): Promise<number> {
+    return this.server.getPollingTimeout();
   }
 
   /**
@@ -65,7 +65,7 @@ export class SSEManager {
       const url = buildSSEUrl(this.sseEndpoint, this.apiKey);
       const response = await fetch(url, {
         method: "GET",
-        signal: AbortSignal.timeout(this.serverTimeout),
+        signal: AbortSignal.timeout(await this.getServerTimeout()),
       });
       this.sseSupported =
         response.ok &&
@@ -179,11 +179,12 @@ export class SSEManager {
    * @param modelId - The model ID to subscribe to
    * @returns Promise that resolves with the final status string
    */
-  subscribeToStatus(modelId: string): Promise<StatusChangeData> {
-    return new Promise((resolve, reject) => {
+  async subscribeToStatus(modelId: string): Promise<StatusChangeData> {
+    return new Promise(async (resolve, reject) => {
+      const pollingTimeout = await this.getPollingTimeout();
       const timeout = setTimeout(
         () => reject(new Error(`SSE status timeout for model: ${modelId}`)),
-        this.pollingTimeout,
+        pollingTimeout,
       );
 
       this.subscribeToSSE(modelId, (event: SSEEvent) => {

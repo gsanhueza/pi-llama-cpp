@@ -19,12 +19,12 @@ const createManager = (
     "",
   );
 
-describe("SSEManager timeouts", () => {
-  it("should expose the timeouts of its server", () => {
+describe("SSEManager timeouts", async () => {
+  it("should expose the timeouts of its server", async () => {
     const manager = createManager(5678, 1234);
 
-    expect(manager.pollingTimeout).toBe(5678);
-    expect(manager.serverTimeout).toBe(1234);
+    expect(await manager.getPollingTimeout()).toBe(5678);
+    expect(await manager.getServerTimeout()).toBe(1234);
   });
 });
 

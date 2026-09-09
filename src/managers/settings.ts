@@ -42,29 +42,31 @@ export class LlamaSettingsManager {
   }
 
   /**
-   * Convenience getter for merged project/global settings
+   * Reloads settings from disk and returns merged project/global settings.
+   * Project settings override global settings.
    */
-  private get mergedSettings(): Record<string, any> {
-    const merged = {
+  private async getMergedSettings(): Promise<Record<string, any>> {
+    await this.settingsManager.reload();
+    return {
       ...this.settingsManager.getGlobalSettings(),
       ...this.settingsManager.getProjectSettings(),
     } as Record<string, any>;
-    return merged;
   }
 
   /**
-   * Convenience getter for the `llamaSettings` key
+   * Convenience method for the `llamaSettings` key.
+   * Reloads settings from disk before reading.
    */
-  private get llamaSettings(): LlamaSettings {
-    return this.mergedSettings[SETTINGS_KEY] ?? {};
+  async getLlamaSettings(): Promise<LlamaSettings> {
+    return (await this.getMergedSettings())[SETTINGS_KEY] ?? {};
   }
 
   /**
-   * Convenience getter for the merged `servers` list (project overrides
-   * global, per-key merge)
+   * Convenience method for the merged `servers` list (project overrides
+   * global, per-key merge). Reloads settings from disk before reading.
    */
-  get llamaServers(): LlamaServer[] {
-    return this.llamaSettings.servers ?? [];
+  async getLlamaServers(): Promise<LlamaServer[]> {
+    return (await this.getLlamaSettings()).servers ?? [];
   }
 
   /**
@@ -77,14 +79,14 @@ export class LlamaSettingsManager {
    *
    * @returns The list of URLs to use
    */
-  resolveUrls(): string[] {
+  async resolveUrls(): Promise<string[]> {
     let response = this.resolveEnvUrls();
     if (response.length > 0) return response;
 
-    response = this.resolveServerUrls();
+    response = await this.resolveServerUrls();
     if (response.length > 0) return response;
 
-    response = this.resolveLegacyUrls();
+    response = await this.resolveLegacyUrls();
     if (response.length > 0) return response;
 
     return [LLAMA_SERVER_URL];
@@ -105,22 +107,24 @@ export class LlamaSettingsManager {
   /**
    * Resolves the llama-server URLs from `llamaSettings.servers`.
    * Settings are merged, prioritizing project over global settings.
+   * Reloads settings from disk before reading.
    *
    * @returns A list of detected URLs
    */
-  private resolveServerUrls(): string[] {
-    const { servers = [] } = this.llamaSettings;
+  private async resolveServerUrls(): Promise<string[]> {
+    const { servers = [] } = await this.getLlamaSettings();
     return servers.map((s) => this.parseUrls(s.url)).flat();
   }
 
   /**
-   * Resolves the llama-server URLs from `llamaSettings.servers`.
+   * Resolves the llama-server URLs from `llamaServerUrl` legacy key.
    * Settings are merged, prioritizing project over global settings.
+   * Reloads settings from disk before reading.
    *
    * @returns A list of detected URLs
    */
-  private resolveLegacyUrls(): string[] {
-    const { llamaServerUrl = null } = this.mergedSettings;
+  private async resolveLegacyUrls(): Promise<string[]> {
+    const { llamaServerUrl = null } = await this.getMergedSettings();
     if (!llamaServerUrl) return [];
 
     return this.parseUrls(llamaServerUrl);
@@ -162,9 +166,11 @@ export class LlamaSettingsManager {
    * @returns A map of model ID to cost configuration (partial, defaults
    *          applied at consumption time)
    */
-  resolveServerCosts(serverUrl: string): Record<string, Partial<ModelCost>> {
-    const serverConfig = this.llamaSettings.servers?.find(
-      (s) => s.url === serverUrl,
+  async resolveServerCosts(
+    serverUrl: string,
+  ): Promise<Record<string, Partial<ModelCost>>> {
+    const serverConfig = (await this.getLlamaSettings()).servers?.find(
+      (s: { url: string }) => s.url === serverUrl,
     );
     return serverConfig?.costs ?? {};
   }
@@ -174,22 +180,28 @@ export class LlamaSettingsManager {
    * Uses `resolveUrls()` as the source of truth for URLs (env > settings >
    * legacy > default), then applies `id`/`name`/`costs` from
    * `llamaSettings.servers` as overrides when available.
+   * Reloads settings from disk before reading.
    *
    * @returns A list of Server objects
    */
-  resolveServers(): Server[] {
-    const urls = this.resolveUrls();
-    const serverConfigs = this.llamaSettings.servers ?? [];
+  async resolveServers(): Promise<Server[]> {
+    const urls = await this.resolveUrls();
+    const serverConfigs = (await this.getLlamaSettings()).servers ?? [];
 
-    return urls.map((url) => {
+    const servers: Server[] = [];
+    for (const url of urls) {
       const config = serverConfigs.find((s) => s.url === url);
-      return new Server(this, {
-        baseUrl: url,
-        customId: config?.id,
-        customName: config?.name,
-        costs: this.resolveServerCosts(url),
-      });
-    });
+      const costs = await this.resolveServerCosts(url);
+      servers.push(
+        new Server(this, {
+          baseUrl: url,
+          customId: config?.id,
+          customName: config?.name,
+          costs,
+        }),
+      );
+    }
+    return servers;
   }
 
   /**
@@ -229,8 +241,11 @@ export class LlamaSettingsManager {
    *
    * @returns `true` if the extension should load the model on model_select
    */
-  resolveReactToModelSelect(): boolean {
-    return this.llamaSettings.reactToModelSelect ?? REACT_TO_MODEL_SELECT;
+  async resolveReactToModelSelect(): Promise<boolean> {
+    return (
+      (await this.getLlamaSettings()).reactToModelSelect ??
+      REACT_TO_MODEL_SELECT
+    );
   }
 
   /**
@@ -238,8 +253,10 @@ export class LlamaSettingsManager {
    *
    * @returns `true` if the extension should auto-load models
    */
-  resolveAutoloadOnMessage(): boolean {
-    return this.llamaSettings.autoloadOnMessage ?? AUTOLOAD_ON_MESSAGE;
+  async resolveAutoloadOnMessage(): Promise<boolean> {
+    return (
+      (await this.getLlamaSettings()).autoloadOnMessage ?? AUTOLOAD_ON_MESSAGE
+    );
   }
 
   /**
@@ -247,10 +264,14 @@ export class LlamaSettingsManager {
    *
    * @returns Object with polling and server timeout values
    */
-  resolveTimeouts(): { pollingTimeout: number; serverTimeout: number } {
+  async resolveTimeouts(): Promise<{
+    pollingTimeout: number;
+    serverTimeout: number;
+  }> {
+    const llamaSettings = await this.getLlamaSettings();
     return {
-      pollingTimeout: this.llamaSettings.pollingTimeout ?? POLLING_TIMEOUT,
-      serverTimeout: this.llamaSettings.serverTimeout ?? SERVER_TIMEOUT,
+      pollingTimeout: llamaSettings.pollingTimeout ?? POLLING_TIMEOUT,
+      serverTimeout: llamaSettings.serverTimeout ?? SERVER_TIMEOUT,
     };
   }
 
@@ -259,8 +280,8 @@ export class LlamaSettingsManager {
    *
    * @returns The sort order: "asc", "desc", "asc-name", "desc-name", or "api"
    */
-  resolveSortBy(): SortBy {
-    return this.llamaSettings.sortBy ?? SORT_BY;
+  async resolveSortBy(): Promise<SortBy> {
+    return (await this.getLlamaSettings()).sortBy ?? SORT_BY;
   }
 
   /**
