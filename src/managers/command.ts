@@ -66,14 +66,14 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
     description: "Unload all models",
   },
   {
-    value: "servers",
-    label: "servers",
-    description: "Manage llama.cpp server URLs",
-  },
-  {
     value: "settings",
     label: "settings",
     description: "Configure llamaSettings",
+  },
+  {
+    value: "servers",
+    label: "servers",
+    description: "Manage llama.cpp server URLs",
   },
   {
     value: "costs",

@@ -262,8 +262,8 @@ The extension determines the context size as follows:
 | `/models`          | Browse your models with live status. Select a model to load, switch, or unload it. |
 | `/models info`     | Show detailed information for all available models at once.                        |
 | `/models unload`   | Unload all loaded models at once.                                                  |
-| `/models servers`  | Add, edit or remove llama.cpp server URLs via a TUI editor.                        |
 | `/models settings` | Open a menu to edit the scalar `llamaSettings` fields.                             |
+| `/models servers`  | Add, edit or remove llama.cpp server URLs via a TUI editor.                        |
 | `/models costs`    | Edit per-server model costs (`llamaSettings.servers[].costs`) via a TUI editor.    |
 
 > **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.

@@ -46,8 +46,8 @@ describe("CommandManager", () => {
       expect(completions?.map((c) => c.value)).toEqual([
         "info",
         "unload",
-        "servers",
         "settings",
+        "servers",
         "costs",
       ]);
     });
@@ -65,7 +65,7 @@ describe("CommandManager", () => {
 
     it("should provide the server/settings completions by prefix", () => {
       const completions = commandManager.getArgumentCompletions("s");
-      expect(completions?.map((c) => c.value)).toEqual(["servers", "settings"]);
+      expect(completions?.map((c) => c.value)).toEqual(["settings", "servers"]);
     });
   });
 
