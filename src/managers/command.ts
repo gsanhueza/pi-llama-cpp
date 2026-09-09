@@ -14,6 +14,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
+import { createCostsEditor } from "../ui/costEntryEditor";
 import { ServerListEditor } from "../ui/serverListEditor";
 import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
@@ -73,6 +74,11 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
     value: "settings",
     label: "settings",
     description: "Configure llamaSettings",
+  },
+  {
+    value: "costs",
+    label: "costs",
+    description: "Manage llama.cpp model costs",
   },
 ];
 
@@ -214,6 +220,12 @@ export class CommandManager {
       return;
     }
 
+    // Costs editor: same — edits are passive until the next provider scan
+    if (args === "costs") {
+      await this.runCostsEditor(ctx);
+      return;
+    }
+
     // Re-register providers so Pi sees updated model states
     await this.serverManager.update(pi);
 
@@ -313,6 +325,49 @@ export class CommandManager {
           done: () => done(undefined),
           onError: (message) => ctx.ui.notify(message, "error"),
         }),
+    );
+  }
+
+  /**
+   * Runs the interactive cost editor for `llamaSettings.servers[].costs`:
+   * a SettingsList of servers drilling down into each server's cost entries
+   * (pattern + input/output/cacheRead/cacheWrite, each edited via an inline
+   * Input). Within a server's entry list, a adds a new entry and d deletes
+   * the one under the cursor (after an "Are you sure?" confirmation — only
+   * y confirms, Esc/n cancels), mirroring `/models servers`. Servers
+   * themselves are not managed here — use `/models servers`.
+   *
+   * Writes go to the global `~/.pi/agent/settings.json` via
+   * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
+   * leave the values unchanged. After every successful add/edit/delete the
+   * user is reminded to run `/reload`, which re-scans providers and applies
+   * the new costs.
+   */
+  private async runCostsEditor(ctx: ExtensionCommandContext): Promise<void> {
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify(
+        "/models costs requires an interactive session (TUI)",
+        "warning",
+      );
+      return;
+    }
+
+    await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
+      createCostsEditor({
+        tui,
+        keybindings,
+        theme: getSettingsListTheme(),
+        alert: (text) => theme.fg("error", text),
+        servers: this.settings.llamaServers,
+        persist: (next) => this.settings.setLlamaSetting("servers", next),
+        done: () => done(undefined),
+        onError: (message) => ctx.ui.notify(message, "error"),
+        onChanged: () =>
+          ctx.ui.notify(
+            "Costs changed — run /models or /reload to apply them",
+            "info",
+          ),
+      }),
     );
   }
 

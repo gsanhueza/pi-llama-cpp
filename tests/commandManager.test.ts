@@ -42,12 +42,13 @@ describe("CommandManager", () => {
   describe("getArgumentCompletions", () => {
     it("should provide completions for /models", () => {
       const completions = commandManager.getArgumentCompletions("");
-      expect(completions).toHaveLength(4);
+      expect(completions).toHaveLength(5);
       expect(completions?.map((c) => c.value)).toEqual([
         "info",
         "unload",
         "servers",
         "settings",
+        "costs",
       ]);
     });
 

@@ -121,7 +121,8 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
   the merged view until you remove it there.
 - Boolean and sort changes apply immediately; timeout changes apply on the next
   model load.
-- The `servers` list is edited with `/models servers` (see below).
+- The `servers` list is edited with `/models servers` (see below), and per-
+  server model costs with `/models costs` (see [Model Costs](#model-costs)).
 
 #### Server list editor
 
@@ -263,6 +264,7 @@ The extension determines the context size as follows:
 | `/models unload`   | Unload all loaded models at once.                                                  |
 | `/models servers`  | Add, edit or remove llama.cpp server URLs via a TUI editor.                        |
 | `/models settings` | Open a menu to edit the scalar `llamaSettings` fields.                             |
+| `/models costs`    | Edit per-server model costs (`llamaSettings.servers[].costs`) via a TUI editor.    |
 
 > **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.
 
@@ -352,6 +354,34 @@ Add costs to your server configuration:
 ```
 
 > **Note:** If your server has more models than the `costs` object, the cost of the remaining models default to zero.
+
+#### Cost editor
+
+Run `/models costs` to edit a server's cost entries without hand-editing
+JSON. It opens a settings menu (same UX as `/models settings` and
+`/tps`-style menus):
+
+- The first menu lists your servers with their entry counts; **Enter**
+  drills into the selected server's cost entries, **Esc** closes the editor.
+  Servers themselves are not added or removed here — use `/models servers`.
+- The entry menu lists the server's cost entries with a compact cost summary
+  (`in:0.2 out:0.6 …`). **Enter** drills into an entry, **a** adds a new entry
+  (default pattern `new-pattern`, zeroed costs — rename it right after), **d**
+  deletes the entry under the cursor (after an "Are you sure?" confirmation —
+  only **y** confirms; **Enter** is ignored, **Esc/n** cancels), **Esc** goes
+  back.
+- The entry menu shows five rows — the **pattern** and the four cost fields
+  (`input`, `output`, `cacheRead`, `cacheWrite`). **Enter** opens an inline
+  input prefilled with the current value; **Enter** saves, **Esc** cancels.
+- The pattern must be non-empty; cost fields must be non-negative numbers
+  (an empty cost field means zero). Invalid input shows a warning and keeps
+  the field open for correction.
+- Each change is written immediately to the **global**
+  `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
+  `servers`, its list keeps winning in the merged view until you remove it
+  there.
+- After every add/edit/delete a notification reminds you to run `/reload`,
+  which re-scans providers and applies the new costs.
 
 #### Cost Fields
 
