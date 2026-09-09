@@ -1,16 +1,12 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-  Input,
-  truncateToWidth,
-  type Component,
-  type Focusable,
-  type KeybindingsManager,
-  type TUI,
-} from "@earendil-works/pi-tui";
-import { PROVIDER_PREFIX } from "../constants";
+import { LLAMA_SERVER_URL, PROVIDER_PREFIX } from "../constants";
 import type { LlamaServer } from "../interfaces/settings";
-import { errorMessage } from "../utils/errors";
 import { normalizeUrl } from "../utils/urls";
+import {
+  createPersister,
+  ListEditorBase,
+  type EditorField,
+  type ListEditorOptions,
+} from "./baseEditor";
 
 /**
  * Validates and normalizes a user-entered server URL: trims whitespace and
@@ -41,16 +37,6 @@ export const addServer = (
  * Fields of a `LlamaServer` editable through the inline Input.
  */
 type EditableField = "url" | "id" | "name";
-
-/**
- * Returns a new list with the URL at `index` replaced, preserving any
- * `id`/`name` overrides. Immutable.
- */
-export const updateServerUrl = (
-  servers: LlamaServer[],
-  index: number,
-  url: string,
-): LlamaServer[] => updateServerField(servers, index, "url", url);
 
 /**
  * Returns a new list with `field` at `index` set to `value` (trimmed).
@@ -97,385 +83,122 @@ export const removeServer = (
   index: number,
 ): LlamaServer[] => servers.filter((_, i) => i !== index);
 
-export interface ServerListEditorOptions {
-  /** TUI instance, used to request re-renders */
-  tui: TUI;
-  /** Theme for styling */
-  theme: Theme;
-  /** App keybindings manager (injected by ctx.ui.custom) */
-  keybindings: KeybindingsManager;
+/** The url field (Enter/e): validated and normalized before saving */
+const URL_FIELD: EditorField<LlamaServer> = {
+  keys: ["e"],
+  label: "URL",
+  getValue: (server) => server.url,
+  validate: (raw) => normalizeServerUrl(raw),
+  invalidError: () => "Invalid URL — use http://host:port (one URL per entry)",
+  apply: (servers, index, value) =>
+    updateServerField(servers, index, "url", value),
+};
+
+/** The id override (i): free-form; empty clears the override */
+const ID_FIELD: EditorField<LlamaServer> = {
+  keys: ["i"],
+  label: "ID",
+  getValue: (server) => server.id ?? "",
+  validate: (raw) => raw,
+  apply: (servers, index, value) =>
+    updateServerField(servers, index, "id", value),
+};
+
+/** The name override (n): free-form; empty clears the override */
+const NAME_FIELD: EditorField<LlamaServer> = {
+  keys: ["n"],
+  label: "Name",
+  getValue: (server) => server.name ?? "",
+  validate: (raw) => raw,
+  apply: (servers, index, value) =>
+    updateServerField(servers, index, "name", value),
+};
+
+export interface ServerListEditorOptions extends ListEditorOptions {
   /** Snapshot of the merged `llamaSettings.servers` to edit */
   servers: LlamaServer[];
   /** Persists a new server list; a rejection keeps the current list */
   persist: (next: LlamaServer[]) => Promise<void>;
-  /** Closes the editor (called on Esc in list mode) */
-  done: () => void;
-  /** Notifies about persistence errors */
-  onError: (message: string) => void;
 }
 
 /**
  * Editor for `llamaSettings.servers`, shown by `/models servers`.
  *
- * List mode: up/down move the cursor, Enter/e edits the selected entry's
- * URL, i edits its id, n its name, a adds a new entry, d asks for
- * confirmation before deleting, Esc closes.
- * Confirm mode: y deletes the selected entry, Esc/n aborts (Enter is
- * deliberately ignored).
- * Edit mode: all other input goes to an inline `Input`; Enter saves,
- * Esc reverts. The edited field (url/id/name) is tracked in `field`.
+ * A {@link ListEditorBase} with one row per server: Enter/e edits the
+ * URL, i the id override, n the name override, a adds a new entry
+ * (inline Input), d asks for confirmation before deleting, Esc closes.
  *
  * Each mutation is persisted immediately through `persist()` (which maps to
  * `LlamaSettingsManager.setLlamaSetting()`); the in-memory list only updates
  * after the write succeeds, so a failed write leaves everything unchanged
  * and the editor open.
  */
-export class ServerListEditor implements Component, Focusable {
-  private servers: LlamaServer[];
-  private selectedIndex = 0;
-  private mode: "list" | "edit" | "add" | "confirm" = "list";
-  /** Which `LlamaServer` field the inline Input is editing (edit/add modes) */
-  private field: EditableField = "url";
-  private editingIndex = -1;
-  private error: string | undefined;
-  private readonly input = new Input();
+export class ServerListEditor extends ListEditorBase<LlamaServer> {
   private readonly envOverride: boolean;
-  private isFocused = false;
 
-  constructor(private readonly options: ServerListEditorOptions) {
-    this.servers = options.servers;
+  constructor(options: ServerListEditorOptions) {
+    super(options, createPersister(options, options.servers));
     this.envOverride = Boolean(process.env.LLAMA_SERVER_URL);
   }
 
-  /** Focusable: delegates to the inline Input while it is rendered */
-  get focused(): boolean {
-    return this.isFocused;
+  protected title(): string {
+    return "Manage llama.cpp servers";
   }
 
-  set focused(value: boolean) {
-    this.isFocused = value;
-    this.input.focused = value;
+  protected primaryField(): EditorField<LlamaServer> {
+    return URL_FIELD;
   }
 
-  invalidate(): void {
-    // No cached state to invalidate
+  protected fields(): EditorField<LlamaServer>[] {
+    return [URL_FIELD, ID_FIELD, NAME_FIELD];
   }
 
-  handleInput(data: string): void {
-    if (this.mode === "list") {
-      this.handleListInput(data);
-    } else if (this.mode === "confirm") {
-      this.handleConfirmInput(data);
-    } else {
-      this.handleEditInput(data);
-    }
+  protected getItems(): LlamaServer[] {
+    return this.store.items;
   }
 
-  render(width: number): string[] {
-    const { theme } = this.options;
-    const truncate = (line: string) => truncateToWidth(line, width);
-    const lines: string[] = [];
-
-    lines.push(
-      truncate(theme.fg("accent", theme.bold("Manage llama.cpp servers"))),
-    );
-    lines.push("");
-
-    if (this.servers.length === 0) {
-      lines.push(
-        truncate(
-          theme.fg("dim", "No servers configured — press a to add one."),
-        ),
-      );
-      lines.push(
-        truncate(
-          theme.fg(
-            "dim",
-            "With an empty list the default http://127.0.0.1:8080 is used.",
-          ),
-        ),
-      );
-    }
-
-    this.servers.forEach((server, index) => {
-      const selected = index === this.selectedIndex;
-      const prefix = selected ? theme.fg("accent", "→ ") : "  ";
-      const suffix = formatServerSuffix(server);
-      const dim = suffix ? theme.fg("dim", `  ${suffix}`) : "";
-      lines.push(truncate(`${prefix}${server.url}${dim}`));
-    });
-
-    if (this.mode === "confirm") {
-      lines.push(
-        truncate(
-          theme.fg(
-            "error",
-            `About to delete "${this.servers[this.selectedIndex]?.url}"`,
-          ),
-        ),
-      );
-      lines.push(truncate(theme.fg("error", "Are you sure?")));
-    } else if (this.mode !== "list") {
-      const label =
-        this.field === "url" ? "URL:" : this.field === "id" ? "ID:" : "Name:";
-      lines.push("");
-      lines.push(truncate(theme.fg("dim", label)));
-      lines.push(truncate(this.input.render(width)[0] ?? ""));
-      if (this.error) {
-        lines.push(truncate(theme.fg("error", this.error)));
-      }
-    }
-
-    lines.push("");
-    if (this.envOverride) {
-      lines.push(
-        truncate(
-          theme.fg("dim", "LLAMA_SERVER_URL env var overrides these servers."),
-        ),
-      );
-    }
-    lines.push(
-      truncate(
-        theme.fg(
-          "dim",
-          this.mode === "list"
-            ? "Enter/e url · i id · n name · a add · d delete · Esc done"
-            : this.mode === "confirm"
-              ? "y delete · Esc/n cancel"
-              : "Enter save · Esc cancel",
-        ),
-      ),
-    );
-
-    return lines;
+  protected itemLabel(server: LlamaServer): string {
+    return server.url;
   }
 
-  /**
-   * List mode: navigation, edit/add/delete shortcuts and close.
-   */
-  private handleListInput(data: string): void {
-    const kb = this.options.keybindings;
-
-    if (kb.matches(data, "tui.select.cancel")) {
-      this.options.done();
-      return;
-    }
-    if (kb.matches(data, "tui.select.up")) {
-      if (this.servers.length > 0) {
-        this.selectedIndex =
-          this.selectedIndex === 0
-            ? this.servers.length - 1
-            : this.selectedIndex - 1;
-        this.requestRender();
-      }
-      return;
-    }
-    if (kb.matches(data, "tui.select.down")) {
-      if (this.servers.length > 0) {
-        this.selectedIndex =
-          this.selectedIndex === this.servers.length - 1
-            ? 0
-            : this.selectedIndex + 1;
-        this.requestRender();
-      }
-      return;
-    }
-    if (kb.matches(data, "tui.select.confirm") || data === "e") {
-      this.beginEdit();
-      return;
-    }
-    if (data === "i") {
-      this.beginEditField("id");
-      return;
-    }
-    if (data === "n") {
-      this.beginEditField("name");
-      return;
-    }
-    if (data === "a") {
-      this.beginAdd();
-      return;
-    }
-    if (data === "d") {
-      this.beginConfirm();
-      return;
-    }
+  protected itemSuffix(server: LlamaServer): string {
+    return formatServerSuffix(server);
   }
 
-  /**
-   * Confirm mode: only `y` deletes the selected entry, Esc/n returns to the
-   * list without changing anything; every other key — Enter included, so a
-   * stray keypress can't confirm — is ignored.
-   */
-  private handleConfirmInput(data: string): void {
-    const kb = this.options.keybindings;
-
-    if (data === "y") {
-      this.deleteSelected();
-      return;
-    }
-    if (kb.matches(data, "tui.select.cancel") || data === "n") {
-      this.mode = "list";
-      this.requestRender();
-    }
+  protected emptyStateLines(): string[] {
+    return [
+      "No servers configured — press a to add one.",
+      `With an empty list the default ${LLAMA_SERVER_URL} is used.`,
+    ];
   }
 
-  /**
-   * Edit mode: Enter saves, Esc reverts, everything else goes to the Input.
-   */
-  private handleEditInput(data: string): void {
-    const kb = this.options.keybindings;
-
-    if (kb.matches(data, "tui.select.confirm")) {
-      this.saveEdit();
-      return;
-    }
-    if (kb.matches(data, "tui.select.cancel")) {
-      this.mode = "list";
-      this.editingIndex = -1;
-      this.error = undefined;
-      this.requestRender();
-      return;
-    }
-    this.input.handleInput(data);
-    this.requestRender();
+  protected listHint(): string {
+    return "Enter/e url · i id · n name · a add · d delete · Esc done";
   }
 
-  /**
-   * Opens the selected entry for editing, prefilling the Input with its URL
-   * and placing the cursor at the end (the common edit: appending/changing
-   * the port).
-   */
-  private beginEdit(): void {
-    if (this.servers.length === 0) return;
-    this.beginEditField("url");
+  protected describeForConfirm(index: number): string {
+    return this.getItems()[index]?.url ?? "";
   }
 
-  /**
-   * Opens the selected entry for editing `field`, prefilling the Input with
-   * its current value (empty when unset) and placing the cursor at the end.
-   */
-  private beginEditField(field: EditableField): void {
-    if (this.servers.length === 0) return;
-    this.mode = "edit";
-    this.field = field;
-    this.editingIndex = this.selectedIndex;
-    this.error = undefined;
-    this.input.setValue(this.servers[this.selectedIndex][field] ?? "");
-    this.moveInputCursorToEnd();
-    this.requestRender();
+  protected editBuild(
+    field: EditorField<LlamaServer>,
+    index: number,
+    value: string,
+    isAdd: boolean,
+  ): (servers: LlamaServer[]) => LlamaServer[] {
+    return (servers) =>
+      isAdd ? addServer(servers, value) : field.apply(servers, index, value);
   }
 
-  /**
-   * Enters confirm mode for the selected entry: deletion only proceeds
-   * after an explicit Enter/y, guarding against accidental presses of d.
-   */
-  private beginConfirm(): void {
-    if (this.servers.length === 0) return;
-    this.mode = "confirm";
-    this.requestRender();
+  protected deleteBuild(
+    index: number,
+  ): (servers: LlamaServer[]) => LlamaServer[] {
+    return (servers) => removeServer(servers, index);
   }
 
-  /**
-   * Starts adding a new entry with an empty Input.
-   */
-  private beginAdd(): void {
-    this.mode = "add";
-    this.field = "url";
-    this.editingIndex = -1;
-    this.error = undefined;
-    this.input.setValue("");
-    this.requestRender();
-  }
-
-  /**
-   * Saves the edited/added value: validates it per field, persists the new
-   * list and returns to list mode. Invalid input shows an inline error and
-   * keeps editing; a failed write notifies via `onError` and keeps editing
-   * too.
-   */
-  private async saveEdit(): Promise<void> {
-    const raw = this.input.getValue();
-    if (this.field === "url") {
-      const url = normalizeServerUrl(raw);
-      if (!url) {
-        this.error = "Invalid URL — use http://host:port (one URL per entry)";
-        this.requestRender();
-        return;
-      }
-      await this.applySave((servers) =>
-        this.mode === "add"
-          ? addServer(servers, url)
-          : updateServerUrl(servers, this.editingIndex, url),
-      );
-      return;
-    }
-    // id/name: free-form; empty/whitespace clears the override
-    await this.applySave((servers) =>
-      updateServerField(servers, this.editingIndex, this.field, raw),
-    );
-  }
-
-  /**
-   * Persists `build(this.servers)`. On success, adopts the new list and
-   * returns to list mode; on failure, notifies via `onError` and stays in
-   * edit mode with the pre-mutation list.
-   */
-  private async applySave(
-    build: (servers: LlamaServer[]) => LlamaServer[],
-  ): Promise<void> {
-    const isAdd = this.mode === "add";
-    const next = build(this.servers);
-
-    try {
-      await this.options.persist(next);
-      this.servers = next;
-      if (isAdd) this.selectedIndex = next.length - 1;
-      this.mode = "list";
-      this.editingIndex = -1;
-      this.error = undefined;
-    } catch (err) {
-      // Write failed: keep the pre-mutation list and stay in edit mode
-      this.options.onError(errorMessage(err));
-    }
-    this.requestRender();
-  }
-
-  /**
-   * Deletes the selected entry and persists immediately. Leaves confirm
-   * mode synchronously so a second Enter while the write is pending cannot
-   * queue a duplicate deletion.
-   */
-  private async deleteSelected(): Promise<void> {
-    if (this.servers.length === 0) return;
-    this.mode = "list";
-    const next = removeServer(this.servers, this.selectedIndex);
-
-    try {
-      await this.options.persist(next);
-      this.servers = next;
-      if (this.selectedIndex >= next.length) {
-        this.selectedIndex = Math.max(0, next.length - 1);
-      }
-    } catch (err) {
-      // Write failed: keep the pre-mutation list
-      this.options.onError(errorMessage(err));
-    }
-    this.requestRender();
-  }
-
-  /**
-   * The Input has no "move to end" API and `setValue()` clamps the cursor;
-   * walk it right one grapheme at a time using the standard arrow sequence
-   * (resolved by the Input against pi's global keybindings).
-   */
-  private moveInputCursorToEnd(): void {
-    for (let i = 0; i < [...this.input.getValue()].length; i++) {
-      this.input.handleInput("\x1b[C");
-    }
-  }
-
-  private requestRender(): void {
-    this.options.tui.requestRender();
+  protected footerNotes(): string[] {
+    return this.envOverride
+      ? ["LLAMA_SERVER_URL env var overrides these servers."]
+      : [];
   }
 }

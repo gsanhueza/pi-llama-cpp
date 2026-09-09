@@ -1,32 +1,35 @@
 import type { ModelCost, ModelCostRates } from "@earendil-works/pi-ai";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import {
-  Input,
   SettingsList,
-  truncateToWidth,
-  type Component,
   type KeybindingsManager,
   type SettingItem,
   type SettingsListTheme,
   type TUI,
 } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../interfaces/settings";
-import { errorMessage } from "../utils/errors";
-
-/** The four numeric cost fields, in display order */
-const COST_FIELDS = ["input", "output", "cacheRead", "cacheWrite"] as const;
-
-type CostField = keyof ModelCostRates;
-
-/** Labels for the numeric cost fields (also used in error messages) */
-const COST_FIELD_LABELS: Record<CostField, string> = {
-  input: "input",
-  output: "output",
-  cacheRead: "cacheRead",
-  cacheWrite: "cacheWrite",
-};
+import {
+  createPersister,
+  ListEditorBase,
+  type EditorField,
+  type ListEditorOptions,
+  type ServerPersister,
+} from "./baseEditor";
 
 /** Pattern given to entries added with the `a` shortcut (uniquified) */
 const DEFAULT_PATTERN = "new-pattern";
+
+/**
+ * The four numeric cost fields with their edit shortcuts, in display order.
+ * The field name doubles as the label shown in the edit prompt.
+ */
+const COST_FIELD_SPECS = [
+  { field: "input", key: "i" },
+  { field: "output", key: "o" },
+  { field: "cacheRead", key: "r" },
+  { field: "cacheWrite", key: "w" },
+] as const satisfies readonly { field: keyof ModelCostRates; key: string }[];
 
 /**
  * Parses a raw cost-field value. Empty input means zero (unspecified fields
@@ -112,6 +115,70 @@ export const formatCostSummary = (cost: Partial<ModelCost>): string => {
 };
 
 /**
+ * One cost entry of a server, as shown in the entry list rows.
+ */
+interface CostEntryView {
+  pattern: string;
+  cost: Partial<ModelCost>;
+}
+
+/** The cost entries of `servers[serverIndex]`, in map iteration order */
+const entriesOf = (
+  servers: LlamaServer[],
+  serverIndex: number,
+): CostEntryView[] =>
+  Object.entries(servers[serverIndex]?.costs ?? {}).map(([pattern, cost]) => ({
+    pattern,
+    cost,
+  }));
+
+/**
+ * Field specs for one server's cost entries: the pattern plus the four
+ * numeric cost fields, each edited via its shortcut (Enter/p pattern, i
+ * input, o output, r cacheRead, w cacheWrite). `apply` reads the entry
+ * fresh from the passed snapshot so consecutive edits don't clobber each
+ * other.
+ */
+const entryFields = (serverIndex: number): EditorField<CostEntryView>[] => [
+  {
+    keys: ["p"],
+    label: "pattern",
+    getValue: (entry) => entry.pattern,
+    validate: (raw) => {
+      const trimmed = raw.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    },
+    apply: (servers, entryIndex, value) =>
+      updateCostEntry(
+        servers,
+        serverIndex,
+        entryIndex,
+        value,
+        entriesOf(servers, serverIndex)[entryIndex]?.cost ?? {},
+      ),
+  },
+  ...COST_FIELD_SPECS.map((spec) => ({
+    keys: [spec.key],
+    label: spec.field,
+    getValue: (entry: CostEntryView) => String(entry.cost[spec.field] ?? 0),
+    validate: (raw: string): string | null => {
+      const parsed = parseCostValue(raw);
+      return parsed === null ? null : String(parsed);
+    },
+    apply: (servers: LlamaServer[], entryIndex: number, value: string) => {
+      const entry = entriesOf(servers, serverIndex)[entryIndex];
+      return updateCostEntry(
+        servers,
+        serverIndex,
+        entryIndex,
+        entry?.pattern ?? "",
+        { ...entry?.cost, [spec.field]: Number(value) },
+      );
+    },
+  })),
+];
+
+/**
  * Options for the `/models costs` editor.
  */
 export interface CostsEditorOptions {
@@ -119,151 +186,130 @@ export interface CostsEditorOptions {
   tui: TUI;
   /** App keybindings manager (injected by ctx.ui.custom) */
   keybindings: KeybindingsManager;
+  /** Full theme, used by the per-server entry editors */
+  theme: Theme;
   /** Snapshot of the merged `llamaSettings.servers` to edit */
   servers: LlamaServer[];
-  /** Theme for the SettingsList (from `getSettingsListTheme()`) */
-  theme: SettingsListTheme;
-  /** Styles the delete-confirmation prompt (e.g. `theme.fg("error", …)`) */
-  alert: (text: string) => string;
+  /** Theme for the top-level SettingsList (defaults to `getSettingsListTheme()`) */
+  listTheme?: SettingsListTheme;
   /** Persists a new server list; a rejection leaves the list unchanged */
   persist: (next: LlamaServer[]) => Promise<void>;
   /** Closes the editor (called on Esc in the server list) */
   done: () => void;
-  /** Notifies about validation/persistence errors */
+  /** Notifies about persistence errors */
   onError: (message: string) => void;
   /** Called after a successful add/edit/delete (e.g. to remind about /reload) */
   onChanged: () => void;
 }
 
 /**
- * SettingsList variant used for the cost-entry list, adding `a` (add entry)
- * and `d` (delete entry) shortcuts — pi-tui's SettingsList has no dynamic
- * add/remove semantics on its own. The shortcuts only fire when no submenu
- * is open, so typing into an inline Input is unaffected. While a deletion
- * is pending, confirm mode takes over: only `y` confirms, Esc/n cancels and
- * every other key is ignored (same semantics as `/models servers`).
+ * The drill-down editor for one server's cost entries: one row per entry
+ * (pattern + cost summary), sharing the `/models servers` UX —
+ *
+ * Enter/p edits the pattern, i the input cost, o the output cost, r the
+ * cacheRead cost, w the cacheWrite cost — each through an inline Input
+ * (Enter saves, Esc cancels — invalid input shows an inline error and keeps
+ * the field open for correction). `a` adds a new entry (default pattern,
+ * zeroed costs) and `d` deletes the entry under the cursor — after an
+ * "Are you sure?" confirmation (only `y` confirms, Enter is ignored, Esc/n
+ * cancels), mirroring `/models servers`. Esc goes back to the server list.
  */
-class EntrySettingsList extends SettingsList {
+class CostEntryListEditor extends ListEditorBase<CostEntryView> {
+  private readonly fieldSpecs: EditorField<CostEntryView>[];
+
   constructor(
-    items: SettingItem[],
-    maxVisible: number,
-    theme: SettingsListTheme,
-    onChange: (id: string, newValue: string) => void,
-    onCancel: () => void,
-    private readonly actions: {
-      onAdd: () => void;
-      onDelete: (entryIndex: number) => void;
-      confirmDelete: () => void;
-      isDeletePending: () => boolean;
-      cancelDeletePending: () => void;
-      isCancel: (data: string) => boolean;
-    },
+    options: ListEditorOptions,
+    store: ServerPersister,
+    private readonly serverIndex: number,
+    private readonly afterChange: () => void,
   ) {
-    super(items, maxVisible, theme, onChange, onCancel);
+    super(options, store);
+    this.fieldSpecs = entryFields(serverIndex);
   }
 
-  handleInput(data: string): void {
-    // pi-tui's SettingsList tracks `submenuComponent`, `selectedIndex` and
-    // `items` as TS-private fields; they are plain properties at runtime
-    // (the dependency version is pinned), and we need them to know whether
-    // a submenu is open and which row the cursor is on.
-    const state = this as unknown as {
-      submenuComponent?: Component | null;
-      selectedIndex?: number;
-      items?: SettingItem[];
-    };
+  protected title(): string {
+    return `Cost entries — ${this.store.items[this.serverIndex]?.url ?? ""}`;
+  }
 
-    if (!state.submenuComponent) {
-      if (data === "a") {
-        this.actions.onAdd();
-        return;
-      }
-      if (data === "d") {
-        const index = state.selectedIndex ?? 0;
-        if (index < (state.items?.length ?? 0)) {
-          this.actions.onDelete(index);
-        }
-        return;
-      }
-      // Confirm mode: only `y` deletes the pending row; Esc/n aborts; every
-      // other key — Enter and navigation included, so a stray keypress can't
-      // confirm — is ignored (same semantics as /models servers)
-      if (this.actions.isDeletePending()) {
-        if (data === "y") {
-          // Only reachable with a valid pending row: navigation and row
-          // changes are impossible while the confirmation is open
-          this.actions.confirmDelete();
-          return;
-        }
-        if (data === "n" || this.actions.isCancel(data)) {
-          this.actions.cancelDeletePending();
-          return;
-        }
-        return;
-      }
-    }
-    super.handleInput(data);
+  protected primaryField(): EditorField<CostEntryView> {
+    return this.fieldSpecs[0];
+  }
+
+  protected fields(): EditorField<CostEntryView>[] {
+    return this.fieldSpecs;
+  }
+
+  protected getItems(): CostEntryView[] {
+    return entriesOf(this.store.items, this.serverIndex);
+  }
+
+  protected itemLabel(entry: CostEntryView): string {
+    return entry.pattern;
+  }
+
+  protected itemSuffix(entry: CostEntryView): string {
+    return formatCostSummary(entry.cost);
+  }
+
+  protected emptyStateLines(): string[] {
+    return ["No cost entries — press a to add one"];
+  }
+
+  protected listHint(): string {
+    return "Enter/p pattern · i input · o output · r cacheRead · w cacheWrite · a add · d delete · Esc back";
+  }
+
+  protected describeForConfirm(index: number): string {
+    return this.getItems()[index]?.pattern ?? "";
+  }
+
+  protected editBuild(
+    field: EditorField<CostEntryView>,
+    entryIndex: number,
+    value: string,
+  ): (servers: LlamaServer[]) => LlamaServer[] {
+    return (servers) => field.apply(servers, entryIndex, value);
+  }
+
+  protected deleteBuild(
+    entryIndex: number,
+  ): (servers: LlamaServer[]) => LlamaServer[] {
+    return (servers) => removeCostEntry(servers, this.serverIndex, entryIndex);
+  }
+
+  protected afterSave(): void {
+    this.afterChange();
   }
 
   /**
-   * Replaces pi-tui's generic "No settings available" empty state with a
-   * message that points at the `a` shortcut — an empty entry list is a
-   * normal state (a server without costs), not a dead end.
+   * Adds a new entry with a unique default pattern (new-pattern,
+   * new-pattern-2, …) and zeroed costs immediately — no inline input, the
+   * pattern can be renamed afterwards with Enter/p. Moves the selection to
+   * the new entry.
    */
-  render(width: number): string[] {
-    const lines = super.render(width);
-    const state = this as unknown as {
-      items?: SettingItem[];
-      theme?: SettingsListTheme;
-    };
-    if ((state.items?.length ?? 0) > 0) return lines;
-    const emptyIndex = lines.findIndex((line) =>
-      line.includes("No settings available"),
+  protected beginAdd(): void {
+    const existing = new Set(
+      Object.keys(this.store.items[this.serverIndex]?.costs ?? {}),
     );
-    const hint = truncateToWidth(
-      // The base class always assigns its private `theme` in the constructor
-      state.theme!.hint(
-        "  No cost entries — press a to add one · Esc to go back",
-      ),
-      width,
+    let name = DEFAULT_PATTERN;
+    let n = 2;
+    while (existing.has(name)) name = `${DEFAULT_PATTERN}-${n++}`;
+    void this.store.applySave(
+      (servers) => addCostEntry(servers, this.serverIndex, name),
+      () => {
+        this.cursorToEnd();
+        this.afterSave();
+      },
     );
-    if (emptyIndex >= 0) {
-      lines[emptyIndex] = hint;
-    } else {
-      lines.push(hint);
-    }
-    return lines;
-  }
-
-  /** Whether a submenu (entry field editor) is currently open */
-  get submenuOpen(): boolean {
-    return (
-      ((this as unknown as { submenuComponent?: Component | null })
-        .submenuComponent ?? null) !== null
-    );
-  }
-
-  /** The cursor's row index */
-  get cursorIndex(): number {
-    return (this as unknown as { selectedIndex?: number }).selectedIndex ?? 0;
-  }
-
-  set cursorIndex(index: number) {
-    (this as unknown as { selectedIndex?: number }).selectedIndex = index;
   }
 }
 
 /**
  * Builds the `/models costs` editor: a SettingsList of servers whose rows
- * drill down into each server's cost entries, which in turn drill down into
- * the pattern + four numeric cost fields (each edited via an inline Input,
- * mirroring the `/tps` threshold picker's UX).
+ * drill down into {@link CostEntryListEditor} for each server's cost
+ * entries.
  *
- * Servers themselves are not managed here — use `/models servers`. Within a
- * server's entry list, `a` adds a new entry (default pattern, zeroed costs)
- * and `d` deletes the entry under the cursor — after an "Are you sure?"
- * confirmation on the row (only `y` confirms; Enter is ignored, Esc/n
- * cancels), mirroring `/models servers`.
+ * Servers themselves are not managed here — use `/models servers`.
  *
  * Each mutation is persisted immediately through `persist()` (which maps to
  * `LlamaSettingsManager.setLlamaSetting()`); the in-memory snapshot only
@@ -273,26 +319,12 @@ class EntrySettingsList extends SettingsList {
 export const createCostsEditor = (
   options: CostsEditorOptions,
 ): SettingsList => {
-  let servers = options.servers;
-  /** Items of the currently open entry list (mutated in place on changes) */
-  let entryItems: SettingItem[] | null = null;
-  let entryServerIndex = -1;
-  /** Open entry list component, for cursor placement after mutations */
-  let entryList: EntrySettingsList | null = null;
-  /** Cursor placement for the next entry-list rebuild */
-  let cursorAfterRebuild: "end" | "clamp" | null = null;
-  /** Items of the top-level server list (refreshed in place on changes) */
-  const serverItems: SettingItem[] = [];
-
-  const entriesOf = (serverIndex: number): [string, Partial<ModelCost>][] =>
-    Object.entries(servers[serverIndex]?.costs ?? {});
-
-  /** Row pending deletion; `y` confirms, Esc/n cancels, other keys ignored */
-  let pendingDeleteIndex: number | null = null;
+  const store = createPersister(options, options.servers);
+  const listTheme = options.listTheme ?? getSettingsListTheme();
 
   /** Refreshes the server rows' `N entries` summaries in place */
   const refreshServerItems = () => {
-    servers.forEach((server, i) => {
+    store.items.forEach((server, i) => {
       const item = serverItems[i];
       if (item) {
         item.currentValue = `${Object.keys(server.costs ?? {}).length} entries`;
@@ -300,252 +332,37 @@ export const createCostsEditor = (
     });
   };
 
-  /** Rebuilds the open entry list's rows in place from the snapshot */
-  const rebuildEntryItems = () => {
-    const items = entryItems;
-    if (!items || entryServerIndex < 0) return;
-    items.length = 0;
-    entriesOf(entryServerIndex).forEach(([pattern, cost], j) => {
-      const pending = j === pendingDeleteIndex;
-      // Pending: the prompt goes in the description (rendered under the
-      // row); the literal \n splits into two red lines via
-      // wrapTextWithAnsi, mirroring /models servers
-      items.push({
-        id: String(j),
-        label: pattern,
-        description: pending
-          ? options.alert(
-              `About to delete "${pattern}"\nAre you sure? · y delete · Esc/n cancel`,
-            )
-          : "Enter: edit pattern and costs · a: add · d: delete",
-        currentValue: formatCostSummary(cost),
-        submenu: (_cv, closeEntry) =>
-          createFieldList(entryServerIndex, j, closeEntry),
-      });
-    });
-    if (entryList) {
-      if (cursorAfterRebuild === "end") {
-        entryList.cursorIndex = Math.max(0, items.length - 1);
-      } else if (cursorAfterRebuild === "clamp") {
-        entryList.cursorIndex = Math.min(
-          entryList.cursorIndex,
-          Math.max(0, items.length - 1),
-        );
-      }
-    }
-    cursorAfterRebuild = null;
-  };
-
-  /**
-   * Persists `build(servers)`. On success, adopts the new snapshot, refreshes
-   * the visible rows in place and re-renders; on failure, notifies via
-   * `onError` and leaves the pre-mutation snapshot (and rows) unchanged.
-   */
-  const applySave = (build: (s: LlamaServer[]) => LlamaServer[]) => {
-    const next = build(servers);
-    return options.persist(next).then(
-      () => {
-        servers = next;
-        refreshServerItems();
-        rebuildEntryItems();
-        options.onChanged();
-        options.tui.requestRender();
-      },
-      (err) => {
-        options.onError(errorMessage(err));
-      },
-    );
-  };
-
-  /**
-   * Creates the entry-field list for one cost entry: the pattern plus the
-   * four numeric fields, each edited through an inline Input (Enter saves,
-   * Esc cancels — invalid input keeps the field open for correction).
-   */
-  const createFieldList = (
-    serverIndex: number,
-    entryIndex: number,
-    close: () => void,
-  ): SettingsList => {
-    const entries = entriesOf(serverIndex);
-    const currentPattern = entries[entryIndex]?.[0] ?? "";
-    const currentCost = entries[entryIndex]?.[1] ?? {};
-
-    /** Builds an inline Input submenu with validation */
-    const inputSubmenu = (
-      initial: string,
-      validate: (raw: string) => string | null,
-      name: string,
-    ) => {
-      return (_currentValue: string, done: (value?: string) => void) => {
-        const input = new Input();
-        input.setValue(initial);
-        // Place the cursor at the end (the common edit: appending/changing
-        // digits). Input has no "move to end" API; walk it right via the
-        // standard arrow sequence, as ServerListEditor does.
-        for (let i = 0; i < [...initial].length; i++) {
-          input.handleInput("\x1b[C");
-        }
-        input.onEscape = () => done();
-        input.onSubmit = (raw) => {
-          const result = validate(raw);
-          if (result === null) {
-            options.onError(`Invalid ${name} "${raw}"`);
-            return;
-          }
-          done(result);
-        };
-        return input;
-      };
-    };
-
-    const items: SettingItem[] = [
-      {
-        id: "pattern",
-        label: "pattern",
-        description: "Model ID prefix filter — the longest match wins",
-        currentValue: currentPattern,
-        submenu: inputSubmenu(
-          currentPattern,
-          (raw) => {
-            const trimmed = raw.trim();
-            return trimmed.length > 0 ? trimmed : null;
-          },
-          "pattern",
-        ),
-      },
-      ...COST_FIELDS.map((field) => {
-        const initial = String(currentCost[field] ?? 0);
-        return {
-          id: field,
-          label: COST_FIELD_LABELS[field],
-          description: `Cost per million ${COST_FIELD_LABELS[field]} tokens — empty means zero`,
-          currentValue: initial,
-          submenu: inputSubmenu(
-            initial,
-            (raw) => {
-              const parsed = parseCostValue(raw);
-              return parsed === null ? null : String(parsed);
-            },
-            COST_FIELD_LABELS[field],
-          ),
-        };
-      }),
-    ];
-
-    return new SettingsList(
-      items,
-      items.length + 2,
-      options.theme,
-      (id, newValue) => {
-        // Read the entry fresh so consecutive edits don't clobber each other
-        const [pattern, cost] = entriesOf(serverIndex)[entryIndex] ?? ["", {}];
-        if (id === "pattern") {
-          applySave((s) =>
-            updateCostEntry(s, serverIndex, entryIndex, newValue, cost),
-          );
-        } else {
-          applySave((s) =>
-            updateCostEntry(s, serverIndex, entryIndex, pattern, {
-              ...cost,
-              [id]: Number(newValue),
-            }),
-          );
-        }
-      },
-      close,
-    );
-  };
-
-  /**
-   * Creates the cost-entry list for one server: one row per entry plus `a`/`d`
-   * shortcuts for adding and deleting entries.
-   */
-  const createEntryList = (
-    serverIndex: number,
-    close: () => void,
-  ): EntrySettingsList => {
-    const items: SettingItem[] = [];
-    entryItems = items;
-    entryServerIndex = serverIndex;
-    pendingDeleteIndex = null;
-
-    const list = new EntrySettingsList(
-      items,
-      Math.min(items.length + 2, 15),
-      options.theme,
-      () => {
-        // Entry rows only open submenus; changes fire on the field lists
-      },
-      close,
-      {
-        onAdd: () => {
-          // Pick a unique default pattern (new-pattern, new-pattern-2, …)
-          const existing = new Set(
-            Object.keys(servers[serverIndex]?.costs ?? {}),
-          );
-          let name = DEFAULT_PATTERN;
-          let n = 2;
-          while (existing.has(name)) name = `${DEFAULT_PATTERN}-${n++}`;
-          cursorAfterRebuild = "end";
-          applySave((s) => addCostEntry(s, serverIndex, name));
-        },
-        onDelete: (entryIndex) => {
-          // First press enters confirm mode; deletion awaits an explicit y
-          pendingDeleteIndex = entryIndex;
-          rebuildEntryItems();
-          options.tui.requestRender();
-        },
-        confirmDelete: () => {
-          const entryIndex = pendingDeleteIndex;
-          if (entryIndex === null) return;
-          pendingDeleteIndex = null;
-          cursorAfterRebuild = "clamp";
-          applySave((s) => removeCostEntry(s, serverIndex, entryIndex));
-        },
-        isDeletePending: () => pendingDeleteIndex !== null,
-        cancelDeletePending: () => {
-          if (pendingDeleteIndex === null) return;
-          pendingDeleteIndex = null;
-          rebuildEntryItems();
-          options.tui.requestRender();
-        },
-        isCancel: (data) =>
-          options.keybindings.matches(data, "tui.select.cancel"),
-      },
-    );
-    entryList = list;
-
-    // Initial rows (also rebuilt in place after every successful persist)
-    entriesOf(serverIndex).forEach(([pattern, cost], j) => {
-      items.push({
-        id: String(j),
-        label: pattern,
-        description: "Enter: edit pattern and costs · a: add · d: delete",
-        currentValue: formatCostSummary(cost),
-        submenu: (_cv, closeEntry) =>
-          createFieldList(serverIndex, j, closeEntry),
-      });
-    });
-
-    return list;
-  };
-
   // Top level: one row per server; Enter drills into its cost entries
-  servers.forEach((server, i) => {
+  const serverItems: SettingItem[] = [];
+  store.items.forEach((server, i) => {
     serverItems.push({
       id: String(i),
       label: server.url,
       description: "Enter: edit this server's cost entries · Esc: done",
       currentValue: `${Object.keys(server.costs ?? {}).length} entries`,
-      submenu: (_cv, closeServer) => createEntryList(i, closeServer),
+      submenu: (_cv, closeEntries) =>
+        new CostEntryListEditor(
+          {
+            tui: options.tui,
+            keybindings: options.keybindings,
+            theme: options.theme,
+            done: closeEntries,
+            onError: options.onError,
+          },
+          store,
+          i,
+          () => {
+            refreshServerItems();
+            options.onChanged();
+          },
+        ),
     });
   });
 
   return new SettingsList(
     serverItems,
     Math.min(serverItems.length + 2, 15),
-    options.theme,
+    listTheme,
     () => {
       // Server rows only open submenus; nothing changes at this level
     },

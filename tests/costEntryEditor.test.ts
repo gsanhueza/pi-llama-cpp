@@ -1,3 +1,4 @@
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   setKeybindings,
   type KeybindingsManager,
@@ -19,8 +20,7 @@ import {
 const UP = "\x1b[A";
 const DOWN = "\x1b[B";
 const RIGHT = "\x1b[C";
-const ENTER = "\r"; // SettingsList confirm
-const LF = "\n"; // Input submit
+const ENTER = "\r"; // confirm / save
 const ESC = "\x1b";
 const BACKSPACE = "\x7f";
 
@@ -53,8 +53,14 @@ const SERVERS: LlamaServer[] = [
   { url: "http://b:2" },
 ];
 
-/** Plain theme for the SettingsList (no ANSI styling in assertions) */
-const THEME: SettingsListTheme = {
+/** Full theme for the entry editors (no ANSI styling in assertions) */
+const THEME: Theme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+} as unknown as Theme;
+
+/** Plain theme for the top-level SettingsList (no ANSI in assertions) */
+const LIST_THEME: SettingsListTheme = {
   label: (text: string) => text,
   value: (text: string) => text,
   description: (text: string) => text,
@@ -74,7 +80,7 @@ const setup = (servers: LlamaServer[] = SERVERS) => {
     tui: { requestRender: vi.fn() } as unknown as TUI,
     keybindings,
     theme: THEME,
-    alert: (text) => text, // plain theme: no ANSI in assertions
+    listTheme: LIST_THEME,
     servers,
     persist,
     done,
@@ -248,9 +254,9 @@ describe("createCostsEditor", () => {
       editor.handleInput(ENTER);
 
       const out = render(editor);
+      expect(out).toContain("Cost entries");
       expect(out).toContain("llama-3-8b");
       expect(out).toContain("in:0.2 out:0.6 cacheR:0.01");
-      expect(out).not.toContain("http://a:1");
     });
   });
 
@@ -302,6 +308,16 @@ describe("createCostsEditor", () => {
       expect(costs["new-pattern-2"]).toEqual({});
     });
 
+    it("should move the selection to the added entry", async () => {
+      const { editor } = setup();
+
+      editor.handleInput(ENTER); // entry list of http://a:1
+      editor.handleInput("a");
+      await flush();
+
+      expect(render(editor)).toContain("→ new-pattern");
+    });
+
     it("should ask for confirmation on d, without deleting", async () => {
       const { editor, persist } = setup();
 
@@ -314,10 +330,10 @@ describe("createCostsEditor", () => {
       const about = lines.findIndex((line) =>
         line.includes('About to delete "llama-3-8b"'),
       );
-      // "Are you sure? …" on its own line, directly below "About to delete …"
+      // "Are you sure?" on its own line, directly below "About to delete …"
       expect(about).toBeGreaterThanOrEqual(0);
       expect(lines[about + 1]).toContain("Are you sure?");
-      expect(lines[about + 1]).toContain("y delete · Esc/n cancel");
+      expect(render(editor)).toContain("y delete · Esc/n cancel");
       // The row itself keeps its cost summary
       expect(
         lines.some((line) => line.includes("in:0.2 out:0.6 cacheR:0.01")),
@@ -390,45 +406,45 @@ describe("createCostsEditor", () => {
       expect(out).toContain("Are you sure?");
       expect(out).toContain("llama-3-70b"); // cursor never moved
     });
-
-    it("should ignore a/d while an input submenu is open", async () => {
-      const { editor, persist } = setup();
-
-      editor.handleInput(ENTER); // entry list
-      editor.handleInput(ENTER); // field list of llama-3-8b
-      editor.handleInput(ENTER); // pattern Input (open submenu)
-      type(editor, "a"); // typing, not adding
-      type(editor, "d");
-
-      expect(persist).not.toHaveBeenCalled();
-    });
   });
 
   describe("entry field editing", () => {
-    const openPatternInput = (editor: ReturnType<typeof createCostsEditor>) => {
-      editor.handleInput(ENTER); // entry list
-      editor.handleInput(ENTER); // field list, cursor on pattern
-      editor.handleInput(ENTER); // pattern Input
-    };
-
-    const openCostInput = (
+    /** Opens the inline pattern editor for the entry under the cursor */
+    const openPatternEditor = (
       editor: ReturnType<typeof createCostsEditor>,
-      field: 1 | 2 | 3 | 4,
     ) => {
       editor.handleInput(ENTER); // entry list
-      editor.handleInput(ENTER); // field list, cursor on pattern
-      for (let i = 0; i < field; i++) editor.handleInput(DOWN);
-      editor.handleInput(ENTER); // cost Input
+      editor.handleInput("p"); // pattern editor
     };
+
+    /** Opens the inline editor for one cost field of the cursor's entry */
+    const openCostEditor = (
+      editor: ReturnType<typeof createCostsEditor>,
+      key: "i" | "o" | "r" | "w",
+    ) => {
+      editor.handleInput(ENTER); // entry list
+      editor.handleInput(key); // cost editor
+    };
+
+    it("should open each cost field with its shortcut, prefilled", () => {
+      const { editor } = setup();
+
+      editor.handleInput(ENTER);
+      editor.handleInput("o"); // output
+
+      const out = render(editor);
+      expect(out).toContain("output:");
+      expect(out).toContain("> 0.6");
+      expect(out).toContain("Enter save · Esc cancel");
+    });
 
     it("should edit a cost field via the inline Input", async () => {
       const { editor, persist } = setup();
 
-      openCostInput(editor, 1); // input
-      // Clear the prefilled "0.2" and type the new value
+      openCostEditor(editor, "i"); // input, prefilled "0.2"
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
       type(editor, "0.25");
-      editor.handleInput(LF); // submit
+      editor.handleInput(ENTER); // save
       await flush();
 
       const costs = persist.mock.calls[0][0][0].costs ?? {};
@@ -442,9 +458,9 @@ describe("createCostsEditor", () => {
     it("should treat an empty cost field as zero", async () => {
       const { editor, persist } = setup();
 
-      openCostInput(editor, 2); // output
+      openCostEditor(editor, "o"); // output, prefilled "0.6"
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
-      editor.handleInput(LF); // empty -> 0
+      editor.handleInput(ENTER); // empty -> 0
       await flush();
 
       const costs = persist.mock.calls[0][0][0].costs ?? {};
@@ -455,30 +471,32 @@ describe("createCostsEditor", () => {
       });
     });
 
-    it("should reject invalid cost values, notify and keep the input open", async () => {
+    it("should reject invalid cost values with an inline error and keep editing", async () => {
       const { editor, persist, onError } = setup();
 
-      openCostInput(editor, 1);
+      openCostEditor(editor, "i");
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
       type(editor, "abc");
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
 
       expect(persist).not.toHaveBeenCalled();
-      expect(onError).toHaveBeenCalledWith('Invalid input "abc"');
-      // The Input is still open (submenu still rendered)
-      expect(render(editor)).toContain("> abc");
+      expect(onError).not.toHaveBeenCalled();
+      const out = render(editor);
+      expect(out).toContain('Invalid input "abc"');
+      // The Input is still open for correction
+      expect(out).toContain("> abc");
     });
 
-    it("should rename the pattern via the pattern row", async () => {
+    it("should rename the pattern via the pattern editor", async () => {
       const { editor, persist } = setup();
 
-      openPatternInput(editor);
+      openPatternEditor(editor);
       for (let i = 0; i < "llama-3-8b".length; i++) {
         editor.handleInput(BACKSPACE);
       }
       type(editor, "qwen-27b");
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
 
       const server = persist.mock.calls[0][0][0];
@@ -493,49 +511,46 @@ describe("createCostsEditor", () => {
       });
     });
 
-    it("should reject an empty pattern, notify and keep the input open", async () => {
-      const { editor, persist, onError } = setup();
+    it("should reject an empty pattern with an inline error and keep editing", async () => {
+      const { editor, persist } = setup();
 
-      openPatternInput(editor);
+      openPatternEditor(editor);
       for (let i = 0; i < "llama-3-8b".length; i++) {
         editor.handleInput(BACKSPACE);
       }
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
 
       expect(persist).not.toHaveBeenCalled();
-      expect(onError).toHaveBeenCalledWith('Invalid pattern ""');
+      expect(render(editor)).toContain('Invalid pattern ""');
     });
 
     it("should close the Input without persisting on Escape", async () => {
       const { editor, persist } = setup();
 
-      openCostInput(editor, 1);
+      openCostEditor(editor, "i");
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
       type(editor, "9");
-      editor.handleInput(ESC); // close the Input
+      editor.handleInput(ESC); // cancel
       await flush();
 
       expect(persist).not.toHaveBeenCalled();
-      // Back on the field list, value unchanged
+      // Back on the entry list, value unchanged
       expect(render(editor)).toContain("0.2");
     });
 
     it("should apply consecutive field edits without clobbering", async () => {
       const { editor, persist } = setup();
 
-      openCostInput(editor, 1); // input
+      openCostEditor(editor, "i"); // input
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
       type(editor, "1");
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
-      editor.handleInput(ESC); // back to entry list
-      editor.handleInput(ENTER); // field list again
-      editor.handleInput(DOWN); // input
-      editor.handleInput(ENTER); // Input, prefilled "1"
-      for (let i = 0; i < 1; i++) editor.handleInput(BACKSPACE);
+      editor.handleInput("i"); // input again, prefilled "1"
+      editor.handleInput(BACKSPACE);
       type(editor, "2");
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
 
       const costs = persist.mock.calls[1][0][0].costs ?? {};
@@ -549,12 +564,11 @@ describe("createCostsEditor", () => {
     it("should refresh the parent entry row after an edit", async () => {
       const { editor } = setup();
 
-      openCostInput(editor, 1);
+      openCostEditor(editor, "i");
       for (let i = 0; i < 3; i++) editor.handleInput(BACKSPACE);
       type(editor, "9");
-      editor.handleInput(LF);
+      editor.handleInput(ENTER);
       await flush();
-      editor.handleInput(ESC); // back to entry list
       editor.handleInput(ESC); // back to server list
 
       const out = render(editor);
@@ -600,14 +614,12 @@ describe("createCostsEditor", () => {
       await flush();
       expect(onChanged).toHaveBeenCalledTimes(1);
 
-      editor.handleInput(ENTER); // field list of new-pattern
-      editor.handleInput(ENTER); // pattern Input
+      editor.handleInput("p"); // pattern editor of new-pattern
       type(editor, "x"); // rename to new-patternx
-      editor.handleInput(LF); // submit
+      editor.handleInput(ENTER); // save
       await flush();
       expect(onChanged).toHaveBeenCalledTimes(2);
 
-      editor.handleInput(ESC); // back to entry list
       editor.handleInput("d"); // confirm mode
       editor.handleInput("y"); // confirm
       await flush();
@@ -639,13 +651,13 @@ describe("createCostsEditor", () => {
         expect(line).not.toContain("\n");
       }
 
-      editor.handleInput("d"); // confirm mode: description embeds a \n
+      editor.handleInput("d"); // confirm mode
       for (const line of editor.render(RENDER_WIDTH)) {
         expect(line).not.toContain("\n");
       }
 
       editor.handleInput(ESC); // cancel
-      editor.handleInput(ENTER); // field list
+      editor.handleInput("p"); // pattern editor
       for (const line of editor.render(RENDER_WIDTH)) {
         expect(line).not.toContain("\n");
       }

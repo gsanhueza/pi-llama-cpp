@@ -330,11 +330,12 @@ export class CommandManager {
 
   /**
    * Runs the interactive cost editor for `llamaSettings.servers[].costs`:
-   * a SettingsList of servers drilling down into each server's cost entries
-   * (pattern + input/output/cacheRead/cacheWrite, each edited via an inline
-   * Input). Within a server's entry list, a adds a new entry and d deletes
-   * the one under the cursor (after an "Are you sure?" confirmation — only
-   * y confirms, Esc/n cancels), mirroring `/models servers`. Servers
+   * a SettingsList of servers drilling down into each server's cost
+   * entries (one row per pattern, sharing the /models servers UX).
+   * Within a server's entry list: Enter/p edits the pattern, i/o/r/w the
+   * input/output/cacheRead/cacheWrite costs (inline Input), a adds a new
+   * entry and d deletes the one under the cursor (after an "Are you
+   * sure?" confirmation — only y confirms, Esc/n cancels). Servers
    * themselves are not managed here — use `/models servers`.
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
@@ -356,8 +357,7 @@ export class CommandManager {
       createCostsEditor({
         tui,
         keybindings,
-        theme: getSettingsListTheme(),
-        alert: (text) => theme.fg("error", text),
+        theme,
         servers: this.settings.llamaServers,
         persist: (next) => this.settings.setLlamaSetting("servers", next),
         done: () => done(undefined),

@@ -9,7 +9,6 @@ import {
   normalizeServerUrl,
   removeServer,
   updateServerField,
-  updateServerUrl,
 } from "../src/ui/serverListEditor";
 
 /** Raw key sequences used to drive the editor */
@@ -107,22 +106,6 @@ describe("server URL helpers", () => {
         { url: "http://b:2" },
       ]);
       expect(servers).toEqual([{ url: "http://a:1", name: "A" }]);
-    });
-  });
-
-  describe("updateServerUrl", () => {
-    it("should replace the url and preserve id/name overrides", () => {
-      const servers: LlamaServer[] = [
-        { url: "http://a:1", id: "custom", name: "A" },
-        { url: "http://b:2" },
-      ];
-      const next = updateServerUrl(servers, 0, "http://a:9");
-
-      expect(next).toEqual([
-        { url: "http://a:9", id: "custom", name: "A" },
-        { url: "http://b:2" },
-      ]);
-      expect(servers[0].url).toBe("http://a:1");
     });
   });
 
