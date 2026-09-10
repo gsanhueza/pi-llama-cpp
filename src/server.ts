@@ -1,4 +1,3 @@
-import type { ModelCost } from "@earendil-works/pi-ai";
 import { ApiClient } from "./api/client";
 import {
   API_KEY_PLACEHOLDER,
@@ -14,6 +13,7 @@ import {
   PropsModelEndpoint,
 } from "./interfaces/endpoints/props";
 import type { ServerOptions } from "./interfaces/server";
+import type { ModelOverride } from "./interfaces/settings";
 import type { LlamaSettingsManager } from "./managers/settings";
 import { BaseModel } from "./models/baseModel";
 import { LegacyModel } from "./models/legacyModel";
@@ -227,31 +227,31 @@ export class Server {
   }
 
   /**
-   * Returns the per-model cost configuration for this server.
+   * Returns the per-model override configuration for this server.
    */
-  getCosts(): Record<string, Partial<ModelCost>> {
-    return this.options.costs ?? {};
+  getOverrides(): Record<string, ModelOverride> {
+    return this.options.overrides ?? {};
   }
 
   /**
-   * Resolves the cost for a given model ID using prefix matching.
+   * Resolves the override for a given model ID using prefix matching.
    *
-   * Keys in the costs map are treated as prefix filters — a model ID
+   * Keys in the overrides map are treated as prefix filters — a model ID
    * matches if it starts with the key. When multiple keys match, the
    * longest (most specific) key wins. Empty keys are ignored.
    *
    * @param modelId — The model ID to look up.
-   * @returns The matching cost entry, or `undefined` if no key matches.
+   * @returns The matching override, or `undefined` if no key matches.
    */
-  findCostForModel(modelId: string): Partial<ModelCost> | undefined {
-    const costs = this.getCosts();
-    let best: Partial<ModelCost> | undefined;
+  findOverrideForModel(modelId: string): ModelOverride | undefined {
+    const overrides = this.getOverrides();
+    let best: ModelOverride | undefined;
     let bestLen = 0;
 
-    for (const [key, cost] of Object.entries(costs)) {
+    for (const [key, override] of Object.entries(overrides)) {
       if (!key) continue;
       if (modelId.startsWith(key) && key.length > bestLen) {
-        best = cost;
+        best = override;
         bestLen = key.length;
       }
     }

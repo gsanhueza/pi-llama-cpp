@@ -122,7 +122,8 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
 - Boolean and sort changes apply immediately; timeout changes apply on the next
   model load.
 - The `servers` list is edited with `/models servers` (see below), and per-
-  server model costs with `/models costs` (see [Model Costs](#model-costs)).
+  server model overrides with `/models overrides` (see
+  [Model Overrides](#model-overrides)).
 
 #### Server list editor
 
@@ -256,14 +257,14 @@ The extension determines the context size as follows:
 
 ### Commands
 
-| Command            | Description                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `/models`          | Browse your models with live status. Select a model to load, switch, or unload it. |
-| `/models info`     | Show detailed information for all available models at once.                        |
-| `/models unload`   | Unload all loaded models at once.                                                  |
-| `/models settings` | Open a menu to edit the scalar `llamaSettings` fields.                             |
-| `/models servers`  | Add, edit or remove llama.cpp server URLs via a TUI editor.                        |
-| `/models costs`    | Edit per-server model costs (`llamaSettings.servers[].costs`) via a TUI editor.    |
+| Command             | Description                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `/models`           | Browse your models with live status. Select a model to load, switch, or unload it.      |
+| `/models info`      | Show detailed information for all available models at once.                             |
+| `/models unload`    | Unload all loaded models at once.                                                       |
+| `/models settings`  | Open a menu to edit the scalar `llamaSettings` fields.                                  |
+| `/models servers`   | Add, edit or remove llama.cpp server URLs via a TUI editor.                             |
+| `/models overrides` | Edit per-server model overrides (`llamaSettings.servers[].overrides`) via a TUI editor. |
 
 > **Note:** When a llama.cpp server is slow to respond, it will be skipped at startup with a warning. Run `/models` to retry without timeout and see all models.
 
@@ -329,13 +330,13 @@ User-defined budgets can override the defaults by adding a `thinkingBudgets` obj
 Only `minimal`, `low`, `medium`, `high` and `xhigh` are configurable — `off` (0) and `max` (-1, unlimited) are fixed.
 The extension automatically injects the appropriate `thinking_budget_tokens` into each request payload based on the selected level.
 
-### Model Costs
+### Model Overrides
 
-A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes.
+A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes — and fine-tune what the extension reports about each model.
 
-This extension supports **per-model, per-server cost configuration** via the `costs` key inside each server entry of `llamaSettings.servers`. This allows you to define custom token pricing for models hosted on local or remote llama.cpp servers.
+This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `costs`, `capabilities` and `reasoning`, regardless of what the server reports.
 
-Add costs to your server configuration:
+Add overrides to your server configuration:
 
 ```json
 {
@@ -343,9 +344,15 @@ Add costs to your server configuration:
     "servers": [
       {
         "url": "http://127.0.0.1:8080",
-        "costs": {
-          "qwen-3.8-27b": { "input": 0.42, "output": 3.0, "cacheRead": 0.085 },
-          "glm-5.3-flash": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 }
+        "overrides": {
+          "qwen-3.8-27b": {
+            "costs": { "input": 0.42, "output": 3.0, "cacheRead": 0.085 }
+          },
+          "glm-5.3-flash": {
+            "costs": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 },
+            "capabilities": ["text"],
+            "reasoning": false
+          }
         }
       }
     ]
@@ -353,37 +360,42 @@ Add costs to your server configuration:
 }
 ```
 
-> **Note:** If your server has more models than the `costs` object, the cost of the remaining models default to zero.
+Every field of an override is optional — absent fields fall back to what the extension detects (`capabilities`) or to its defaults (`reasoning: true`, zeroed costs).
 
-#### Cost editor
+#### Override editor
 
-Run `/models costs` to edit a server's cost entries without hand-editing
+Run `/models overrides` to edit a server's override entries without hand-editing
 JSON. It opens a settings menu (same UX as `/models settings` and
 `/tps`-style menus):
 
 - The first menu lists your servers with their entry counts; **Enter**
-  drills into the selected server's cost entries, **Esc** closes the editor.
+  drills into the selected server's override entries, **Esc** closes the editor.
   Servers themselves are not added or removed here — use `/models servers`.
-- The entry menu lists the server's cost entries with a compact cost summary
-  (`in:0.2 out:0.6 …`). **Enter** drills into an entry, **a** adds a new entry
-  (default pattern `new-pattern`, zeroed costs — rename it right after), **d**
-  deletes the entry under the cursor (after an "Are you sure?" confirmation —
-  only **y** confirms; **Enter** is ignored, **Esc/n** cancels), **Esc** goes
-  back.
-- The entry menu shows five rows — the **pattern** and the four cost fields
-  (`input`, `output`, `cacheRead`, `cacheWrite`). **Enter** opens an inline
+- The entry menu lists the server's override entries with a compact summary
+  (`in:0.2 out:0.6 caps:text,image …`). **Enter** drills into an entry, **a**
+  adds a new entry (default pattern `new-pattern`, empty override — rename it
+  right after), **d** deletes the entry under the cursor (after an "Are you
+  sure?" confirmation — only **y** confirms; **Enter** is ignored, **Esc/n**
+  cancels), **Esc** goes back.
+- The entry menu shows seven rows — the **pattern** (`Enter/p`), the four cost
+  fields (`i` input, `o` output, `r` cacheRead, `w` cacheWrite),
+  **capabilities** (`c`) and **reasoning** (`g`). **Enter** opens an inline
   input prefilled with the current value; **Enter** saves, **Esc** cancels.
 - The pattern must be non-empty; cost fields must be non-negative numbers
-  (an empty cost field means zero). Invalid input shows a warning and keeps
-  the field open for correction.
+  (an empty cost field means zero). Capabilities are a comma-separated list of
+  `text` and `image` (empty clears the override — detection applies again);
+  reasoning accepts `true`/`false` (empty clears it). Invalid input shows a
+  warning and keeps the field open for correction.
 - Each change is written immediately to the **global**
   `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
   `servers`, its list keeps winning in the merged view until you remove it
   there.
-- Costs take effect on the next provider request after closing the editor —
+- Overrides take effect on the next provider request after closing the editor —
   no `/reload` needed.
 
 #### Cost Fields
+
+Inside an override, the `costs` object accepts:
 
 | Field        | Type   | Description                         |
 | ------------ | ------ | ----------------------------------- |
@@ -394,31 +406,38 @@ JSON. It opens a settings menu (same UX as `/models settings` and
 
 All four fields are optional — unspecified fields default to zero.
 
+#### Other Fields
+
+| Field          | Type             | Description                                                                                    |
+| -------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
+| `capabilities` | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities. |
+| `reasoning`    | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                        |
+
 ### Prefix matching
 
-Cost keys are treated as **prefix filters** — a model ID matches if it starts with the key. When multiple patterns match, the **longest (most specific) match wins**. This lets you define broad patterns at the top of your costs and override them with more specific ones below.
+Override keys are treated as **prefix filters** — a model ID matches if it starts with the key. When multiple patterns match, the **longest (most specific) match wins**. This lets you define broad patterns at the top of your overrides and override them with more specific ones below.
 
 Example:
 
 ```json
 {
-  "llama": { "input": 0.01, "output": 0.02 },
-  "llama-3": { "input": 0.05, "output": 0.1 },
-  "llama-3-8b": { "input": 0.2, "output": 0.6 }
+  "llama": { "costs": { "input": 0.01, "output": 0.02 } },
+  "llama-3": { "reasoning": false },
+  "llama-3-8b": { "costs": { "input": 0.2, "output": 0.6 } }
 }
 ```
 
-| Model ID      | Matching keys                    | Winner (longest) | Effective cost                 |
-| ------------- | -------------------------------- | ---------------- | ------------------------------ |
-| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ input: 0.2, output: 0.6 }`  |
-| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ input: 0.05, output: 0.1 }` |
-| `mistral-7b`  | `llama` (no)                     | none             | defaults to zero               |
+| Model ID      | Matching keys                    | Winner (longest) | Effective override                                      |
+| ------------- | -------------------------------- | ---------------- | ------------------------------------------------------- |
+| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ costs: { input: 0.2, output: 0.6 } }`                |
+| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ reasoning: false }`                                  |
+| `mistral-7b`  | `llama` (no)                     | none             | defaults (zero costs, detected caps, `reasoning: true`) |
 
-> **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Existing configurations continue to work without changes. Empty keys are silently ignored.
+> **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Empty keys are silently ignored.
 
-Model matching uses this prefix system — the model ID must start with the cost key for a match.
+Model matching uses this prefix system — the model ID must start with the override key for a match.
 
-> **Note:** Costs are resolved through the same settings merge logic (project overrides global), so costs follow the same precedence chain as other server settings. If the same URL appears multiple times with different `costs`, only the first one's costs will be used (consistent with existing dedup behavior).
+> **Note:** Overrides are resolved through the same settings merge logic (project overrides global), so they follow the same precedence chain as other server settings. If the same URL appears multiple times with different `overrides`, only the first one's overrides will be used (consistent with existing dedup behavior).
 
 ### Model Selection Event
 
@@ -443,8 +462,8 @@ If loading takes longer than **60 seconds** (configurable via `pollingTimeout`),
 Each model exposed to Pi includes the following defaults:
 
 - **`maxTokens`** — dynamically set to the model's context window (detected from llama-server)
-- **`reasoning`** — `true` (assumed, as llama.cpp's `/v1/models` endpoint does not expose it)
-- **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].costs` (see [Model Costs](#model-costs))
+- **`reasoning`** — `true` by default (llama.cpp's `/v1/models` endpoint does not expose it); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
+- **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 
 ## Dependencies
 

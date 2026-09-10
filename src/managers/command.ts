@@ -14,7 +14,7 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
-import { createCostsEditor } from "../ui/costEntryEditor";
+import { createOverridesEditor } from "../ui/overrideEntryEditor";
 import { ServerListEditor } from "../ui/serverListEditor";
 import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
@@ -76,9 +76,9 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
     description: "Manage llama.cpp server URLs",
   },
   {
-    value: "costs",
-    label: "costs",
-    description: "Manage llama.cpp model costs",
+    value: "overrides",
+    label: "overrides",
+    description: "Manage llama.cpp model overrides",
   },
 ];
 
@@ -221,10 +221,10 @@ export class CommandManager {
       return;
     }
 
-    // Costs editor: re-registers providers after editing so new costs
-    // take effect on the next request
-    if (args === "costs") {
-      await this.runCostsEditor(ctx, pi);
+    // Overrides editor: re-registers providers after editing so new
+    // overrides take effect on the next request
+    if (args === "overrides") {
+      await this.runOverridesEditor(ctx, pi);
       return;
     }
 
@@ -337,27 +337,28 @@ export class CommandManager {
   }
 
   /**
-   * Runs the interactive cost editor for `llamaSettings.servers[].costs`:
-   * a SettingsList of servers drilling down into each server's cost
-   * entries (one row per pattern, sharing the /models servers UX). Within
-   * a server's entry list: Enter/p edits the pattern, i/o/r/w the
-   * input/output/cacheRead/cacheWrite costs (inline Input), a adds a new
-   * entry and d deletes the one under the cursor (after an "Are you
+   * Runs the interactive overrides editor for
+   * `llamaSettings.servers[].overrides`: a SettingsList of servers drilling
+   * down into each server's override entries (one row per pattern, sharing
+   * the /models servers UX). Within a server's entry list: Enter/p edits
+   * the pattern, i/o/r/w the input/output/cacheRead/cacheWrite costs,
+   * c the capabilities and g the reasoning flag (inline Input), a adds a
+   * new entry and d deletes the one under the cursor (after an "Are you
    * sure?" confirmation — only y confirms, Esc/n cancels). Servers
    * themselves are not managed here — use `/models servers`.
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
    * leave the values unchanged. After closing, providers are
-   * re-registered so new costs take effect on the next request.
+   * re-registered so new overrides take effect on the next request.
    */
-  private async runCostsEditor(
+  private async runOverridesEditor(
     ctx: ExtensionCommandContext,
     pi: ExtensionAPI,
   ): Promise<void> {
     if (ctx.mode !== "tui") {
       ctx.ui.notify(
-        "/models costs requires an interactive session (TUI)",
+        "/models overrides requires an interactive session (TUI)",
         "warning",
       );
       return;
@@ -365,7 +366,7 @@ export class CommandManager {
 
     const servers = await this.settings.getLlamaServers();
     await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
-      createCostsEditor({
+      createOverridesEditor({
         tui,
         keybindings,
         theme,
@@ -373,7 +374,7 @@ export class CommandManager {
         persist: (next) => this.settings.setLlamaSetting("servers", next),
         done: () => {
           done(undefined);
-          // Re-register providers so the updated costs take effect
+          // Re-register providers so the updated overrides take effect
           this.serverManager.update(pi);
         },
         onError: (message) => ctx.ui.notify(message, "error"),

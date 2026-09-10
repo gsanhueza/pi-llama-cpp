@@ -2,6 +2,27 @@ import type { ModelCost } from "@earendil-works/pi-ai";
 import type { SortBy } from "../constants";
 
 /**
+ * Per-model overrides applied on top of what llama-server reports.
+ * Every field is optional — absent fields fall back to detection/defaults.
+ */
+export interface ModelOverride {
+  /**
+   * Per-model token pricing. All four cost fields are optional —
+   * unspecified fields default to zero.
+   */
+  costs?: Partial<ModelCost>;
+  /**
+   * Pi capabilities for the model. When present, **fully replaces** the
+   * capabilities detected from the server (no merging).
+   */
+  capabilities?: ("text" | "image")[];
+  /**
+   * Whether the model is a reasoning model. When absent, defaults to `true`.
+   */
+  reasoning?: boolean;
+}
+
+/**
  * A description of a server in the "llamaSettings" key
  */
 export interface LlamaServer {
@@ -18,28 +39,32 @@ export interface LlamaServer {
    */
   name?: string;
   /**
-   * Per-model token pricing for this server. Keys are **prefix filters** —
+   * Per-model overrides for this server. Keys are **prefix filters** —
    * a model ID matches if it starts with the key. When multiple patterns
    * match, the **longest (most specific) match wins**.
    *
-   * All four cost fields are optional — unspecified fields default to zero.
+   * All fields of an override are optional — absent fields fall back to
+   * detection (`capabilities`) or defaults (`reasoning: true`, zero costs).
    *
    * Example:
    * ```json
    * {
-   *   "llama": { "input": 0.01, "output": 0.02 },
-   *   "llama-3": { "input": 0.05, "output": 0.1 },
-   *   "llama-3-8b": { "input": 0.2, "output": 0.6, "cacheRead": 0.01 }
+   *   "llama": { "costs": { "input": 0.01, "output": 0.02 } },
+   *   "llama-3": { "reasoning": false },
+   *   "llama-3-8b": {
+   *     "costs": { "input": 0.2, "output": 0.6, "cacheRead": 0.01 },
+   *     "capabilities": ["text", "image"]
+   *   }
    * }
    * ```
    *
    * For model `"llama-3-8b"`:
-   * - `"llama"` matches → cost `{ input: 0.01, output: 0.02 }`
-   * - `"llama-3"` matches → cost `{ input: 0.05, output: 0.1 }`
-   * - `"llama-3-8b"` matches → cost `{ input: 0.2, output: 0.6, cacheRead: 0.01 }`
+   * - `"llama"` matches → costs `{ input: 0.01, output: 0.02 }`
+   * - `"llama-3"` matches → reasoning `false`
+   * - `"llama-3-8b"` matches → costs + capabilities fully replaced
    * - **Winner**: `"llama-3-8b"` (longest match)
    */
-  costs?: Record<string, Partial<ModelCost>>;
+  overrides?: Record<string, ModelOverride>;
 }
 
 /**

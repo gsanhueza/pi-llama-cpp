@@ -1,8 +1,4 @@
-import {
-  ApiKeyCredential,
-  ModelCost,
-  ModelThinkingLevel,
-} from "@earendil-works/pi-ai";
+import { ApiKeyCredential, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
   readStoredCredential,
   SettingsManager,
@@ -19,7 +15,11 @@ import {
   THINKING_BUDGETS,
   type SortBy,
 } from "../constants";
-import { LlamaServer, LlamaSettings } from "../interfaces/settings";
+import {
+  LlamaServer,
+  LlamaSettings,
+  ModelOverride,
+} from "../interfaces/settings";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
 import { isValidServerUrl, normalizeUrl } from "../utils/urls";
@@ -156,29 +156,29 @@ export class LlamaSettingsManager {
   }
 
   /**
-   * Resolves the cost map for a given server URL.
+   * Resolves the override map for a given server URL.
    *
-   * Reads the `costs` field from the matching server config and returns a
-   * map of model ID → cost. Returns an empty object when the server has no
-   * `costs` defined.
+   * Reads the `overrides` field from the matching server config and returns
+   * a map of model ID → override. Returns an empty object when the server
+   * has no `overrides` defined.
    *
-   * @param serverUrl - The URL of the server to resolve costs for
-   * @returns A map of model ID to cost configuration (partial, defaults
-   *          applied at consumption time)
+   * @param serverUrl - The URL of the server to resolve overrides for
+   * @returns A map of model ID to override configuration (partial fields,
+   *          fallbacks applied at consumption time)
    */
-  async resolveServerCosts(
+  async resolveServerOverrides(
     serverUrl: string,
-  ): Promise<Record<string, Partial<ModelCost>>> {
+  ): Promise<Record<string, ModelOverride>> {
     const serverConfig = (await this.getLlamaSettings()).servers?.find(
       (s: { url: string }) => s.url === serverUrl,
     );
-    return serverConfig?.costs ?? {};
+    return serverConfig?.overrides ?? {};
   }
 
   /**
    * Resolves the servers that this extension will use.
    * Uses `resolveUrls()` as the source of truth for URLs (env > settings >
-   * legacy > default), then applies `id`/`name`/`costs` from
+   * legacy > default), then applies `id`/`name`/`overrides` from
    * `llamaSettings.servers` as overrides when available.
    * Reloads settings from disk before reading.
    *
@@ -191,13 +191,13 @@ export class LlamaSettingsManager {
     const servers: Server[] = [];
     for (const url of urls) {
       const config = serverConfigs.find((s) => s.url === url);
-      const costs = await this.resolveServerCosts(url);
+      const overrides = await this.resolveServerOverrides(url);
       servers.push(
         new Server(this, {
           baseUrl: url,
           customId: config?.id,
           customName: config?.name,
-          costs,
+          overrides,
         }),
       );
     }

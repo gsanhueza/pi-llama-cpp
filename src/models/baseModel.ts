@@ -58,18 +58,24 @@ export abstract class BaseModel {
 
   /**
    * Whether the model is a reasoning model.
-   * Currently always returns true since there's no way to detect this from llama-server.
+   * An override's `reasoning` wins; otherwise defaults to `true`, since
+   * there's no way to detect this from llama-server.
    */
   get reasoning(): boolean {
-    return true;
+    return this.server.findOverrideForModel(this.id)?.reasoning ?? true;
   }
 
   /**
-   * Detects the capabilities of the model
+   * Detects the capabilities of the model.
+   * An override's `capabilities` fully replaces detection; otherwise the
+   * model's modalities are probed from the server.
    *
    * @returns An array of capabilities, as expected by Pi
    */
   async getCapabilities(): Promise<("text" | "image")[]> {
+    const overridden = this.server.findOverrideForModel(this.id)?.capabilities;
+    if (overridden) return overridden;
+
     try {
       // When loaded, this works alright
       const { modalities } = await this.server.fetchModelProps(this.id);
@@ -163,9 +169,8 @@ export abstract class BaseModel {
    * @returns A Pi configuration object
    */
   async toProviderConfig(): Promise<ProviderModelConfig> {
-    // Merge user-provided costs with zero defaults
-    const serverCosts = this.server.getCosts();
-    const userCost = this.server.findCostForModel(this.id) ?? {};
+    // Merge the matched override's costs with zero defaults
+    const userCost = this.server.findOverrideForModel(this.id)?.costs ?? {};
     const cost: ModelCost = {
       input: userCost.input ?? 0,
       output: userCost.output ?? 0,

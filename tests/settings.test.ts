@@ -1,4 +1,3 @@
-import type { ModelCost } from "@earendil-works/pi-ai";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,6 +7,7 @@ import {
   PROVIDER_PREFIX,
   SERVER_TIMEOUT,
 } from "../src/constants";
+import type { ModelOverride } from "../src/interfaces/settings";
 import { settings } from "../src/managers/settings";
 import { Server } from "../src/server";
 
@@ -793,7 +793,7 @@ describe("setLlamaSetting", () => {
   });
 });
 
-describe("resolveServerCosts", () => {
+describe("resolveServerOverrides", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
   const mockGetProjectSettings = vi.mocked(
     mockSettingsManager.getProjectSettings,
@@ -813,19 +813,21 @@ describe("resolveServerCosts", () => {
     mockGetGlobalSettings.mockReturnValue({});
   });
 
-  it("should return costs for a server that has them configured", async () => {
+  it("should return overrides for a server that has them configured", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
           {
             url: "http://127.0.0.1:8080",
-            costs: {
-              "llama-3-8b": { input: 0.2, output: 0.6 },
+            overrides: {
+              "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
               "llama-3-70b": {
-                input: 0.1,
-                output: 0.3,
-                cacheRead: 0.01,
-                cacheWrite: 0.02,
+                costs: {
+                  input: 0.1,
+                  output: 0.3,
+                  cacheRead: 0.01,
+                  cacheWrite: 0.02,
+                },
               },
             },
           },
@@ -833,27 +835,33 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
     expect(result).toEqual({
-      "llama-3-8b": { input: 0.2, output: 0.6 },
+      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
       "llama-3-70b": {
-        input: 0.1,
-        output: 0.3,
-        cacheRead: 0.01,
-        cacheWrite: 0.02,
+        costs: {
+          input: 0.1,
+          output: 0.3,
+          cacheRead: 0.01,
+          cacheWrite: 0.02,
+        },
       },
     });
   });
 
-  it("should return empty object for a server without costs", async () => {
+  it("should return empty object for a server without overrides", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [{ url: "http://127.0.0.1:8080" }],
       },
     });
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
     expect(result).toEqual({});
   });
@@ -865,7 +873,9 @@ describe("resolveServerCosts", () => {
       },
     });
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
     expect(result).toEqual({});
   });
@@ -876,24 +886,24 @@ describe("resolveServerCosts", () => {
         servers: [
           {
             url: "http://global:8080",
-            costs: { "model-a": { input: 0.5 } },
+            overrides: { "model-a": { costs: { input: 0.5 } } },
           },
         ],
       },
     });
 
-    const result = await settings.resolveServerCosts("http://global:8080");
+    const result = await settings.resolveServerOverrides("http://global:8080");
 
-    expect(result).toEqual({ "model-a": { input: 0.5 } });
+    expect(result).toEqual({ "model-a": { costs: { input: 0.5 } } });
   });
 
-  it("should prioritize project costs over global costs", async () => {
+  it("should prioritize project overrides over global overrides", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
           {
             url: "http://shared:8080",
-            costs: { "model-b": { input: 0.1, output: 0.2 } },
+            overrides: { "model-b": { costs: { input: 0.1, output: 0.2 } } },
           },
         ],
       },
@@ -903,15 +913,17 @@ describe("resolveServerCosts", () => {
         servers: [
           {
             url: "http://shared:8080",
-            costs: { "model-b": { input: 0.5, output: 0.5 } },
+            overrides: { "model-b": { costs: { input: 0.5, output: 0.5 } } },
           },
         ],
       },
     });
 
-    const result = await settings.resolveServerCosts("http://shared:8080");
+    const result = await settings.resolveServerOverrides("http://shared:8080");
 
-    expect(result).toEqual({ "model-b": { input: 0.1, output: 0.2 } });
+    expect(result).toEqual({
+      "model-b": { costs: { input: 0.1, output: 0.2 } },
+    });
   });
 
   it("should return empty object when servers list is empty", async () => {
@@ -919,7 +931,9 @@ describe("resolveServerCosts", () => {
       llamaSettings: { servers: [] },
     });
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
     expect(result).toEqual({});
   });
@@ -927,55 +941,59 @@ describe("resolveServerCosts", () => {
   it("should return empty object when llamaSettings is missing", async () => {
     mockGetProjectSettings.mockReturnValue({});
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
     expect(result).toEqual({});
   });
 
-  it("should support partial cost objects", async () => {
+  it("should support partial override objects", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
           {
             url: "http://127.0.0.1:8080",
-            costs: { "partial-model": { input: 0.1 } },
+            overrides: { "partial-model": { costs: { input: 0.1 } } },
           },
         ],
       },
     });
 
-    const result = await settings.resolveServerCosts("http://127.0.0.1:8080");
+    const result = await settings.resolveServerOverrides(
+      "http://127.0.0.1:8080",
+    );
 
-    expect(result).toEqual({ "partial-model": { input: 0.1 } });
+    expect(result).toEqual({ "partial-model": { costs: { input: 0.1 } } });
   });
 });
 
-describe("Server with costs", () => {
-  it("should store and expose resolved costs", () => {
+describe("Server with overrides", () => {
+  it("should store and expose resolved overrides", () => {
     const server = new Server(settings, {
       baseUrl: "http://127.0.0.1:8080",
-      costs: {
-        "model-a": { input: 0.2, output: 0.6 },
-        "model-b": { input: 0.1, output: 0.3, cacheRead: 0.01 },
+      overrides: {
+        "model-a": { costs: { input: 0.2, output: 0.6 } },
+        "model-b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
       },
     });
 
-    expect(server.getCosts()).toEqual({
-      "model-a": { input: 0.2, output: 0.6 },
-      "model-b": { input: 0.1, output: 0.3, cacheRead: 0.01 },
+    expect(server.getOverrides()).toEqual({
+      "model-a": { costs: { input: 0.2, output: 0.6 } },
+      "model-b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
     });
   });
 
-  it("should return empty object when no costs are provided", () => {
+  it("should return empty object when no overrides are provided", () => {
     const server = new Server(settings, {
       baseUrl: "http://127.0.0.1:8080",
     });
 
-    expect(server.getCosts()).toEqual({});
+    expect(server.getOverrides()).toEqual({});
   });
 });
 
-describe("resolveServers passes costs", () => {
+describe("resolveServers passes overrides", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
   const mockGetProjectSettings = vi.mocked(
     mockSettingsManager.getProjectSettings,
@@ -995,16 +1013,16 @@ describe("resolveServers passes costs", () => {
     mockGetGlobalSettings.mockReturnValue({});
   });
 
-  it("should pass resolved costs to Server instances", async () => {
+  it("should pass resolved overrides to Server instances", async () => {
     mockGetProjectSettings.mockReturnValue({
       llamaSettings: {
         servers: [
           {
-            url: "http://costs-server:8080",
-            costs: { "model-x": { input: 0.5, output: 1.0 } },
+            url: "http://overrides-server:8080",
+            overrides: { "model-x": { costs: { input: 0.5, output: 1.0 } } },
           },
           {
-            url: "http://no-costs-server:9090",
+            url: "http://no-overrides-server:9090",
           },
         ],
       },
@@ -1013,113 +1031,122 @@ describe("resolveServers passes costs", () => {
     const result = await settings.resolveServers();
 
     expect(result).toHaveLength(2);
-    expect(result[0].getCosts()).toEqual({
-      "model-x": { input: 0.5, output: 1.0 },
+    expect(result[0].getOverrides()).toEqual({
+      "model-x": { costs: { input: 0.5, output: 1.0 } },
     });
-    expect(result[1].getCosts()).toEqual({});
+    expect(result[1].getOverrides()).toEqual({});
   });
 });
 
-describe("Server.findCostForModel", () => {
-  function createServer(costs: Record<string, Partial<ModelCost>>): Server {
+describe("Server.findOverrideForModel", () => {
+  function createServer(overrides: Record<string, ModelOverride>): Server {
     return new Server(settings as any, {
       baseUrl: "http://127.0.0.1:8080",
-      costs,
+      overrides,
     });
   }
 
-  it("should return undefined when costs is empty", () => {
+  it("should return undefined when overrides is empty", () => {
     const server = createServer({});
-    expect(server.findCostForModel("llama-3-8b")).toBeUndefined();
+    expect(server.findOverrideForModel("llama-3-8b")).toBeUndefined();
   });
 
   it("should return undefined when no key matches", () => {
     const server = createServer({
-      mistral: { input: 0.1 },
-      "gpt-4": { input: 0.3 },
+      mistral: { costs: { input: 0.1 } },
+      "gpt-4": { costs: { input: 0.3 } },
     });
-    expect(server.findCostForModel("llama-3-8b")).toBeUndefined();
+    expect(server.findOverrideForModel("llama-3-8b")).toBeUndefined();
   });
 
   it("should match exact ID", () => {
     const server = createServer({
-      "llama-3-8b": { input: 0.2, output: 0.6 },
+      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
     });
-    expect(server.findCostForModel("llama-3-8b")).toEqual({
-      input: 0.2,
-      output: 0.6,
+    expect(server.findOverrideForModel("llama-3-8b")).toEqual({
+      costs: { input: 0.2, output: 0.6 },
     });
   });
 
   it("should match prefix", () => {
     const server = createServer({
-      llama: { input: 0.01, output: 0.02 },
+      llama: { costs: { input: 0.01, output: 0.02 } },
     });
-    expect(server.findCostForModel("llama-3-8b")).toEqual({
-      input: 0.01,
-      output: 0.02,
+    expect(server.findOverrideForModel("llama-3-8b")).toEqual({
+      costs: { input: 0.01, output: 0.02 },
     });
   });
 
   it("should prefer longest match (most specific)", () => {
     const server = createServer({
-      llama: { input: 0.01, output: 0.02 },
-      "llama-3": { input: 0.05, output: 0.1 },
-      "llama-3-8b": { input: 0.2, output: 0.6 },
+      llama: { costs: { input: 0.01, output: 0.02 } },
+      "llama-3": { costs: { input: 0.05, output: 0.1 } },
+      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
     });
-    expect(server.findCostForModel("llama-3-8b")).toEqual({
-      input: 0.2,
-      output: 0.6,
+    expect(server.findOverrideForModel("llama-3-8b")).toEqual({
+      costs: { input: 0.2, output: 0.6 },
     });
   });
 
   it("should match the second-longest when exact match is absent", () => {
     const server = createServer({
-      llama: { input: 0.01, output: 0.02 },
-      "llama-3": { input: 0.05, output: 0.1 },
-      "llama-3-8b": { input: 0.2, output: 0.6 },
+      llama: { costs: { input: 0.01, output: 0.02 } },
+      "llama-3": { costs: { input: 0.05, output: 0.1 } },
+      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
     });
-    expect(server.findCostForModel("llama-3-70b")).toEqual({
-      input: 0.05,
-      output: 0.1,
+    expect(server.findOverrideForModel("llama-3-70b")).toEqual({
+      costs: { input: 0.05, output: 0.1 },
     });
   });
 
   it("should skip empty keys", () => {
     const server = createServer({
-      "": { input: 0.001 },
-      llama: { input: 0.01 },
+      "": { costs: { input: 0.001 } },
+      llama: { costs: { input: 0.01 } },
     });
-    expect(server.findCostForModel("llama-3-8b")).toEqual({
-      input: 0.01,
+    expect(server.findOverrideForModel("llama-3-8b")).toEqual({
+      costs: { input: 0.01 },
     });
   });
 
   it("should not match when model ID is shorter than key", () => {
     const server = createServer({
-      "llama-3-8b": { input: 0.2 },
+      "llama-3-8b": { costs: { input: 0.2 } },
     });
-    expect(server.findCostForModel("llama")).toBeUndefined();
+    expect(server.findOverrideForModel("llama")).toBeUndefined();
   });
 
   it("should handle single matching key", () => {
     const server = createServer({
-      qwen: { input: 0.1, output: 0.3 },
+      qwen: { costs: { input: 0.1, output: 0.3 } },
     });
-    expect(server.findCostForModel("qwen-3-8b")).toEqual({
-      input: 0.1,
-      output: 0.3,
+    expect(server.findOverrideForModel("qwen-3-8b")).toEqual({
+      costs: { input: 0.1, output: 0.3 },
     });
   });
 
   it("should handle overlapping but non-prefix matches", () => {
     const server = createServer({
-      model: { input: 0.1 },
-      "model-a": { input: 0.2 },
+      model: { costs: { input: 0.1 } },
+      "model-a": { costs: { input: 0.2 } },
     });
     // "model" matches "model-a" and "model-b"
     // "model-a" matches only "model-a"
-    expect(server.findCostForModel("model-a")).toEqual({ input: 0.2 });
-    expect(server.findCostForModel("model-b")).toEqual({ input: 0.1 });
+    expect(server.findOverrideForModel("model-a")).toEqual({
+      costs: { input: 0.2 },
+    });
+    expect(server.findOverrideForModel("model-b")).toEqual({
+      costs: { input: 0.1 },
+    });
+  });
+
+  it("should return overrides with capabilities and reasoning", () => {
+    const server = createServer({
+      qwen: { capabilities: ["text", "image"], reasoning: false },
+    });
+    expect(server.findOverrideForModel("qwen-3-8b")).toEqual({
+      capabilities: ["text", "image"],
+      reasoning: false,
+    });
   });
 });

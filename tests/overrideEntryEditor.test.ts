@@ -8,13 +8,15 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LlamaServer } from "../src/interfaces/settings";
 import {
-  addCostEntry,
-  createCostsEditor,
-  formatCostSummary,
+  addOverrideEntry,
+  createOverridesEditor,
+  formatOverrideSummary,
+  parseCapabilitiesValue,
   parseCostValue,
-  removeCostEntry,
-  updateCostEntry,
-} from "../src/ui/costEntryEditor";
+  parseReasoningValue,
+  removeOverrideEntry,
+  updateOverrideEntry,
+} from "../src/ui/overrideEntryEditor";
 
 /** Raw key sequences used to drive the editor */
 const UP = "\x1b[A";
@@ -45,9 +47,12 @@ beforeEach(() => {
 const SERVERS: LlamaServer[] = [
   {
     url: "http://a:1",
-    costs: {
-      "llama-3-8b": { input: 0.2, output: 0.6, cacheRead: 0.01 },
-      "llama-3-70b": { input: 0.1, output: 0.3, cacheRead: 0.01 },
+    overrides: {
+      "llama-3-8b": {
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
+      },
+      "llama-3-70b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
     },
   },
   { url: "http://b:2" },
@@ -76,7 +81,7 @@ const setup = (servers: LlamaServer[] = SERVERS) => {
   const keybindings: KeybindingsManager = {
     matches: (data: string, name: string) => map[data] === name,
   } as unknown as KeybindingsManager;
-  const editor = createCostsEditor({
+  const editor = createOverridesEditor({
     tui: { requestRender: vi.fn() } as unknown as TUI,
     keybindings,
     theme: THEME,
@@ -99,14 +104,17 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
  */
 const RENDER_WIDTH = 100;
 
-const render = (editor: ReturnType<typeof createCostsEditor>) =>
+const render = (editor: ReturnType<typeof createOverridesEditor>) =>
   editor.render(RENDER_WIDTH).join("\n");
 
-const type = (editor: ReturnType<typeof createCostsEditor>, text: string) => {
+const type = (
+  editor: ReturnType<typeof createOverridesEditor>,
+  text: string,
+) => {
   for (const ch of text) editor.handleInput(ch);
 };
 
-describe("cost entry helpers", () => {
+describe("override entry helpers", () => {
   describe("parseCostValue", () => {
     it("should parse non-negative numbers", () => {
       expect(parseCostValue("0.42")).toBe(0.42);
@@ -128,107 +136,183 @@ describe("cost entry helpers", () => {
     });
   });
 
-  describe("addCostEntry", () => {
-    it("should append a cost entry to the selected server without mutating the input", () => {
+  describe("parseCapabilitiesValue", () => {
+    it("should parse comma-separated capabilities", () => {
+      expect(parseCapabilitiesValue("text,image")).toEqual(["text", "image"]);
+      expect(parseCapabilitiesValue(" text , image ")).toEqual([
+        "text",
+        "image",
+      ]);
+    });
+
+    it("should be case-insensitive and dedupe", () => {
+      expect(parseCapabilitiesValue("TEXT,Image,text")).toEqual([
+        "text",
+        "image",
+      ]);
+    });
+
+    it("should treat empty input as clearing the override", () => {
+      expect(parseCapabilitiesValue("")).toBe("");
+      expect(parseCapabilitiesValue("   ")).toBe("");
+    });
+
+    it("should reject unknown capabilities", () => {
+      expect(parseCapabilitiesValue("multimodal")).toBeNull();
+      expect(parseCapabilitiesValue("text,audio")).toBeNull();
+    });
+  });
+
+  describe("parseReasoningValue", () => {
+    it("should parse true/false case-insensitively", () => {
+      expect(parseReasoningValue("true")).toBe("true");
+      expect(parseReasoningValue("FALSE")).toBe("false");
+      expect(parseReasoningValue(" True ")).toBe("true");
+    });
+
+    it("should treat empty input as clearing the override", () => {
+      expect(parseReasoningValue("")).toBe("");
+      expect(parseReasoningValue("  ")).toBe("");
+    });
+
+    it("should reject anything else", () => {
+      expect(parseReasoningValue("yes")).toBeNull();
+      expect(parseReasoningValue("1")).toBeNull();
+    });
+  });
+
+  describe("addOverrideEntry", () => {
+    it("should append an override entry to the selected server without mutating the input", () => {
       const servers: LlamaServer[] = [
         { url: "http://a:1" },
-        { url: "http://b:2", costs: { llama: { input: 1 } } },
+        { url: "http://b:2", overrides: { llama: { costs: { input: 1 } } } },
       ];
-      const next = addCostEntry(servers, 1, "llama-3", { input: 2 });
+      const next = addOverrideEntry(servers, 1, "llama-3", {
+        costs: { input: 2 },
+      });
 
       expect(next).toEqual([
         { url: "http://a:1" },
         {
           url: "http://b:2",
-          costs: { llama: { input: 1 }, "llama-3": { input: 2 } },
+          overrides: {
+            llama: { costs: { input: 1 } },
+            "llama-3": { costs: { input: 2 } },
+          },
         },
       ]);
-      expect(servers[1].costs).toEqual({ llama: { input: 1 } });
+      expect(servers[1].overrides).toEqual({ llama: { costs: { input: 1 } } });
     });
 
-    it("should default the cost to an empty (all-zero) object", () => {
+    it("should default the override to an empty object", () => {
       const servers: LlamaServer[] = [{ url: "http://a:1" }];
-      expect(addCostEntry(servers, 0, "llama")).toEqual([
-        { url: "http://a:1", costs: { llama: {} } },
+      expect(addOverrideEntry(servers, 0, "llama")).toEqual([
+        { url: "http://a:1", overrides: { llama: {} } },
       ]);
     });
   });
 
-  describe("updateCostEntry", () => {
-    it("should replace the pattern and cost in one mutation, keeping the position", () => {
+  describe("updateOverrideEntry", () => {
+    it("should replace the pattern and override in one mutation, keeping the position", () => {
       const servers: LlamaServer[] = [
         {
           url: "http://a:1",
-          costs: {
-            llama: { input: 1 },
-            "llama-3": { input: 2, output: 4 },
+          overrides: {
+            llama: { costs: { input: 1 } },
+            "llama-3": { costs: { input: 2, output: 4 } },
           },
         },
       ];
-      const next = updateCostEntry(servers, 0, 0, "llama-3-8b", { output: 9 });
+      const next = updateOverrideEntry(servers, 0, 0, "llama-3-8b", {
+        costs: { output: 9 },
+      });
 
-      expect(Object.keys(next[0].costs ?? {})).toEqual([
+      expect(Object.keys(next[0].overrides ?? {})).toEqual([
         "llama-3-8b",
         "llama-3",
       ]);
-      expect(next[0].costs?.["llama-3-8b"]).toEqual({ output: 9 });
-      expect(next[0].costs?.["llama-3"]).toEqual({ input: 2, output: 4 });
-      expect(servers[0].costs?.llama).toEqual({ input: 1 });
+      expect(next[0].overrides?.["llama-3-8b"]).toEqual({
+        costs: { output: 9 },
+      });
+      expect(next[0].overrides?.["llama-3"]).toEqual({
+        costs: { input: 2, output: 4 },
+      });
+      expect(servers[0].overrides?.llama).toEqual({ costs: { input: 1 } });
     });
 
     it("should leave other servers untouched", () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", costs: { llama: { input: 1 } } },
-        { url: "http://b:2", costs: { other: { input: 5 } } },
+        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
+        { url: "http://b:2", overrides: { other: { costs: { input: 5 } } } },
       ];
-      const next = updateCostEntry(servers, 0, 0, "llama", { input: 2 });
+      const next = updateOverrideEntry(servers, 0, 0, "llama", {
+        costs: { input: 2 },
+      });
 
       expect(next[1]).toEqual(servers[1]);
-      expect(next[0].costs?.llama).toEqual({ input: 2 });
+      expect(next[0].overrides?.llama).toEqual({ costs: { input: 2 } });
     });
   });
 
-  describe("removeCostEntry", () => {
+  describe("removeOverrideEntry", () => {
     it("should remove the entry at the index, immutably", () => {
       const servers: LlamaServer[] = [
         {
           url: "http://a:1",
-          costs: { llama: { input: 1 }, "llama-3": { input: 2 } },
+          overrides: {
+            llama: { costs: { input: 1 } },
+            "llama-3": { costs: { input: 2 } },
+          },
         },
       ];
-      const next = removeCostEntry(servers, 0, 0);
+      const next = removeOverrideEntry(servers, 0, 0);
 
-      expect(next[0].costs).toEqual({ "llama-3": { input: 2 } });
-      expect(servers[0].costs).toEqual({
-        llama: { input: 1 },
-        "llama-3": { input: 2 },
+      expect(next[0].overrides).toEqual({
+        "llama-3": { costs: { input: 2 } },
+      });
+      expect(servers[0].overrides).toEqual({
+        llama: { costs: { input: 1 } },
+        "llama-3": { costs: { input: 2 } },
       });
     });
 
     it("should allow removing the last entry", () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", costs: { llama: { input: 1 } } },
+        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
       ];
-      expect(removeCostEntry(servers, 0, 0)).toEqual([
-        { url: "http://a:1", costs: {} },
+      expect(removeOverrideEntry(servers, 0, 0)).toEqual([
+        { url: "http://a:1", overrides: {} },
       ]);
     });
   });
 
-  describe("formatCostSummary", () => {
-    it("should show only the non-zero fields", () => {
+  describe("formatOverrideSummary", () => {
+    it("should show only the non-zero cost fields", () => {
       expect(
-        formatCostSummary({ input: 0.2, output: 0.6, cacheRead: 0.01 }),
+        formatOverrideSummary({
+          costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        }),
       ).toBe("in:0.2 out:0.6 cacheR:0.01");
     });
 
-    it("should fall back to a dash when everything is zero", () => {
-      expect(formatCostSummary({ output: 0 })).toBe("—");
+    it("should append capabilities and reasoning flags", () => {
+      expect(
+        formatOverrideSummary({
+          costs: { input: 0.15 },
+          capabilities: ["text", "image"],
+          reasoning: false,
+        }),
+      ).toBe("in:0.15 caps:text,image reasoning:false");
+    });
+
+    it("should fall back to a dash when everything is empty", () => {
+      expect(formatOverrideSummary({ costs: { output: 0 } })).toBe("—");
+      expect(formatOverrideSummary({})).toBe("—");
     });
   });
 });
 
-describe("createCostsEditor", () => {
+describe("createOverridesEditor", () => {
   describe("server list", () => {
     it("should render one row per server with an entry count", () => {
       const { editor } = setup();
@@ -254,21 +338,21 @@ describe("createCostsEditor", () => {
       editor.handleInput(ENTER);
 
       const out = render(editor);
-      expect(out).toContain("Cost entries");
+      expect(out).toContain("Overrides");
       expect(out).toContain("llama-3-8b");
-      expect(out).toContain("in:0.2 out:0.6 cacheR:0.01");
+      expect(out).toContain("in:0.2 out:0.6 cacheR:0.01 caps:text,image");
     });
   });
 
   describe("entry list", () => {
-    it("should show an add hint for a server without costs", () => {
+    it("should show an add hint for a server without overrides", () => {
       const { editor } = setup();
 
       editor.handleInput(DOWN); // http://b:2 (0 entries)
       editor.handleInput(ENTER);
 
       const out = render(editor);
-      expect(out).toContain("No cost entries");
+      expect(out).toContain("No overrides");
       expect(out).toContain("press a to add one");
       expect(out).not.toContain("No settings available");
     });
@@ -290,8 +374,8 @@ describe("createCostsEditor", () => {
       editor.handleInput("a");
       await flush();
 
-      const costs = persist.mock.calls[0][0][0].costs ?? {};
-      expect(costs["new-pattern"]).toEqual({});
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["new-pattern"]).toEqual({});
       expect(render(editor)).toContain("new-pattern");
     });
 
@@ -304,8 +388,8 @@ describe("createCostsEditor", () => {
       editor.handleInput("a");
       await flush();
 
-      const costs = persist.mock.calls[1][0][0].costs ?? {};
-      expect(costs["new-pattern-2"]).toEqual({});
+      const overrides = persist.mock.calls[1][0][0].overrides ?? {};
+      expect(overrides["new-pattern-2"]).toEqual({});
     });
 
     it("should move the selection to the added entry", async () => {
@@ -334,9 +418,11 @@ describe("createCostsEditor", () => {
       expect(about).toBeGreaterThanOrEqual(0);
       expect(lines[about + 1]).toContain("Are you sure?");
       expect(render(editor)).toContain("y delete · Esc/n cancel");
-      // The row itself keeps its cost summary
+      // The row itself keeps its override summary
       expect(
-        lines.some((line) => line.includes("in:0.2 out:0.6 cacheR:0.01")),
+        lines.some((line) =>
+          line.includes("in:0.2 out:0.6 cacheR:0.01 caps:text,image"),
+        ),
       ).toBe(true);
     });
 
@@ -348,8 +434,8 @@ describe("createCostsEditor", () => {
       editor.handleInput("y"); // confirm
       await flush();
 
-      const costs = persist.mock.calls[0][0][0].costs ?? {};
-      expect(Object.keys(costs)).toEqual(["llama-3-70b"]);
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(Object.keys(overrides)).toEqual(["llama-3-70b"]);
       expect(render(editor)).not.toContain("llama-3-8b");
     });
 
@@ -411,7 +497,7 @@ describe("createCostsEditor", () => {
   describe("entry field editing", () => {
     /** Opens the inline pattern editor for the entry under the cursor */
     const openPatternEditor = (
-      editor: ReturnType<typeof createCostsEditor>,
+      editor: ReturnType<typeof createOverridesEditor>,
     ) => {
       editor.handleInput(ENTER); // entry list
       editor.handleInput("p"); // pattern editor
@@ -419,7 +505,7 @@ describe("createCostsEditor", () => {
 
     /** Opens the inline editor for one cost field of the cursor's entry */
     const openCostEditor = (
-      editor: ReturnType<typeof createCostsEditor>,
+      editor: ReturnType<typeof createOverridesEditor>,
       key: "i" | "o" | "r" | "w",
     ) => {
       editor.handleInput(ENTER); // entry list
@@ -447,11 +533,10 @@ describe("createCostsEditor", () => {
       editor.handleInput(ENTER); // save
       await flush();
 
-      const costs = persist.mock.calls[0][0][0].costs ?? {};
-      expect(costs["llama-3-8b"]).toEqual({
-        input: 0.25,
-        output: 0.6,
-        cacheRead: 0.01,
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.25, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
       });
     });
 
@@ -463,11 +548,10 @@ describe("createCostsEditor", () => {
       editor.handleInput(ENTER); // empty -> 0
       await flush();
 
-      const costs = persist.mock.calls[0][0][0].costs ?? {};
-      expect(costs["llama-3-8b"]).toEqual({
-        input: 0.2,
-        output: 0,
-        cacheRead: 0.01,
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.2, output: 0, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
       });
     });
 
@@ -488,6 +572,106 @@ describe("createCostsEditor", () => {
       expect(out).toContain("> abc");
     });
 
+    it("should edit capabilities as a comma-separated list", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER); // entry list
+      editor.handleInput("c"); // capabilities, prefilled "text, image"
+      for (let i = 0; i < 20; i++) editor.handleInput(BACKSPACE);
+      type(editor, "image");
+      editor.handleInput(ENTER);
+      await flush();
+
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["image"],
+      });
+    });
+
+    it("should clear capabilities on empty input", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER);
+      editor.handleInput("c");
+      for (let i = 0; i < 20; i++) editor.handleInput(BACKSPACE);
+      editor.handleInput(ENTER); // empty -> key removed
+      await flush();
+
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+      });
+    });
+
+    it("should reject unknown capabilities with an inline error and keep editing", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER);
+      editor.handleInput("c");
+      for (let i = 0; i < 20; i++) editor.handleInput(BACKSPACE);
+      type(editor, "multimodal");
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(persist).not.toHaveBeenCalled();
+      const out = render(editor);
+      expect(out).toContain("Invalid capabilities");
+      expect(out).toContain("> multimodal");
+    });
+
+    it("should set reasoning via g", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER); // entry list, cursor on llama-3-8b
+      editor.handleInput("g"); // reasoning, prefilled "" (no override)
+      type(editor, "false");
+      editor.handleInput(ENTER);
+      await flush();
+
+      const overrides = persist.mock.calls[0][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
+        reasoning: false,
+      });
+    });
+
+    it("should clear reasoning on empty input", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER);
+      editor.handleInput("g");
+      type(editor, "true");
+      editor.handleInput(ENTER);
+      await flush();
+      editor.handleInput("g"); // prefilled "true"
+      for (let i = 0; i < 4; i++) editor.handleInput(BACKSPACE);
+      editor.handleInput(ENTER); // empty -> key removed
+      await flush();
+
+      const overrides = persist.mock.calls[1][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
+      });
+    });
+
+    it("should reject invalid reasoning values with an inline error and keep editing", async () => {
+      const { editor, persist } = setup();
+
+      editor.handleInput(ENTER);
+      editor.handleInput("g");
+      type(editor, "yes");
+      editor.handleInput(ENTER);
+      await flush();
+
+      expect(persist).not.toHaveBeenCalled();
+      const out = render(editor);
+      expect(out).toContain("Invalid reasoning");
+      expect(out).toContain("> yes");
+    });
+
     it("should rename the pattern via the pattern editor", async () => {
       const { editor, persist } = setup();
 
@@ -500,14 +684,13 @@ describe("createCostsEditor", () => {
       await flush();
 
       const server = persist.mock.calls[0][0][0];
-      expect(Object.keys(server.costs ?? {})).toEqual([
+      expect(Object.keys(server.overrides ?? {})).toEqual([
         "qwen-27b",
         "llama-3-70b",
       ]);
-      expect(server.costs?.["qwen-27b"]).toEqual({
-        input: 0.2,
-        output: 0.6,
-        cacheRead: 0.01,
+      expect(server.overrides?.["qwen-27b"]).toEqual({
+        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
       });
     });
 
@@ -553,11 +736,10 @@ describe("createCostsEditor", () => {
       editor.handleInput(ENTER);
       await flush();
 
-      const costs = persist.mock.calls[1][0][0].costs ?? {};
-      expect(costs["llama-3-8b"]).toEqual({
-        input: 2,
-        output: 0.6,
-        cacheRead: 0.01,
+      const overrides = persist.mock.calls[1][0][0].overrides ?? {};
+      expect(overrides["llama-3-8b"]).toEqual({
+        costs: { input: 2, output: 0.6, cacheRead: 0.01 },
+        capabilities: ["text", "image"],
       });
     });
 
@@ -579,7 +761,7 @@ describe("createCostsEditor", () => {
   describe("persistence integration", () => {
     it("should not mutate the caller's snapshot", async () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", costs: { llama: { input: 1 } } },
+        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
       ];
       const { editor, persist } = setup(servers);
 
@@ -588,8 +770,10 @@ describe("createCostsEditor", () => {
       editor.handleInput("y"); // confirm
       await flush();
 
-      expect(persist).toHaveBeenCalledWith([{ url: "http://a:1", costs: {} }]);
-      expect(servers[0].costs?.llama).toEqual({ input: 1 });
+      expect(persist).toHaveBeenCalledWith([
+        { url: "http://a:1", overrides: {} },
+      ]);
+      expect(servers[0].overrides?.llama).toEqual({ costs: { input: 1 } });
     });
 
     it("should notify and keep the rows when the write fails", async () => {

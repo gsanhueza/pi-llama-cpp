@@ -1,4 +1,4 @@
-import type { ModelCost } from "@earendil-works/pi-ai";
+import type { ModelOverride } from "./settings";
 
 /**
  * Identity of a llama.cpp server endpoint.
@@ -20,8 +20,8 @@ export interface ServerOptions {
    */
   customName?: string;
   /**
-   * Per-model cost configuration resolved from `llamaSettings.servers`.
-   * All four cost fields are optional — unspecified fields default to zero.
+   * Per-model overrides resolved from `llamaSettings.servers`. See
+   * {@link ModelOverride} for the fallback semantics of each field.
    */
-  costs?: Record<string, Partial<ModelCost>>;
+  overrides?: Record<string, ModelOverride>;
 }

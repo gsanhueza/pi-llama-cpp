@@ -11,8 +11,8 @@ import type { LlamaServer } from "../interfaces/settings";
 import { errorMessage } from "../utils/errors";
 
 /**
- * Options shared by the list editors (`/models servers`, the cost-entry
- * editors of `/models costs`).
+ * Options shared by the list editors (`/models servers`, the entry
+ * editors of `/models overrides`).
  */
 export interface ListEditorOptions {
   /** TUI instance, used to request re-renders */
