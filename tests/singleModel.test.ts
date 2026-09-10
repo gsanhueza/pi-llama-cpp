@@ -47,6 +47,38 @@ describe("SingleModel capabilities", () => {
 
     expect(capabilities).toEqual(["text"]);
   });
+
+  it("should fall back to the models endpoint when auth fails", async () => {
+    mockRpc
+      .mockRejectedValueOnce(new Error("401 Unauthorized")) // /props
+      .mockRejectedValueOnce(new Error("401 Unauthorized")) // /v1/models in BaseModel's catch
+      .mockResolvedValueOnce({
+        object: "list",
+        data: [],
+        models: [{ capabilities: ["multimodal"] }],
+      }); // /v1/models retry in SingleModel's catch
+
+    const model = createModel();
+    const capabilities = await model.getCapabilities();
+
+    expect(capabilities).toEqual(["text", "image"]);
+  });
+
+  it("should fall back to text-only when the models endpoint reports no multimodal", async () => {
+    mockRpc
+      .mockRejectedValueOnce(new Error("401 Unauthorized")) // /props
+      .mockRejectedValueOnce(new Error("401 Unauthorized")) // /v1/models in BaseModel's catch
+      .mockResolvedValueOnce({
+        object: "list",
+        data: [],
+        models: [{ capabilities: ["text"] }],
+      }); // /v1/models retry in SingleModel's catch
+
+    const model = createModel();
+    const capabilities = await model.getCapabilities();
+
+    expect(capabilities).toEqual(["text"]);
+  });
 });
 
 describe("SingleModel getStatus", () => {

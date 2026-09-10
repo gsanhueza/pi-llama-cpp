@@ -44,7 +44,6 @@ export const makeSettingsStub = (
     resolveAutoloadOnMessage: vi.fn(async () => AUTOLOAD_ON_MESSAGE),
     resolveThinkingLevel: vi.fn(() => undefined),
     resolveThinkingBudgets: vi.fn(() => ({ ...THINKING_BUDGETS })),
-    resolveServerCosts: vi.fn(async () => ({})),
     takeWarnings: vi.fn((): string[] => []),
     setLlamaSetting: vi.fn(() => Promise.resolve()),
     ...overrides,

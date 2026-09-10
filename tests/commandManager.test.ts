@@ -1,4 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { initTheme } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action } from "../src/enums/action";
@@ -10,7 +11,7 @@ import {
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import type { LlamaSettingsManager } from "../src/managers/settings";
-import { ServerListEditor } from "../src/ui/serverListEditor";
+import { ServerSettingsList } from "../src/ui/serverSettingsList";
 import {
   createMockCtx,
   createMockModel,
@@ -21,6 +22,7 @@ import {
 } from "./mocks";
 
 beforeEach(() => {
+  initTheme();
   vi.clearAllMocks();
   mockRpc.mockResolvedValue({ data: [] });
 });
@@ -269,7 +271,7 @@ describe("CommandManager", () => {
         theme: Theme,
         kb: KeybindingsManager,
         done: (result: undefined) => void,
-      ) => ServerListEditor;
+      ) => ServerSettingsList;
       const done = vi.fn();
       const editor = factory(
         { requestRender: vi.fn() } as unknown as TUI,
@@ -284,7 +286,7 @@ describe("CommandManager", () => {
         done,
       );
 
-      expect(editor).toBeInstanceOf(ServerListEditor);
+      expect(editor).toBeInstanceOf(ServerSettingsList);
       // Seeded with the merged snapshot
       expect(editor.render(80).join("\n")).toContain("http://seed:1");
 

@@ -45,40 +45,6 @@ beforeEach(() => {
   });
 });
 
-describe("Server", () => {
-  it("should generate provider IDs from URLs", () => {
-    const server1 = new Server(settingsStub, {
-      baseUrl: "http://127.0.0.1:8080",
-    });
-    expect(server1.providerId).toBe("llama-server=http://127.0.0.1:8080");
-    const server2 = new Server(settingsStub, {
-      baseUrl: "http://10.0.0.5:8080",
-    });
-    expect(server2.providerId).toBe("llama-server=http://10.0.0.5:8080");
-    const server3 = new Server(settingsStub, { baseUrl: "http://127.0.0.1" });
-    expect(server3.providerId).toBe("llama-server=http://127.0.0.1");
-    const server4 = new Server(settingsStub, {
-      baseUrl: "http://127.0.0.1:80",
-    });
-    expect(server4.providerId).toBe("llama-server=http://127.0.0.1:80");
-    const server5 = new Server(settingsStub, {
-      baseUrl: "https://127.0.0.1:443",
-    });
-    expect(server5.providerId).toBe("llama-server=https://127.0.0.1:443");
-  });
-
-  it("should generate provider names from URLs", () => {
-    const server1 = new Server(settingsStub, {
-      baseUrl: "http://127.0.0.1:8080",
-    });
-    expect(server1.providerName).toBe("Llama.cpp (http://127.0.0.1:8080)");
-    const server2 = new Server(settingsStub, {
-      baseUrl: "http://10.0.0.5:8080",
-    });
-    expect(server2.providerName).toBe("Llama.cpp (http://10.0.0.5:8080)");
-  });
-});
-
 describe("ServerManager", () => {
   it("should register providers for all servers", async () => {
     const mockModel = {

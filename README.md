@@ -130,10 +130,11 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
 Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
 without hand-editing JSON:
 
-- **↑/↓** moves the cursor, **Enter/e** edits the selected URL, **i** edits
-  its `id`, **n** its `name`, **a** adds a new entry, **d** deletes it
-  (after an "Are you sure?" confirmation — only **y** confirms;
-  **Enter** is ignored, **Esc/n** cancels), **Esc** closes the editor.
+- **↑/↓** moves the cursor, **Enter** on a server row drills into its
+  field-edit submenu (URL, id, name); **a** adds a new server (inline Input
+  for URL), **d** deletes the selected server (after an "Are you sure?"
+  confirmation — only **y** confirms; **Esc/n** cancels), **Esc** closes
+  the editor.
 - One URL per entry (`http://host:port`). Trailing slashes are stripped on
   save; `;`-separated values are rejected — use separate entries instead.
 - Each change is written immediately to the **global**
@@ -149,7 +150,7 @@ without hand-editing JSON:
   re-select it from the (new) provider afterwards.
 - The editor shows a warning when the `LLAMA_SERVER_URL` environment variable
   is set, since it overrides the configured servers.
-- Per-server `id`/`name` overrides can be edited with **i**/**n**; saving an
+- Per-server `id`/`name` overrides are edited in the field submenu; saving an
   empty value clears the override. The list shows them as a
   `(<id> - <name>)` suffix, falling back to the auto-detected
   `llama-server=<url>` id when no custom `id` is set.
@@ -372,20 +373,24 @@ JSON. It opens a settings menu (same UX as `/models settings` and
   drills into the selected server's override entries, **Esc** closes the editor.
   Servers themselves are not added or removed here — use `/models servers`.
 - The entry menu lists the server's override entries with a compact summary
-  (`in:0.2 out:0.6 caps:text,image …`). **Enter** drills into an entry, **a**
+  (`input: $0.2, output: $0.6, capabilities: text,image …` — see
+  `formatOverrideSummary`: zero/absent fields are omitted, `—` when empty).
+  **Enter** drills into an entry, **a**
   adds a new entry (default pattern `new-pattern`, empty override — rename it
   right after), **d** deletes the entry under the cursor (after an "Are you
-  sure?" confirmation — only **y** confirms; **Enter** is ignored, **Esc/n**
-  cancels), **Esc** goes back.
-- The entry menu shows seven rows — the **pattern** (`Enter/p`), the four cost
-  fields (`i` input, `o` output, `r` cacheRead, `w` cacheWrite),
-  **capabilities** (`c`) and **reasoning** (`g`). **Enter** opens an inline
-  input prefilled with the current value; **Enter** saves, **Esc** cancels.
+  sure?" confirmation — only **y** confirms; **Esc/n** cancels), **Esc** goes
+  back.
+- The entry menu shows seven rows — **pattern** and the four **cost** fields
+  (input, output, cacheRead, cacheWrite) use inline input (**Enter** to type,
+  **Enter** to save, **Esc** to cancel); **capabilities** cycles between
+  `text` and `text | image` (**Enter** to cycle, **Esc** to cancel);
+  **reasoning** cycles between `true` and `false` (**Enter** to cycle,
+  **Esc** to cancel).
 - The pattern must be non-empty; cost fields must be non-negative numbers
-  (an empty cost field means zero). Capabilities are a comma-separated list of
-  `text` and `image` (empty clears the override — detection applies again);
-  reasoning accepts `true`/`false` (empty clears it). Invalid input shows a
-  warning and keeps the field open for correction.
+  (an empty cost field means zero). Capabilities are limited to `text` or
+  `text | image` (select via Enter to cycle); reasoning is `true` or `false`
+  (select via Enter to cycle). Invalid input shows an inline error and keeps
+  the input open for correction.
 - Each change is written immediately to the **global**
   `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
   `servers`, its list keeps winning in the merged view until you remove it

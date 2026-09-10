@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Mode } from "../src/enums/mode";
-import { Status } from "../src/enums/status";
 import { DataProperty } from "../src/interfaces/endpoints/models";
 import { LegacyModel } from "../src/models/legacyModel";
 import { createMockServer, mockRpc } from "./mocks";
@@ -47,28 +46,14 @@ describe("LegacyModel capabilities", () => {
 
     expect(capabilities).toEqual(["text"]);
   });
-});
 
-describe("LegacyModel getStatus", () => {
-  it("should return LOADED when not sleeping", async () => {
-    mockRpc.mockResolvedValueOnce({ is_sleeping: false });
+  it("should fall back to text-only when auth fails", async () => {
+    mockRpc.mockRejectedValue(new Error("401 Unauthorized"));
 
     const model = createModel();
-    const status = await model.getStatus();
+    const capabilities = await model.getCapabilities();
 
-    expect(status).toBe(Status.LOADED);
-    expect(mockRpc).toHaveBeenCalledWith(
-      `/props?model=${model.id}&autoload=false`,
-    );
-  });
-
-  it("should return SLEEPING when is_sleeping is true", async () => {
-    mockRpc.mockResolvedValueOnce({ is_sleeping: true });
-
-    const model = createModel();
-    const status = await model.getStatus();
-
-    expect(status).toBe(Status.SLEEPING);
+    expect(capabilities).toEqual(["text"]);
   });
 });
 

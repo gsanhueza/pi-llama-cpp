@@ -14,8 +14,8 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
-import { createOverridesEditor } from "../ui/overrideEntryEditor";
-import { ServerListEditor } from "../ui/serverListEditor";
+import { createOverrideSettingsList } from "../ui/overrideSettingsList";
+import { ServerSettingsList } from "../ui/serverSettingsList";
 import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
@@ -296,8 +296,9 @@ export class CommandManager {
 
   /**
    * Runs the interactive servers editor for `llamaSettings.servers`.
-   * Enter/e edits the selected URL, i its id, n its name, a adds,
-   * d deletes (after a confirmation prompt); Esc closes.
+   * Enter on a server row drills into its field-edit submenu (URL/id/name);
+   * a adds a new server (inline Input), d deletes (after confirmation);
+   * Esc closes.
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
@@ -319,10 +320,9 @@ export class CommandManager {
     const servers = await this.settings.getLlamaServers();
 
     await ctx.ui.custom<void>(
-      (tui, theme, keybindings, done) =>
-        new ServerListEditor({
+      (tui, _theme, keybindings, done) =>
+        new ServerSettingsList({
           tui,
-          theme,
           keybindings,
           servers,
           persist: (next) => this.settings.setLlamaSetting("servers", next),
@@ -339,13 +339,19 @@ export class CommandManager {
   /**
    * Runs the interactive overrides editor for
    * `llamaSettings.servers[].overrides`: a SettingsList of servers drilling
-   * down into each server's override entries (one row per pattern, sharing
-   * the /models servers UX). Within a server's entry list: Enter/p edits
-   * the pattern, i/o/r/w the input/output/cacheRead/cacheWrite costs,
-   * c the capabilities and g the reasoning flag (inline Input), a adds a
-   * new entry and d deletes the one under the cursor (after an "Are you
-   * sure?" confirmation — only y confirms, Esc/n cancels). Servers
-   * themselves are not managed here — use `/models servers`.
+   * down into each server's override entries (one row per pattern, with
+   * add/delete support). Within a server's entry list: Enter drills into
+   * the field-edit submenu; a adds, d deletes (after confirmation).
+   *
+   * Fields use a mix of finite (Enter to cycle) and infinite (Enter to
+   * type) editing:
+   *
+   * - Pattern / costs (input, output, cacheRead, cacheWrite): infinite —
+   *   Enter opens an Input for typing.
+   * - Capabilities: finite — Enter cycles between `text` and `text | image`.
+   * - Reasoning: finite — Enter cycles between `true` and `false`.
+   *
+   * Servers themselves are not managed here — use `/models servers`.
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
@@ -365,11 +371,10 @@ export class CommandManager {
     }
 
     const servers = await this.settings.getLlamaServers();
-    await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
-      createOverridesEditor({
+    await ctx.ui.custom<void>((tui, _theme, keybindings, done) =>
+      createOverrideSettingsList({
         tui,
         keybindings,
-        theme,
         servers,
         persist: (next) => this.settings.setLlamaSetting("servers", next),
         done: () => {
