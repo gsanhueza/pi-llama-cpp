@@ -214,15 +214,17 @@ export class CommandManager {
       return;
     }
 
-    // Servers editor: same — edits are passive until the next provider scan
+    // Servers editor: re-registers providers after editing so changes
+    // (add / remove / URL / id / name) apply immediately
     if (args === "servers") {
-      await this.runServersEditor(ctx);
+      await this.runServersEditor(ctx, pi);
       return;
     }
 
-    // Costs editor: same — edits are passive until the next provider scan
+    // Costs editor: re-registers providers after editing so new costs
+    // take effect on the next request
     if (args === "costs") {
-      await this.runCostsEditor(ctx);
+      await this.runCostsEditor(ctx, pi);
       return;
     }
 
@@ -258,7 +260,9 @@ export class CommandManager {
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified
-   * and leave the dialog open with values unchanged.
+   * and leave the dialog open with values unchanged. These settings
+   * (reactToModelSelect, autoloadOnMessage, sortBy, timeouts) do not
+   * require provider re-registration.
    */
   private async runSettingsMenu(ctx: ExtensionCommandContext): Promise<void> {
     if (ctx.mode !== "tui") {
@@ -297,11 +301,13 @@ export class CommandManager {
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
-   * the editor stays open with the pre-mutation list. List changes (add,
-   * remove, URL/`id`/`name` edits) apply the next time providers are
-   * scanned — run `/models` to see them.
+   * the editor stays open with the pre-mutation list. After closing,
+   * providers are re-registered so server changes apply immediately.
    */
-  private async runServersEditor(ctx: ExtensionCommandContext): Promise<void> {
+  private async runServersEditor(
+    ctx: ExtensionCommandContext,
+    pi: ExtensionAPI,
+  ): Promise<void> {
     if (ctx.mode !== "tui") {
       ctx.ui.notify(
         "/models servers requires an interactive session (TUI)",
@@ -320,7 +326,11 @@ export class CommandManager {
           keybindings,
           servers,
           persist: (next) => this.settings.setLlamaSetting("servers", next),
-          done: () => done(undefined),
+          done: () => {
+            done(undefined);
+            // Re-register providers so the updated server list takes effect
+            this.serverManager.update(pi);
+          },
           onError: (message) => ctx.ui.notify(message, "error"),
         }),
     );
@@ -329,8 +339,8 @@ export class CommandManager {
   /**
    * Runs the interactive cost editor for `llamaSettings.servers[].costs`:
    * a SettingsList of servers drilling down into each server's cost
-   * entries (one row per pattern, sharing the /models servers UX).
-   * Within a server's entry list: Enter/p edits the pattern, i/o/r/w the
+   * entries (one row per pattern, sharing the /models servers UX). Within
+   * a server's entry list: Enter/p edits the pattern, i/o/r/w the
    * input/output/cacheRead/cacheWrite costs (inline Input), a adds a new
    * entry and d deletes the one under the cursor (after an "Are you
    * sure?" confirmation — only y confirms, Esc/n cancels). Servers
@@ -338,11 +348,13 @@ export class CommandManager {
    *
    * Writes go to the global `~/.pi/agent/settings.json` via
    * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
-   * leave the values unchanged. After every successful add/edit/delete the
-   * user is reminded to run `/reload`, which re-scans providers and applies
-   * the new costs.
+   * leave the values unchanged. After closing, providers are
+   * re-registered so new costs take effect on the next request.
    */
-  private async runCostsEditor(ctx: ExtensionCommandContext): Promise<void> {
+  private async runCostsEditor(
+    ctx: ExtensionCommandContext,
+    pi: ExtensionAPI,
+  ): Promise<void> {
     if (ctx.mode !== "tui") {
       ctx.ui.notify(
         "/models costs requires an interactive session (TUI)",
@@ -359,13 +371,13 @@ export class CommandManager {
         theme,
         servers,
         persist: (next) => this.settings.setLlamaSetting("servers", next),
-        done: () => done(undefined),
+        done: () => {
+          done(undefined);
+          // Re-register providers so the updated costs take effect
+          this.serverManager.update(pi);
+        },
         onError: (message) => ctx.ui.notify(message, "error"),
-        onChanged: () =>
-          ctx.ui.notify(
-            "Costs changed — run /models or /reload to apply them",
-            "info",
-          ),
+        onChanged: () => {}, // no per-change notification needed
       }),
     );
   }

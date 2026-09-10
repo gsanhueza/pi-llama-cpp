@@ -139,11 +139,10 @@ without hand-editing JSON:
   `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
   `servers`, its list keeps winning in the merged view until you remove it
   there.
-- Changes apply the next time providers are scanned — run `/models` to see
-  them. Additions, removals, and URL/`id`/`name` edits all take effect on
-  the next `/models`: new servers register their providers, removed ones
-  leave pi's registry immediately, and edited ones are re-registered with
-  the fresh config — no restart needed.
+- Changes take effect immediately after closing the editor: new servers
+  register their providers, removed ones leave pi's registry right away,
+  and edited ones are re-registered with the fresh config — no restart or
+  `/models` needed.
 - Limitation: a model already loading in the background on a removed or
   edited server finishes loading, but its progress notifications stop;
   re-select it from the (new) provider afterwards.
@@ -380,8 +379,8 @@ JSON. It opens a settings menu (same UX as `/models settings` and
   `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
   `servers`, its list keeps winning in the merged view until you remove it
   there.
-- After every add/edit/delete a notification reminds you to run `/reload`,
-  which re-scans providers and applies the new costs.
+- Costs take effect on the next provider request after closing the editor —
+  no `/reload` needed.
 
 #### Cost Fields
 
