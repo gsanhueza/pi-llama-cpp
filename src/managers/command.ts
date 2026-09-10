@@ -594,7 +594,10 @@ export class CommandManager {
           : [Action.SWITCH, ...base],
       [Status.LOADING]: [...base],
       [Status.FAILED]: [Action.RETRY, ...base],
-      [Status.SLEEPING]: [Action.SWITCH, Action.UNLOAD, ...base],
+      [Status.SLEEPING]:
+        model.mode === Mode.ROUTER
+          ? [Action.SWITCH, Action.UNLOAD, ...base]
+          : [Action.SWITCH, ...base],
       [Status.UNLOADED]: [Action.LOAD_AND_SWITCH, Action.LOAD, ...base],
       [Status.UNAUTHORIZED]: [...base],
     };
