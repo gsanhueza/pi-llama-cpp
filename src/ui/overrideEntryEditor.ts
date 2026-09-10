@@ -155,7 +155,7 @@ export const removeOverrideEntry = (
  */
 export const formatOverrideSummary = (override: ModelOverride): string => {
   const parts: string[] = [];
-  const cost = override.costs ?? {};
+  const cost = override.cost ?? {};
   if (cost.input) parts.push(`in:${cost.input}`);
   if (cost.output) parts.push(`out:${cost.output}`);
   if (cost.cacheRead) parts.push(`cacheR:${cost.cacheRead}`);
@@ -215,7 +215,7 @@ const entryFields = (serverIndex: number): EditorField<OverrideEntryView>[] => [
     keys: [spec.key],
     label: spec.field,
     getValue: (entry: OverrideEntryView) =>
-      String(entry.override.costs?.[spec.field] ?? 0),
+      String(entry.override.cost?.[spec.field] ?? 0),
     validate: (raw: string): string | null => {
       const parsed = parseCostValue(raw);
       return parsed === null ? null : String(parsed);
@@ -229,7 +229,7 @@ const entryFields = (serverIndex: number): EditorField<OverrideEntryView>[] => [
         entry?.pattern ?? "",
         {
           ...entry?.override,
-          costs: { ...entry?.override.costs, [spec.field]: Number(value) },
+          cost: { ...entry?.override.cost, [spec.field]: Number(value) },
         },
       );
     },

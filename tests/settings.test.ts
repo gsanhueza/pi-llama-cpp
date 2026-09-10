@@ -820,9 +820,9 @@ describe("resolveServerOverrides", () => {
           {
             url: "http://127.0.0.1:8080",
             overrides: {
-              "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
+              "llama-3-8b": { cost: { input: 0.2, output: 0.6 } },
               "llama-3-70b": {
-                costs: {
+                cost: {
                   input: 0.1,
                   output: 0.3,
                   cacheRead: 0.01,
@@ -840,9 +840,9 @@ describe("resolveServerOverrides", () => {
     );
 
     expect(result).toEqual({
-      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
+      "llama-3-8b": { cost: { input: 0.2, output: 0.6 } },
       "llama-3-70b": {
-        costs: {
+        cost: {
           input: 0.1,
           output: 0.3,
           cacheRead: 0.01,
@@ -886,7 +886,7 @@ describe("resolveServerOverrides", () => {
         servers: [
           {
             url: "http://global:8080",
-            overrides: { "model-a": { costs: { input: 0.5 } } },
+            overrides: { "model-a": { cost: { input: 0.5 } } },
           },
         ],
       },
@@ -894,7 +894,7 @@ describe("resolveServerOverrides", () => {
 
     const result = await settings.resolveServerOverrides("http://global:8080");
 
-    expect(result).toEqual({ "model-a": { costs: { input: 0.5 } } });
+    expect(result).toEqual({ "model-a": { cost: { input: 0.5 } } });
   });
 
   it("should prioritize project overrides over global overrides", async () => {
@@ -903,7 +903,7 @@ describe("resolveServerOverrides", () => {
         servers: [
           {
             url: "http://shared:8080",
-            overrides: { "model-b": { costs: { input: 0.1, output: 0.2 } } },
+            overrides: { "model-b": { cost: { input: 0.1, output: 0.2 } } },
           },
         ],
       },
@@ -913,7 +913,7 @@ describe("resolveServerOverrides", () => {
         servers: [
           {
             url: "http://shared:8080",
-            overrides: { "model-b": { costs: { input: 0.5, output: 0.5 } } },
+            overrides: { "model-b": { cost: { input: 0.5, output: 0.5 } } },
           },
         ],
       },
@@ -922,7 +922,7 @@ describe("resolveServerOverrides", () => {
     const result = await settings.resolveServerOverrides("http://shared:8080");
 
     expect(result).toEqual({
-      "model-b": { costs: { input: 0.1, output: 0.2 } },
+      "model-b": { cost: { input: 0.1, output: 0.2 } },
     });
   });
 
@@ -954,7 +954,7 @@ describe("resolveServerOverrides", () => {
         servers: [
           {
             url: "http://127.0.0.1:8080",
-            overrides: { "partial-model": { costs: { input: 0.1 } } },
+            overrides: { "partial-model": { cost: { input: 0.1 } } },
           },
         ],
       },
@@ -964,7 +964,7 @@ describe("resolveServerOverrides", () => {
       "http://127.0.0.1:8080",
     );
 
-    expect(result).toEqual({ "partial-model": { costs: { input: 0.1 } } });
+    expect(result).toEqual({ "partial-model": { cost: { input: 0.1 } } });
   });
 });
 
@@ -973,14 +973,14 @@ describe("Server with overrides", () => {
     const server = new Server(settings, {
       baseUrl: "http://127.0.0.1:8080",
       overrides: {
-        "model-a": { costs: { input: 0.2, output: 0.6 } },
-        "model-b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+        "model-a": { cost: { input: 0.2, output: 0.6 } },
+        "model-b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
       },
     });
 
     expect(server.getOverrides()).toEqual({
-      "model-a": { costs: { input: 0.2, output: 0.6 } },
-      "model-b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+      "model-a": { cost: { input: 0.2, output: 0.6 } },
+      "model-b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
     });
   });
 
@@ -1019,7 +1019,7 @@ describe("resolveServers passes overrides", () => {
         servers: [
           {
             url: "http://overrides-server:8080",
-            overrides: { "model-x": { costs: { input: 0.5, output: 1.0 } } },
+            overrides: { "model-x": { cost: { input: 0.5, output: 1.0 } } },
           },
           {
             url: "http://no-overrides-server:9090",
@@ -1032,7 +1032,7 @@ describe("resolveServers passes overrides", () => {
 
     expect(result).toHaveLength(2);
     expect(result[0].getOverrides()).toEqual({
-      "model-x": { costs: { input: 0.5, output: 1.0 } },
+      "model-x": { cost: { input: 0.5, output: 1.0 } },
     });
     expect(result[1].getOverrides()).toEqual({});
   });
@@ -1053,90 +1053,90 @@ describe("Server.findOverrideForModel", () => {
 
   it("should return undefined when no key matches", () => {
     const server = createServer({
-      mistral: { costs: { input: 0.1 } },
-      "gpt-4": { costs: { input: 0.3 } },
+      mistral: { cost: { input: 0.1 } },
+      "gpt-4": { cost: { input: 0.3 } },
     });
     expect(server.findOverrideForModel("llama-3-8b")).toBeUndefined();
   });
 
   it("should match exact ID", () => {
     const server = createServer({
-      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
+      "llama-3-8b": { cost: { input: 0.2, output: 0.6 } },
     });
     expect(server.findOverrideForModel("llama-3-8b")).toEqual({
-      costs: { input: 0.2, output: 0.6 },
+      cost: { input: 0.2, output: 0.6 },
     });
   });
 
   it("should match prefix", () => {
     const server = createServer({
-      llama: { costs: { input: 0.01, output: 0.02 } },
+      llama: { cost: { input: 0.01, output: 0.02 } },
     });
     expect(server.findOverrideForModel("llama-3-8b")).toEqual({
-      costs: { input: 0.01, output: 0.02 },
+      cost: { input: 0.01, output: 0.02 },
     });
   });
 
   it("should prefer longest match (most specific)", () => {
     const server = createServer({
-      llama: { costs: { input: 0.01, output: 0.02 } },
-      "llama-3": { costs: { input: 0.05, output: 0.1 } },
-      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
+      llama: { cost: { input: 0.01, output: 0.02 } },
+      "llama-3": { cost: { input: 0.05, output: 0.1 } },
+      "llama-3-8b": { cost: { input: 0.2, output: 0.6 } },
     });
     expect(server.findOverrideForModel("llama-3-8b")).toEqual({
-      costs: { input: 0.2, output: 0.6 },
+      cost: { input: 0.2, output: 0.6 },
     });
   });
 
   it("should match the second-longest when exact match is absent", () => {
     const server = createServer({
-      llama: { costs: { input: 0.01, output: 0.02 } },
-      "llama-3": { costs: { input: 0.05, output: 0.1 } },
-      "llama-3-8b": { costs: { input: 0.2, output: 0.6 } },
+      llama: { cost: { input: 0.01, output: 0.02 } },
+      "llama-3": { cost: { input: 0.05, output: 0.1 } },
+      "llama-3-8b": { cost: { input: 0.2, output: 0.6 } },
     });
     expect(server.findOverrideForModel("llama-3-70b")).toEqual({
-      costs: { input: 0.05, output: 0.1 },
+      cost: { input: 0.05, output: 0.1 },
     });
   });
 
   it("should skip empty keys", () => {
     const server = createServer({
-      "": { costs: { input: 0.001 } },
-      llama: { costs: { input: 0.01 } },
+      "": { cost: { input: 0.001 } },
+      llama: { cost: { input: 0.01 } },
     });
     expect(server.findOverrideForModel("llama-3-8b")).toEqual({
-      costs: { input: 0.01 },
+      cost: { input: 0.01 },
     });
   });
 
   it("should not match when model ID is shorter than key", () => {
     const server = createServer({
-      "llama-3-8b": { costs: { input: 0.2 } },
+      "llama-3-8b": { cost: { input: 0.2 } },
     });
     expect(server.findOverrideForModel("llama")).toBeUndefined();
   });
 
   it("should handle single matching key", () => {
     const server = createServer({
-      qwen: { costs: { input: 0.1, output: 0.3 } },
+      qwen: { cost: { input: 0.1, output: 0.3 } },
     });
     expect(server.findOverrideForModel("qwen-3-8b")).toEqual({
-      costs: { input: 0.1, output: 0.3 },
+      cost: { input: 0.1, output: 0.3 },
     });
   });
 
   it("should handle overlapping but non-prefix matches", () => {
     const server = createServer({
-      model: { costs: { input: 0.1 } },
-      "model-a": { costs: { input: 0.2 } },
+      model: { cost: { input: 0.1 } },
+      "model-a": { cost: { input: 0.2 } },
     });
     // "model" matches "model-a" and "model-b"
     // "model-a" matches only "model-a"
     expect(server.findOverrideForModel("model-a")).toEqual({
-      costs: { input: 0.2 },
+      cost: { input: 0.2 },
     });
     expect(server.findOverrideForModel("model-b")).toEqual({
-      costs: { input: 0.1 },
+      cost: { input: 0.1 },
     });
   });
 

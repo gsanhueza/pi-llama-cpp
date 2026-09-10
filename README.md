@@ -334,7 +334,7 @@ The extension automatically injects the appropriate `thinking_budget_tokens` int
 
 A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes — and fine-tune what the extension reports about each model.
 
-This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `costs`, `capabilities` and `reasoning`, regardless of what the server reports.
+This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities` and `reasoning`, regardless of what the server reports.
 
 Add overrides to your server configuration:
 
@@ -346,10 +346,10 @@ Add overrides to your server configuration:
         "url": "http://127.0.0.1:8080",
         "overrides": {
           "qwen-3.8-27b": {
-            "costs": { "input": 0.42, "output": 3.0, "cacheRead": 0.085 }
+            "cost": { "input": 0.42, "output": 3.0, "cacheRead": 0.085 }
           },
           "glm-5.3-flash": {
-            "costs": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 },
+            "cost": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 },
             "capabilities": ["text"],
             "reasoning": false
           }
@@ -360,7 +360,7 @@ Add overrides to your server configuration:
 }
 ```
 
-Every field of an override is optional — absent fields fall back to what the extension detects (`capabilities`) or to its defaults (`reasoning: true`, zeroed costs).
+Every field of an override is optional — absent fields fall back to what the extension detects (`capabilities`) or to its defaults (`reasoning: true`, zeroed cost).
 
 #### Override editor
 
@@ -395,7 +395,7 @@ JSON. It opens a settings menu (same UX as `/models settings` and
 
 #### Cost Fields
 
-Inside an override, the `costs` object accepts:
+Inside an override, the `cost` object accepts:
 
 | Field        | Type   | Description                         |
 | ------------ | ------ | ----------------------------------- |
@@ -421,17 +421,17 @@ Example:
 
 ```json
 {
-  "llama": { "costs": { "input": 0.01, "output": 0.02 } },
+  "llama": { "cost": { "input": 0.01, "output": 0.02 } },
   "llama-3": { "reasoning": false },
-  "llama-3-8b": { "costs": { "input": 0.2, "output": 0.6 } }
+  "llama-3-8b": { "cost": { "input": 0.2, "output": 0.6 } }
 }
 ```
 
-| Model ID      | Matching keys                    | Winner (longest) | Effective override                                      |
-| ------------- | -------------------------------- | ---------------- | ------------------------------------------------------- |
-| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ costs: { input: 0.2, output: 0.6 } }`                |
-| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ reasoning: false }`                                  |
-| `mistral-7b`  | `llama` (no)                     | none             | defaults (zero costs, detected caps, `reasoning: true`) |
+| Model ID      | Matching keys                    | Winner (longest) | Effective override                                     |
+| ------------- | -------------------------------- | ---------------- | ------------------------------------------------------ |
+| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ cost: { input: 0.2, output: 0.6 } }`                |
+| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ reasoning: false }`                                 |
+| `mistral-7b`  | `llama` (no)                     | none             | defaults (zero cost, detected caps, `reasoning: true`) |
 
 > **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Empty keys are silently ignored.
 

@@ -169,8 +169,8 @@ export abstract class BaseModel {
    * @returns A Pi configuration object
    */
   async toProviderConfig(): Promise<ProviderModelConfig> {
-    // Merge the matched override's costs with zero defaults
-    const userCost = this.server.findOverrideForModel(this.id)?.costs ?? {};
+    // Merge the matched override's cost with zero defaults
+    const userCost = this.server.findOverrideForModel(this.id)?.cost ?? {};
     const cost: ModelCost = {
       input: userCost.input ?? 0,
       output: userCost.output ?? 0,

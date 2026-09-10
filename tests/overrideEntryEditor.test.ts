@@ -49,10 +49,10 @@ const SERVERS: LlamaServer[] = [
     url: "http://a:1",
     overrides: {
       "llama-3-8b": {
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       },
-      "llama-3-70b": { costs: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+      "llama-3-70b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
     },
   },
   { url: "http://b:2" },
@@ -185,10 +185,10 @@ describe("override entry helpers", () => {
     it("should append an override entry to the selected server without mutating the input", () => {
       const servers: LlamaServer[] = [
         { url: "http://a:1" },
-        { url: "http://b:2", overrides: { llama: { costs: { input: 1 } } } },
+        { url: "http://b:2", overrides: { llama: { cost: { input: 1 } } } },
       ];
       const next = addOverrideEntry(servers, 1, "llama-3", {
-        costs: { input: 2 },
+        cost: { input: 2 },
       });
 
       expect(next).toEqual([
@@ -196,12 +196,12 @@ describe("override entry helpers", () => {
         {
           url: "http://b:2",
           overrides: {
-            llama: { costs: { input: 1 } },
-            "llama-3": { costs: { input: 2 } },
+            llama: { cost: { input: 1 } },
+            "llama-3": { cost: { input: 2 } },
           },
         },
       ]);
-      expect(servers[1].overrides).toEqual({ llama: { costs: { input: 1 } } });
+      expect(servers[1].overrides).toEqual({ llama: { cost: { input: 1 } } });
     });
 
     it("should default the override to an empty object", () => {
@@ -218,13 +218,13 @@ describe("override entry helpers", () => {
         {
           url: "http://a:1",
           overrides: {
-            llama: { costs: { input: 1 } },
-            "llama-3": { costs: { input: 2, output: 4 } },
+            llama: { cost: { input: 1 } },
+            "llama-3": { cost: { input: 2, output: 4 } },
           },
         },
       ];
       const next = updateOverrideEntry(servers, 0, 0, "llama-3-8b", {
-        costs: { output: 9 },
+        cost: { output: 9 },
       });
 
       expect(Object.keys(next[0].overrides ?? {})).toEqual([
@@ -232,25 +232,25 @@ describe("override entry helpers", () => {
         "llama-3",
       ]);
       expect(next[0].overrides?.["llama-3-8b"]).toEqual({
-        costs: { output: 9 },
+        cost: { output: 9 },
       });
       expect(next[0].overrides?.["llama-3"]).toEqual({
-        costs: { input: 2, output: 4 },
+        cost: { input: 2, output: 4 },
       });
-      expect(servers[0].overrides?.llama).toEqual({ costs: { input: 1 } });
+      expect(servers[0].overrides?.llama).toEqual({ cost: { input: 1 } });
     });
 
     it("should leave other servers untouched", () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
-        { url: "http://b:2", overrides: { other: { costs: { input: 5 } } } },
+        { url: "http://a:1", overrides: { llama: { cost: { input: 1 } } } },
+        { url: "http://b:2", overrides: { other: { cost: { input: 5 } } } },
       ];
       const next = updateOverrideEntry(servers, 0, 0, "llama", {
-        costs: { input: 2 },
+        cost: { input: 2 },
       });
 
       expect(next[1]).toEqual(servers[1]);
-      expect(next[0].overrides?.llama).toEqual({ costs: { input: 2 } });
+      expect(next[0].overrides?.llama).toEqual({ cost: { input: 2 } });
     });
   });
 
@@ -260,25 +260,25 @@ describe("override entry helpers", () => {
         {
           url: "http://a:1",
           overrides: {
-            llama: { costs: { input: 1 } },
-            "llama-3": { costs: { input: 2 } },
+            llama: { cost: { input: 1 } },
+            "llama-3": { cost: { input: 2 } },
           },
         },
       ];
       const next = removeOverrideEntry(servers, 0, 0);
 
       expect(next[0].overrides).toEqual({
-        "llama-3": { costs: { input: 2 } },
+        "llama-3": { cost: { input: 2 } },
       });
       expect(servers[0].overrides).toEqual({
-        llama: { costs: { input: 1 } },
-        "llama-3": { costs: { input: 2 } },
+        llama: { cost: { input: 1 } },
+        "llama-3": { cost: { input: 2 } },
       });
     });
 
     it("should allow removing the last entry", () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
+        { url: "http://a:1", overrides: { llama: { cost: { input: 1 } } } },
       ];
       expect(removeOverrideEntry(servers, 0, 0)).toEqual([
         { url: "http://a:1", overrides: {} },
@@ -290,7 +290,7 @@ describe("override entry helpers", () => {
     it("should show only the non-zero cost fields", () => {
       expect(
         formatOverrideSummary({
-          costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+          cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         }),
       ).toBe("in:0.2 out:0.6 cacheR:0.01");
     });
@@ -298,7 +298,7 @@ describe("override entry helpers", () => {
     it("should append capabilities and reasoning flags", () => {
       expect(
         formatOverrideSummary({
-          costs: { input: 0.15 },
+          cost: { input: 0.15 },
           capabilities: ["text", "image"],
           reasoning: false,
         }),
@@ -306,7 +306,7 @@ describe("override entry helpers", () => {
     });
 
     it("should fall back to a dash when everything is empty", () => {
-      expect(formatOverrideSummary({ costs: { output: 0 } })).toBe("—");
+      expect(formatOverrideSummary({ cost: { output: 0 } })).toBe("—");
       expect(formatOverrideSummary({})).toBe("—");
     });
   });
@@ -535,7 +535,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[0][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.25, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.25, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       });
     });
@@ -550,7 +550,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[0][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.2, output: 0, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       });
     });
@@ -584,7 +584,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[0][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["image"],
       });
     });
@@ -600,7 +600,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[0][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
       });
     });
 
@@ -631,7 +631,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[0][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
         reasoning: false,
       });
@@ -652,7 +652,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[1][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       });
     });
@@ -689,7 +689,7 @@ describe("createOverridesEditor", () => {
         "llama-3-70b",
       ]);
       expect(server.overrides?.["qwen-27b"]).toEqual({
-        costs: { input: 0.2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 0.2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       });
     });
@@ -738,7 +738,7 @@ describe("createOverridesEditor", () => {
 
       const overrides = persist.mock.calls[1][0][0].overrides ?? {};
       expect(overrides["llama-3-8b"]).toEqual({
-        costs: { input: 2, output: 0.6, cacheRead: 0.01 },
+        cost: { input: 2, output: 0.6, cacheRead: 0.01 },
         capabilities: ["text", "image"],
       });
     });
@@ -761,7 +761,7 @@ describe("createOverridesEditor", () => {
   describe("persistence integration", () => {
     it("should not mutate the caller's snapshot", async () => {
       const servers: LlamaServer[] = [
-        { url: "http://a:1", overrides: { llama: { costs: { input: 1 } } } },
+        { url: "http://a:1", overrides: { llama: { cost: { input: 1 } } } },
       ];
       const { editor, persist } = setup(servers);
 
@@ -773,7 +773,7 @@ describe("createOverridesEditor", () => {
       expect(persist).toHaveBeenCalledWith([
         { url: "http://a:1", overrides: {} },
       ]);
-      expect(servers[0].overrides?.llama).toEqual({ costs: { input: 1 } });
+      expect(servers[0].overrides?.llama).toEqual({ cost: { input: 1 } });
     });
 
     it("should notify and keep the rows when the write fails", async () => {

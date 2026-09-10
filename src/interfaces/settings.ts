@@ -10,7 +10,7 @@ export interface ModelOverride {
    * Per-model token pricing. All four cost fields are optional —
    * unspecified fields default to zero.
    */
-  costs?: Partial<ModelCost>;
+  cost?: Partial<ModelCost>;
   /**
    * Pi capabilities for the model. When present, **fully replaces** the
    * capabilities detected from the server (no merging).
@@ -49,19 +49,19 @@ export interface LlamaServer {
    * Example:
    * ```json
    * {
-   *   "llama": { "costs": { "input": 0.01, "output": 0.02 } },
+   *   "llama": { "cost": { "input": 0.01, "output": 0.02 } },
    *   "llama-3": { "reasoning": false },
    *   "llama-3-8b": {
-   *     "costs": { "input": 0.2, "output": 0.6, "cacheRead": 0.01 },
+   *     "cost": { "input": 0.2, "output": 0.6, "cacheRead": 0.01 },
    *     "capabilities": ["text", "image"]
    *   }
    * }
    * ```
    *
    * For model `"llama-3-8b"`:
-   * - `"llama"` matches → costs `{ input: 0.01, output: 0.02 }`
+   * - `"llama"` matches → cost `{ input: 0.01, output: 0.02 }`
    * - `"llama-3"` matches → reasoning `false`
-   * - `"llama-3-8b"` matches → costs + capabilities fully replaced
+   * - `"llama-3-8b"` matches → cost + capabilities fully replaced
    * - **Winner**: `"llama-3-8b"` (longest match)
    */
   overrides?: Record<string, ModelOverride>;
