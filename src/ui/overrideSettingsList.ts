@@ -165,6 +165,23 @@ const buildOverrideFieldItems = (
           : "false",
     values: ["true", "false"],
   },
+  // Max tokens — infinite
+  {
+    id: "maxTokens",
+    label: "Max tokens",
+    description: "Override max generation tokens (0 = same as detected context size)",
+    currentValue: String(entry.override.maxTokens ?? 0),
+    submenu: (_cv, done) =>
+      new ValidatedInputSubmenu(
+        String(entry.override.maxTokens ?? 0),
+        (raw) => {
+          const n = Number(raw.trim());
+          return n >= 0 && isFinite(n) ? String(n) : null;
+        },
+        (value) => done(value),
+        tui,
+      ),
+  },
 ];
 
 /**
@@ -519,6 +536,9 @@ class OverrideEntryListEditor implements Component, Focusable {
       } else {
         updatedOverride.reasoning = reasoning;
       }
+    } else if (field === "maxTokens") {
+      const n = Number(value);
+      updatedOverride.maxTokens = isFinite(n) && n >= 0 ? n : undefined;
     }
 
     const next = updateOverrideEntry(

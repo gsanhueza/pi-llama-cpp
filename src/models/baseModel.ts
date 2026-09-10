@@ -193,7 +193,9 @@ export abstract class BaseModel {
       input: await this.getCapabilities(),
       contextWindow: await this.getContextSize(),
       cost,
-      maxTokens: await this.getContextSize(),
+      maxTokens:
+        this.server.findOverrideForModel(this.id)?.maxTokens ??
+        (await this.getContextSize()),
     };
 
     return response;

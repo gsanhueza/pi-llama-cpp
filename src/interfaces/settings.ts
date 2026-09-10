@@ -20,6 +20,11 @@ export interface ModelOverride {
    * Whether the model is a reasoning model. When absent, defaults to `true`.
    */
   reasoning?: boolean;
+  /**
+   * Override the maximum number of tokens the model can generate. When
+   * absent, falls back to the context size detected from the server.
+   */
+  maxTokens?: number;
 }
 
 /**

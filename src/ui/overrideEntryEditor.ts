@@ -94,5 +94,8 @@ export const formatOverrideSummary = (override: ModelOverride): string => {
   if (override.reasoning !== undefined) {
     parts.push(`reasoning: ${override.reasoning}`);
   }
+  if (override.maxTokens !== undefined) {
+    parts.push(`maxTokens: ${override.maxTokens}`);
+  }
   return parts.length > 0 ? parts.join(", ") : "—";
 };

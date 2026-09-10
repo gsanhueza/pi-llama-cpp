@@ -148,8 +148,6 @@ without hand-editing JSON:
 - Limitation: a model already loading in the background on a removed or
   edited server finishes loading, but its progress notifications stop;
   re-select it from the (new) provider afterwards.
-- The editor shows a warning when the `LLAMA_SERVER_URL` environment variable
-  is set, since it overrides the configured servers.
 - Per-server `id`/`name` overrides are edited in the field submenu; saving an
   empty value clears the override. The list shows them as a
   `(<id> - <name>)` suffix, falling back to the auto-detected
@@ -335,7 +333,7 @@ The extension automatically injects the appropriate `thinking_budget_tokens` int
 
 A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes — and fine-tune what the extension reports about each model.
 
-This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities` and `reasoning`, regardless of what the server reports.
+This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities`, `reasoning`, and `maxTokens`, regardless of what the server reports.
 
 Add overrides to your server configuration:
 
@@ -352,7 +350,8 @@ Add overrides to your server configuration:
           "glm-5.3-flash": {
             "cost": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 },
             "capabilities": ["text"],
-            "reasoning": false
+            "reasoning": false,
+            "maxTokens": 4096
           }
         }
       }
@@ -380,16 +379,18 @@ JSON. It opens a settings menu (same UX as `/models settings` and
   right after), **d** deletes the entry under the cursor (after an "Are you
   sure?" confirmation — only **y** confirms; **Esc/n** cancels), **Esc** goes
   back.
-- The entry menu shows seven rows — **pattern** and the four **cost** fields
+- The entry menu shows eight rows — **pattern** and the four **cost** fields
   (input, output, cacheRead, cacheWrite) use inline input (**Enter** to type,
   **Enter** to save, **Esc** to cancel); **capabilities** cycles between
   `text` and `text | image` (**Enter** to cycle, **Esc** to cancel);
   **reasoning** cycles between `true` and `false` (**Enter** to cycle,
-  **Esc** to cancel).
+  **Esc** to cancel); **maxTokens** uses inline input (**Enter** to type,
+  **Enter** to save, **Esc** to cancel).
 - The pattern must be non-empty; cost fields must be non-negative numbers
   (an empty cost field means zero). Capabilities are limited to `text` or
   `text | image` (select via Enter to cycle); reasoning is `true` or `false`
-  (select via Enter to cycle). Invalid input shows an inline error and keeps
+  (select via Enter to cycle); maxTokens must be a non-negative number
+  (an empty field means zero). Invalid input shows an inline error and keeps
   the input open for correction.
 - Each change is written immediately to the **global**
   `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
@@ -417,6 +418,7 @@ All four fields are optional — unspecified fields default to zero.
 | -------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
 | `capabilities` | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities. |
 | `reasoning`    | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                        |
+| `maxTokens`    | number           | Override max generation tokens. Falls back to context size when absent.                        |
 
 ### Prefix matching
 
@@ -466,7 +468,7 @@ If loading takes longer than **60 seconds** (configurable via `pollingTimeout`),
 
 Each model exposed to Pi includes the following defaults:
 
-- **`maxTokens`** — dynamically set to the model's context window (detected from llama-server)
+- **`maxTokens`** — dynamically set to the model's context window (detected from llama-server); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`reasoning`** — `true` by default (llama.cpp's `/v1/models` endpoint does not expose it); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 
