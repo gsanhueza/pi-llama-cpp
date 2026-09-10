@@ -171,16 +171,20 @@ export class ServerManager {
 
   /**
    * Returns all models from all servers, sorted by the configured sort mode.
+   * Servers maintain their order from `llamaSettings`; sorting only applies
+   * to models within each server.
    *
    * @returns Flat array of all models across all servers
    */
   async getAllModels(): Promise<BaseModel[]> {
     const sortBy = await this.settings.resolveSortBy();
-    const allModels = this.servers.flatMap((s) => s.models);
 
-    if (sortBy === "api") return allModels;
+    if (sortBy === "api") {
+      return this.servers.flatMap((s) => s.models);
+    }
 
-    return allModels.sort(ServerManager.SORTERS[sortBy]);
+    const sorter = ServerManager.SORTERS[sortBy];
+    return this.servers.flatMap((s) => [...s.models].sort(sorter));
   }
 
   private static sortByIdAsc(a: BaseModel, b: BaseModel): number {
@@ -204,8 +208,7 @@ export class ServerManager {
   }
 
   /**
-   * Comparators for each sort mode except "api", which preserves server
-   * order (short-circuited in {@link ServerManager.getAllModels}).
+   * Comparators for sorting models within each server.
    */
   private static readonly SORTERS: Record<
     Exclude<SortBy, "api">,

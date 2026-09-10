@@ -273,15 +273,16 @@ The extension determines the context size as follows:
 
 #### Model sorting
 
-The order of models in the `/models` menu is controlled by the `sortBy` setting:
+The order of models in the `/models` menu is controlled by the `sortBy` setting.
+Servers maintain their order from `llamaSettings`; sorting applies **within each server**:
 
-| Value         | Description                                                                             |
-| ------------- | --------------------------------------------------------------------------------------- |
-| `"asc"`       | Sort by model ID ascending (default)                                                    |
-| `"desc"`      | Sort by model ID descending                                                             |
-| `"asc-name"`  | Sort by model name ascending (ties broken by ID)                                        |
-| `"desc-name"` | Sort by model name descending (ties broken by ID)                                       |
-| `"api"`       | No sorting — models appear in the order returned by each server's `/v1/models` endpoint |
+| Value         | Description                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `"asc"`       | Sort by model ID ascending (default)                                                                                      |
+| `"desc"`      | Sort by model ID descending                                                                                               |
+| `"asc-name"`  | Sort by model name ascending (ties broken by ID)                                                                          |
+| `"desc-name"` | Sort by model name descending (ties broken by ID)                                                                         |
+| `"api"`       | No sorting — models appear in the order returned by each server's `/v1/models` endpoint, servers in `llamaSettings` order |
 
 ### Model Actions
 
