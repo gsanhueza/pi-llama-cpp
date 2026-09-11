@@ -1,8 +1,5 @@
 import type { LlamaServer, ModelOverride } from "../interfaces/settings";
 
-/** Pattern given to entries added with the `a` shortcut (uniquified) */
-const DEFAULT_PATTERN = "new-pattern";
-
 /**
  * Parses a raw cost-field value. Empty input means zero (unspecified fields
  * default to zero in the settings). Everything else must be a finite,

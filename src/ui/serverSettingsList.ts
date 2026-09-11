@@ -1,4 +1,7 @@
-import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import {
+  getSettingsListTheme,
+  type Theme,
+} from "@earendil-works/pi-coding-agent";
 import type {
   Component,
   Focusable,
@@ -7,8 +10,9 @@ import type {
 } from "@earendil-works/pi-tui";
 import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../interfaces/settings";
+import { ConfirmDialog, InputDialog, inputSubmenu } from "./dialog";
 import { formatServerSuffix, normalizeServerUrl } from "./serverListEditor";
-import { ValidatedInputSubmenu } from "./settingsListHelpers";
+import { HINTS, PLACEHOLDERS, TERMS, TITLES } from "./strings";
 
 /**
  * Options for the SettingsList-based server editor.
@@ -16,9 +20,15 @@ import { ValidatedInputSubmenu } from "./settingsListHelpers";
 export interface ServerSettingsListOptions {
   /** TUI instance, used to request re-renders after async persists */
   tui: TUI;
+  /** Theme for dialogs (from the ctx.ui.custom factory) */
+  theme: Theme;
   /** App keybindings manager (injected by ctx.ui.custom) */
   keybindings: KeybindingsManager;
-  /** Snapshot of the merged `llamaSettings.servers` to edit */
+  /**
+   * Snapshot of the merged `llamaSettings.servers` to edit. Replaced
+   * in place (`options.servers = next`) after every successful persist
+   * so the rebuilt rows reflect the adopted list.
+   */
   servers: LlamaServer[];
   /** Persists a new server list; a rejection keeps the current list */
   persist: (next: LlamaServer[]) => Promise<void>;
@@ -30,61 +40,56 @@ export interface ServerSettingsListOptions {
 
 /**
  * Builds the SettingItem for one server's editable fields (URL, id, name).
- * Each field is infinite → opens a `ValidatedInputSubmenu`.
+ * Each field is infinite → opens an `InputDialog` submenu; commits are
+ * reported by the containing `SettingsList`'s `onChange` (field id → value).
  */
 const buildServerFieldItems = (
   server: LlamaServer,
-  onChange: (field: string, value: string) => void,
-  onCancel: () => void,
+  theme: Theme,
   tui: TUI,
 ): SettingItem[] => [
   {
     id: "url",
-    label: "URL",
-    description: "Server URL (http://host:port)",
+    label: TERMS.serverUrl,
+    description: `${TERMS.serverUrl} (http://host:port)`,
     currentValue: server.url,
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        server.url,
-        (raw) => normalizeServerUrl(raw),
-        (value) => {
-          if (value !== undefined) onChange("url", value);
-          done(value);
-        },
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.serverUrl),
+      TERMS.serverUrl,
+      PLACEHOLDERS.serverUrl,
+      server.url,
+      normalizeServerUrl,
+    ),
   },
   {
     id: "id",
-    label: "ID",
-    description: "Custom provider ID (empty uses auto-detected)",
+    label: TERMS.providerId,
+    description: `${TERMS.providerId} (empty uses auto-detected)`,
     currentValue: server.id ?? "",
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        server.id ?? "",
-        (raw) => raw, // free-form
-        (value) => {
-          if (value !== undefined) onChange("id", value);
-          done(value);
-        },
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.providerId),
+      `${TERMS.providerId} (empty uses auto-detected)`,
+      PLACEHOLDERS.providerId,
+      server.id ?? "",
+    ),
   },
   {
     id: "name",
-    label: "Name",
-    description: "Custom display name",
+    label: TERMS.displayName,
+    description: `Custom ${TERMS.displayName.toLowerCase()}`,
     currentValue: server.name ?? "",
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        server.name ?? "",
-        (raw) => raw, // free-form
-        (value) => {
-          if (value !== undefined) onChange("name", value);
-          done(value);
-        },
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.displayName),
+      TERMS.displayName,
+      PLACEHOLDERS.displayName,
+      server.name ?? "",
+    ),
   },
 ];
 
@@ -95,23 +100,23 @@ const buildServerFieldItems = (
 const buildServerRow = (
   server: LlamaServer,
   index: number,
-  onChange: (field: string, value: string) => void,
-  onCancel: () => void,
+  theme: Theme,
   tui: TUI,
+  onChange: (field: string, value: string) => void,
 ): SettingItem => ({
   id: `server-${index}`,
   label: server.url,
-  description: "Enter: edit URL/id/name · a add · d delete · Esc: done",
+  description: HINTS.serverRow,
   currentValue: formatServerSuffix(server),
   submenu: (_cv, done) => {
-    const items = buildServerFieldItems(server, onChange, done, tui);
+    // Rebuild the field items on open so they prefill with current values
+    const items = buildServerFieldItems(server, theme, tui);
     return new SettingsList(
       items,
       Math.min(items.length + 2, 15),
       getSettingsListTheme(),
-      () => {
-        // Field changes are handled by the field items' onChange
-      },
+      // Field commits arrive here: done(value) from the input submenus
+      (field, value) => onChange(field, value),
       done,
     );
   },
@@ -121,48 +126,43 @@ const buildServerRow = (
  * Wrapper around a `SettingsList` of servers that adds `a` (add) and `d`
  * (delete) support at the list level.
  *
- * - **a** opens an inline Input for the new server's URL; Enter saves,
- *   Esc cancels.
- * - **d** shows a confirmation prompt; `y` deletes, `Esc`/`n` cancels.
+ * - **a** opens the add wizard — a sequence of framed `InputDialog`s
+ *   (URL → optional ID → optional name, mirroring `/login`'s sequential
+ *   prompts). Esc at any step aborts without persisting; the server is
+ *   saved only after the final step.
+ * - **d** opens a `ConfirmDialog` (Delete/Cancel select list).
  * - **Enter** on a server row drills into its field-edit submenu.
  * - **Esc** closes the editor.
  */
 export class ServerSettingsList implements Component, Focusable {
-  private readonly settingsList: SettingsList;
-  private mode: "list" | "add" | "confirm" = "list";
-  private error: string | undefined;
-  private readonly addInput = new (class implements Component {
-    private value = "";
-    render(_width: number): string[] {
-      return [`URL: ${this.value}`];
-    }
-    invalidate(): void {}
-    getValue(): string {
-      return this.value;
-    }
-    setValue(v: string): void {
-      this.value = v;
-    }
-    handleInput(data: string): void {
-      if (data === "\r" || data === "\n") return; // Enter handled by wrapper
-      if (data === "\u001b") return; // Esc handled by wrapper
-      this.value += data;
-    }
-  })();
+  private settingsList: SettingsList;
+  private mode: "list" | "wizard" | "confirm" = "list";
+  private wizardStep = 0;
+  private wizardUrl = "";
+  private wizardId = "";
+  private wizardDialog: InputDialog | undefined;
+  private confirmDialog: ConfirmDialog | undefined;
   private isFocused = false;
 
   constructor(private readonly options: ServerSettingsListOptions) {
-    const items: SettingItem[] = options.servers.map((server, i) =>
-      buildServerRow(
-        server,
-        i,
-        (field, value) => this.handleFieldChange(field, value),
-        () => {}, // field-level cancel goes back to server list
-        options.tui,
+    this.settingsList = this.buildSettingsList();
+  }
+
+  /**
+   * Builds the top-level `SettingsList` from the current
+   * `options.servers`. Called on construction and rebuilt after every
+   * successful persist so added/deleted/edited servers are reflected
+   * immediately (the initial snapshot is not mutated by `persist`).
+   */
+  private buildSettingsList(): SettingsList {
+    const { theme, tui } = this.options;
+    const items: SettingItem[] = this.options.servers.map((server, i) =>
+      buildServerRow(server, i, theme, tui, (field, value) =>
+        this.handleFieldChange(field, value),
       ),
     );
 
-    this.settingsList = new SettingsList(
+    return new SettingsList(
       items,
       Math.min(items.length + 2, 15),
       getSettingsListTheme(),
@@ -183,123 +183,75 @@ export class ServerSettingsList implements Component, Focusable {
 
   set focused(value: boolean) {
     this.isFocused = value;
+    if (this.wizardDialog) this.wizardDialog.focused = value;
+    if (this.confirmDialog) this.confirmDialog.focused = value;
   }
 
   // -- Component -----------------------------------------------------------
 
   invalidate(): void {
     this.settingsList.invalidate();
+    this.wizardDialog?.invalidate();
+    this.confirmDialog?.invalidate();
   }
 
   handleInput(data: string): void {
-    const kb = this.options.keybindings;
-
-    if (this.mode === "list") {
-      if (kb.matches(data, "tui.select.cancel")) {
-        this.options.done();
-        return;
-      }
-      // Track selection for add/delete
-      if (kb.matches(data, "tui.select.up")) {
-        this._selectedIndex =
-          this._selectedIndex === 0
-            ? this.options.servers.length - 1
-            : this._selectedIndex - 1;
-      }
-      if (kb.matches(data, "tui.select.down")) {
-        this._selectedIndex =
-          this._selectedIndex === this.options.servers.length - 1
-            ? 0
-            : this._selectedIndex + 1;
-      }
-      if (data === "a") {
-        this.mode = "add";
-        this.addInput.setValue("");
-        this.error = undefined;
-        this.options.tui.requestRender();
-        return;
-      }
-      if (data === "d") {
-        this.mode = "confirm";
-        this.options.tui.requestRender();
-        return;
-      }
-      // Delegate to SettingsList (it handles up/down internally for rendering)
-      this.settingsList.handleInput(data);
-      return;
-    }
-
-    if (this.mode === "add") {
-      if (data === "\r" || data === "\n") {
-        // Enter: validate and save
-        const raw = this.addInput.getValue();
-        const normalized = normalizeServerUrl(raw);
-        if (normalized === null) {
-          this.error = `Invalid URL "${raw}" — use http://host:port`;
-          this.options.tui.requestRender();
-          return;
-        }
-        this.saveAdd(normalized);
-        return;
-      }
-      if (data === "\u001b") {
-        // Esc: cancel add
-        this.mode = "list";
-        this.error = undefined;
-        this.options.tui.requestRender();
-        return;
-      }
-      this.addInput.handleInput(data);
-      this.error = undefined;
-      this.options.tui.requestRender();
+    if (this.mode === "wizard") {
+      this.wizardDialog?.handleInput(data);
       return;
     }
 
     if (this.mode === "confirm") {
-      if (data === "y") {
-        this.deleteSelected();
-        return;
-      }
-      if (data === "n" || kb.matches(data, "tui.select.cancel")) {
-        this.mode = "list";
-        this.options.tui.requestRender();
-        return;
-      }
-      // Ignore all other keys in confirm mode
+      this.confirmDialog?.handleInput(data);
       return;
     }
+
+    const kb = this.options.keybindings;
+    if (kb.matches(data, "tui.select.cancel")) {
+      this.options.done();
+      return;
+    }
+    // Track selection for add/delete
+    if (kb.matches(data, "tui.select.up")) {
+      this._selectedIndex =
+        this._selectedIndex === 0
+          ? this.options.servers.length - 1
+          : this._selectedIndex - 1;
+    }
+    if (kb.matches(data, "tui.select.down")) {
+      this._selectedIndex =
+        this._selectedIndex === this.options.servers.length - 1
+          ? 0
+          : this._selectedIndex + 1;
+    }
+    if (data === "a") {
+      this.beginWizard();
+      return;
+    }
+    if (data === "d") {
+      this.beginConfirm();
+      return;
+    }
+    // Delegate to SettingsList (it handles up/down internally for rendering)
+    this.settingsList.handleInput(data);
   }
 
   render(width: number): string[] {
-    const lines: string[] = [];
-
-    if (this.mode === "add") {
-      lines.push("Add server — enter URL");
-      lines.push("");
-      lines.push(this.addInput.render(width)[0] ?? "");
-      if (this.error) {
-        lines.push(this.error);
-      }
-      lines.push("");
-      lines.push("Enter save · Esc cancel");
-      return lines;
+    if (this.mode === "wizard") {
+      return this.wizardDialog?.render(width) ?? [];
     }
 
     if (this.mode === "confirm") {
-      const selectedServer = this.options.servers[this.selectedIndex()];
-      lines.push(`About to delete "${selectedServer?.url}"`);
-      lines.push("Are you sure?");
-      lines.push("");
-      lines.push("y delete · Esc/n cancel");
-      return lines;
+      return this.confirmDialog?.render(width) ?? [];
     }
 
     // List mode: the shortcuts live in the rows' description; only when the
     // list is empty (no rows → no description) show them as the hint line
     const settingsLines = this.settingsList.render(width);
     if (this.options.servers.length === 0) {
-      settingsLines[settingsLines.length - 1] =
-        getSettingsListTheme().hint("  a add · Esc done");
+      settingsLines[settingsLines.length - 1] = getSettingsListTheme().hint(
+        HINTS.emptyServers,
+      );
     }
     return settingsLines;
   }
@@ -318,20 +270,136 @@ export class ServerSettingsList implements Component, Focusable {
 
   private _selectedIndex = 0;
 
-  private async saveAdd(normalizedUrl: string): Promise<void> {
-    const servers = this.options.servers;
-    const next = [...servers, { url: normalizedUrl }];
+  // -- add wizard ---------------------------------------------------------------
+
+  /**
+   * Opens the add wizard at step 1/3 (URL). Esc at any step cancels the
+   * whole wizard; the server is persisted only after the final step.
+   */
+  private beginWizard(): void {
+    this.mode = "wizard";
+    this.wizardStep = 0;
+    this.wizardUrl = "";
+    this.wizardId = "";
+    this.showWizardStep();
+    this.options.tui.requestRender();
+  }
+
+  private showWizardStep(): void {
+    const { theme, tui } = this.options;
+    const step = this.wizardStep;
+
+    const dialog =
+      step === 0
+        ? new InputDialog({
+            theme,
+            tui,
+            title: TITLES.addServerStep(1),
+            message: TERMS.serverUrl,
+            placeholder: PLACEHOLDERS.serverUrl,
+            validate: normalizeServerUrl,
+            onSubmit: (value) => this.wizardSubmit(value),
+            onCancel: () => this.cancelWizard(),
+          })
+        : step === 1
+          ? new InputDialog({
+              theme,
+              tui,
+              title: TITLES.addServerStep(2),
+              message: `${TERMS.providerId} (optional)`,
+              placeholder: PLACEHOLDERS.providerId,
+              onSubmit: (value) => this.wizardSubmit(value),
+              onCancel: () => this.cancelWizard(),
+            })
+          : new InputDialog({
+              theme,
+              tui,
+              title: TITLES.addServerStep(3),
+              message: `${TERMS.displayName} (optional)`,
+              placeholder: PLACEHOLDERS.displayName,
+              onSubmit: (value) => this.wizardSubmit(value),
+              onCancel: () => this.cancelWizard(),
+            });
+
+    this.wizardDialog = dialog;
+    dialog.focused = this.isFocused;
+  }
+
+  private wizardSubmit(value: string): void {
+    if (this.wizardStep === 0) {
+      this.wizardUrl = value;
+      this.wizardStep = 1;
+      this.showWizardStep();
+    } else if (this.wizardStep === 1) {
+      this.wizardId = value;
+      this.wizardStep = 2;
+      this.showWizardStep();
+    } else {
+      // Final step (display name): commit the collected fields
+      this.wizardDialog = undefined;
+      void this.saveNewServer(this.wizardUrl, this.wizardId, value);
+      return;
+    }
+    this.options.tui.requestRender();
+  }
+
+  private cancelWizard(): void {
+    this.wizardDialog = undefined;
+    this.mode = "list";
+    this.options.tui.requestRender();
+  }
+
+  private async saveNewServer(
+    url: string,
+    id: string,
+    name: string,
+  ): Promise<void> {
+    const next = [
+      ...this.options.servers,
+      {
+        url,
+        ...(id.length > 0 ? { id } : {}),
+        ...(name.length > 0 ? { name } : {}),
+      },
+    ];
     try {
       await this.options.persist(next);
+      // Adopt the persisted list and rebuild so the new row appears
+      this.options.servers = next;
+      this.settingsList = this.buildSettingsList();
+      this._selectedIndex = 0;
       this.mode = "list";
-      this.error = undefined;
-      this._selectedIndex = next.length - 1;
-      this.options.tui.requestRender();
     } catch (err) {
-      this.error = String(err);
       this.options.onError(String(err));
-      this.options.tui.requestRender();
+      this.mode = "list";
     }
+    this.options.tui.requestRender();
+  }
+
+  // -- delete ------------------------------------------------------------------
+
+  private beginConfirm(): void {
+    const server = this.options.servers[this.selectedIndex()];
+    if (!server) return;
+
+    this.mode = "confirm";
+    this.confirmDialog = new ConfirmDialog({
+      theme: this.options.theme,
+      tui: this.options.tui,
+      title: TITLES.deleteServer,
+      message: `Delete "${server.url}"?`,
+      onConfirm: () => {
+        this.confirmDialog = undefined;
+        void this.deleteSelected();
+      },
+      onCancel: () => {
+        this.confirmDialog = undefined;
+        this.mode = "list";
+        this.options.tui.requestRender();
+      },
+    });
+    this.confirmDialog.focused = this.isFocused;
+    this.options.tui.requestRender();
   }
 
   private async deleteSelected(): Promise<void> {
@@ -340,13 +408,16 @@ export class ServerSettingsList implements Component, Focusable {
     const next = servers.filter((_, i) => i !== idx);
     try {
       await this.options.persist(next);
+      // Adopt the persisted list and rebuild so the row disappears
+      this.options.servers = next;
+      this.settingsList = this.buildSettingsList();
+      this._selectedIndex = 0;
       this.mode = "list";
-      this._selectedIndex = Math.max(0, next.length - 1);
-      this.options.tui.requestRender();
     } catch (err) {
       this.options.onError(String(err));
-      this.options.tui.requestRender();
+      this.mode = "list";
     }
+    this.options.tui.requestRender();
   }
 
   private async handleFieldChange(field: string, value: string): Promise<void> {
@@ -367,6 +438,10 @@ export class ServerSettingsList implements Component, Focusable {
 
     try {
       await this.options.persist(next);
+      // URL/id/name changes alter row labels → rebuild the list
+      this.options.servers = next;
+      this.settingsList = this.buildSettingsList();
+      this._selectedIndex = 0;
       this.options.tui.requestRender();
     } catch (err) {
       this.options.onError(String(err));

@@ -320,9 +320,10 @@ export class CommandManager {
     const servers = await this.settings.getLlamaServers();
 
     await ctx.ui.custom<void>(
-      (tui, _theme, keybindings, done) =>
+      (tui, theme, keybindings, done) =>
         new ServerSettingsList({
           tui,
+          theme,
           keybindings,
           servers,
           persist: (next) => this.settings.setLlamaSetting("servers", next),
@@ -371,9 +372,10 @@ export class CommandManager {
     }
 
     const servers = await this.settings.getLlamaServers();
-    await ctx.ui.custom<void>((tui, _theme, keybindings, done) =>
+    await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
       createOverrideSettingsList({
         tui,
+        theme,
         keybindings,
         servers,
         persist: (next) => this.settings.setLlamaSetting("servers", next),

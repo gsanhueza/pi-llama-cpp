@@ -1,5 +1,8 @@
 import type { ModelCostRates } from "@earendil-works/pi-ai";
-import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import {
+  getSettingsListTheme,
+  type Theme,
+} from "@earendil-works/pi-coding-agent";
 import type {
   Component,
   Focusable,
@@ -8,6 +11,7 @@ import type {
 } from "@earendil-works/pi-tui";
 import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer, ModelOverride } from "../interfaces/settings";
+import { ConfirmDialog, InputDialog, inputSubmenu } from "./dialog";
 import {
   addOverrideEntry,
   formatOverrideSummary,
@@ -15,7 +19,14 @@ import {
   removeOverrideEntry,
   updateOverrideEntry,
 } from "./overrideEntryEditor";
-import { ValidatedInputSubmenu } from "./settingsListHelpers";
+import {
+  HINTS,
+  MESSAGES,
+  PATTERN_MATCH_NOTE,
+  PLACEHOLDERS,
+  TERMS,
+  TITLES,
+} from "./strings";
 
 /**
  * Options for the SettingsList-based overrides editor.
@@ -23,6 +34,8 @@ import { ValidatedInputSubmenu } from "./settingsListHelpers";
 export interface OverrideSettingsListOptions {
   /** TUI instance, used to request re-renders after async persists */
   tui: TUI;
+  /** Theme for dialogs (from the ctx.ui.custom factory) */
+  theme: Theme;
   /** App keybindings manager (injected by ctx.ui.custom) */
   keybindings: KeybindingsManager;
   /**
@@ -47,7 +60,7 @@ export interface OverrideSettingsListOptions {
 /**
  * Builds the SettingItem for one override entry's editable fields.
  *
- * - Pattern / costs: infinite → `ValidatedInputSubmenu`
+ * - Pattern / costs: infinite → `InputDialog` submenus
  * - Capabilities: finite → `["text", "text | image"]`
  * - Reasoning: finite → `["true", "false"]`
  *
@@ -57,97 +70,108 @@ export interface OverrideSettingsListOptions {
  */
 const buildOverrideFieldItems = (
   entry: { pattern: string; override: ModelOverride },
+  theme: Theme,
   tui: TUI,
 ): SettingItem[] => [
   // Pattern — infinite
   {
     id: "pattern",
-    label: "Pattern",
-    description: "Model name prefix filter",
+    label: TERMS.pattern,
+    description: `Model id prefix (longest match wins) ${PATTERN_MATCH_NOTE}`,
     currentValue: entry.pattern,
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        entry.pattern,
-        (raw) => {
-          const trimmed = raw.trim();
-          return trimmed.length > 0 ? trimmed : null;
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.pattern),
+      MESSAGES.pattern(TERMS.pattern),
+      PLACEHOLDERS.pattern,
+      entry.pattern,
+      (raw) => {
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      },
+    ),
   },
   // Input cost — infinite
   {
     id: "cost.input",
-    label: "Input cost",
+    label: TERMS.inputCost,
     description: "Token cost per 1M input tokens",
     currentValue: String(entry.override.cost?.input ?? 0),
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        String(entry.override.cost?.input ?? 0),
-        (raw) => {
-          const parsed = parseCostValue(raw);
-          return parsed === null ? null : String(parsed);
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.inputCost),
+      MESSAGES.inputCost(TERMS.inputCost),
+      PLACEHOLDERS.inputCost,
+      String(entry.override.cost?.input ?? 0),
+      (raw) => {
+        const parsed = parseCostValue(raw);
+        return parsed === null ? null : String(parsed);
+      },
+    ),
   },
   // Output cost — infinite
   {
     id: "cost.output",
-    label: "Output cost",
+    label: TERMS.outputCost,
     description: "Token cost per 1M output tokens",
     currentValue: String(entry.override.cost?.output ?? 0),
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        String(entry.override.cost?.output ?? 0),
-        (raw) => {
-          const parsed = parseCostValue(raw);
-          return parsed === null ? null : String(parsed);
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.outputCost),
+      MESSAGES.outputCost(TERMS.outputCost),
+      PLACEHOLDERS.outputCost,
+      String(entry.override.cost?.output ?? 0),
+      (raw) => {
+        const parsed = parseCostValue(raw);
+        return parsed === null ? null : String(parsed);
+      },
+    ),
   },
   // Cache read cost — infinite
   {
     id: "cost.cacheRead",
-    label: "Cache read cost",
+    label: TERMS.cacheReadCost,
     description: "Token cost per 1M cached tokens (read)",
     currentValue: String(entry.override.cost?.cacheRead ?? 0),
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        String(entry.override.cost?.cacheRead ?? 0),
-        (raw) => {
-          const parsed = parseCostValue(raw);
-          return parsed === null ? null : String(parsed);
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.cacheReadCost),
+      MESSAGES.cacheReadCost(TERMS.cacheReadCost),
+      PLACEHOLDERS.cacheReadCost,
+      String(entry.override.cost?.cacheRead ?? 0),
+      (raw) => {
+        const parsed = parseCostValue(raw);
+        return parsed === null ? null : String(parsed);
+      },
+    ),
   },
   // Cache write cost — infinite
   {
     id: "cost.cacheWrite",
-    label: "Cache write cost",
+    label: TERMS.cacheWriteCost,
     description: "Token cost per 1M cached tokens (write)",
     currentValue: String(entry.override.cost?.cacheWrite ?? 0),
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        String(entry.override.cost?.cacheWrite ?? 0),
-        (raw) => {
-          const parsed = parseCostValue(raw);
-          return parsed === null ? null : String(parsed);
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.cacheWriteCost),
+      MESSAGES.cacheWriteCost(TERMS.cacheWriteCost),
+      PLACEHOLDERS.cacheWriteCost,
+      String(entry.override.cost?.cacheWrite ?? 0),
+      (raw) => {
+        const parsed = parseCostValue(raw);
+        return parsed === null ? null : String(parsed);
+      },
+    ),
   },
   // Capabilities — finite: text or text | image
   {
     id: "capabilities",
-    label: "Capabilities",
+    label: TERMS.capabilities,
     description: "Model capabilities (replaces detected)",
     currentValue: entry.override.capabilities?.join(" | ") ?? "text",
     values: ["text", "text | image"],
@@ -155,7 +179,7 @@ const buildOverrideFieldItems = (
   // Reasoning — finite: true or false
   {
     id: "reasoning",
-    label: "Reasoning",
+    label: TERMS.reasoning,
     description: "Is this a reasoning model? (true = default)",
     currentValue:
       entry.override.reasoning === undefined
@@ -168,19 +192,22 @@ const buildOverrideFieldItems = (
   // Max tokens — infinite
   {
     id: "maxTokens",
-    label: "Max tokens",
-    description: "Override max generation tokens (0 = same as detected context size)",
+    label: TERMS.maxTokens,
+    description:
+      "Override max generation tokens (0 = same as detected context size)",
     currentValue: String(entry.override.maxTokens ?? 0),
-    submenu: (_cv, done) =>
-      new ValidatedInputSubmenu(
-        String(entry.override.maxTokens ?? 0),
-        (raw) => {
-          const n = Number(raw.trim());
-          return n >= 0 && isFinite(n) ? String(n) : null;
-        },
-        (value) => done(value),
-        tui,
-      ),
+    submenu: inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.maxTokens),
+      MESSAGES.maxTokens(TERMS.maxTokens),
+      PLACEHOLDERS.maxTokens,
+      String(entry.override.maxTokens ?? 0),
+      (raw) => {
+        const n = Number(raw.trim());
+        return n >= 0 && isFinite(n) ? String(n) : null;
+      },
+    ),
   },
 ];
 
@@ -212,28 +239,10 @@ const parseReasoningLabel = (label: string): boolean | undefined => {
 class OverrideEntryListEditor implements Component, Focusable {
   private settingsList: SettingsList | null = null;
   private mode: "list" | "add" | "confirm" = "list";
-  private error: string | undefined;
+  private addDialog: InputDialog | undefined;
+  private confirmDialog: ConfirmDialog | undefined;
   private isFocused = false;
   private _selectedIndex = 0;
-
-  private addInput = new (class implements Component {
-    private value = "";
-    render(_width: number): string[] {
-      return [`Pattern: ${this.value}`];
-    }
-    invalidate(): void {}
-    getValue(): string {
-      return this.value;
-    }
-    setValue(v: string): void {
-      this.value = v;
-    }
-    handleInput(data: string): void {
-      if (data === "\r" || data === "\n") return;
-      if (data === "\u001b") return;
-      this.value += data;
-    }
-  })();
 
   constructor(
     /** Shared options object — `persistSnapshot` updates `options.servers`
@@ -254,109 +263,67 @@ class OverrideEntryListEditor implements Component, Focusable {
 
   set focused(value: boolean) {
     this.isFocused = value;
+    if (this.addDialog) this.addDialog.focused = value;
+    if (this.confirmDialog) this.confirmDialog.focused = value;
   }
 
   // -- Component -----------------------------------------------------------
 
   invalidate(): void {
     this.settingsList?.invalidate();
+    this.addDialog?.invalidate();
+    this.confirmDialog?.invalidate();
   }
 
   handleInput(data: string): void {
-    const kb = this.options.keybindings;
-
-    if (this.mode === "list") {
-      if (kb.matches(data, "tui.select.cancel")) {
-        this.done();
-        return;
-      }
-      // Track selection for add/delete (delegate to SettingsList for rendering)
-      if (kb.matches(data, "tui.select.up")) {
-        this._selectedIndex =
-          this._selectedIndex === 0
-            ? this.getEntries().length - 1
-            : this._selectedIndex - 1;
-      }
-      if (kb.matches(data, "tui.select.down")) {
-        this._selectedIndex =
-          this._selectedIndex === this.getEntries().length - 1
-            ? 0
-            : this._selectedIndex + 1;
-      }
-      if (data === "a") {
-        this.beginAdd();
-        return;
-      }
-      if (data === "d") {
-        this.mode = "confirm";
-        this.options.tui.requestRender();
-        return;
-      }
-      if (this.settingsList) {
-        this.settingsList.handleInput(data);
-      }
-      return;
-    }
-
     if (this.mode === "add") {
-      if (data === "\r" || data === "\n") {
-        const raw = this.addInput.getValue();
-        const trimmed = raw.trim();
-        if (trimmed.length === 0) {
-          this.error = "Pattern cannot be empty";
-          this.options.tui.requestRender();
-          return;
-        }
-        this.saveAdd(trimmed);
-        return;
-      }
-      if (data === "\u001b") {
-        this.mode = "list";
-        this.error = undefined;
-        this.options.tui.requestRender();
-        return;
-      }
-      this.addInput.handleInput(data);
-      this.error = undefined;
-      this.options.tui.requestRender();
+      this.addDialog?.handleInput(data);
       return;
     }
 
     if (this.mode === "confirm") {
-      if (data === "y") {
-        this.deleteSelected();
-        return;
-      }
-      if (data === "n" || kb.matches(data, "tui.select.cancel")) {
-        this.mode = "list";
-        this.options.tui.requestRender();
-        return;
-      }
+      this.confirmDialog?.handleInput(data);
       return;
+    }
+
+    const kb = this.options.keybindings;
+    if (kb.matches(data, "tui.select.cancel")) {
+      this.done();
+      return;
+    }
+    // Track selection for add/delete (delegate to SettingsList for rendering)
+    if (kb.matches(data, "tui.select.up")) {
+      this._selectedIndex =
+        this._selectedIndex === 0
+          ? this.getEntries().length - 1
+          : this._selectedIndex - 1;
+    }
+    if (kb.matches(data, "tui.select.down")) {
+      this._selectedIndex =
+        this._selectedIndex === this.getEntries().length - 1
+          ? 0
+          : this._selectedIndex + 1;
+    }
+    if (data === "a") {
+      this.beginAdd();
+      return;
+    }
+    if (data === "d") {
+      this.beginConfirm();
+      return;
+    }
+    if (this.settingsList) {
+      this.settingsList.handleInput(data);
     }
   }
 
   render(width: number): string[] {
     if (this.mode === "add") {
-      return [
-        "Add override — enter pattern",
-        "",
-        this.addInput.render(width)[0] ?? "",
-        ...(this.error ? [this.error] : []),
-        "",
-        "Enter save · Esc cancel",
-      ];
+      return this.addDialog?.render(width) ?? [];
     }
 
     if (this.mode === "confirm") {
-      const entries = this.getEntries();
-      const entry = entries[this._selectedIndex];
-      return [
-        `About to delete "${entry?.pattern}"`,
-        "Are you sure?",
-        "",
-        "y delete · Esc/n cancel",
-      ];
+      return this.confirmDialog?.render(width) ?? [];
     }
 
     if (this.settingsList) {
@@ -364,8 +331,9 @@ class OverrideEntryListEditor implements Component, Focusable {
       // empty (no rows → no description) show them as the hint line
       const lines = this.settingsList.render(width);
       if (this.getEntries().length === 0) {
-        lines[lines.length - 1] =
-          getSettingsListTheme().hint("  a add · Esc back");
+        lines[lines.length - 1] = getSettingsListTheme().hint(
+          HINTS.emptyOverrideEntries,
+        );
       }
       return lines;
     }
@@ -382,19 +350,20 @@ class OverrideEntryListEditor implements Component, Focusable {
   }
 
   private buildSettingsList(): SettingsList {
+    const { theme, tui } = this.options;
     const items: SettingItem[] = this.getEntries().map((entry, i) => ({
       id: `entry-${i}`,
       label: entry.pattern,
       // Shortcuts live here instead of a custom hint line; the summary
       // itself is already shown as the row's currentValue
-      description: "Enter: edit fields · a add · d delete · Esc back",
+      description: HINTS.overrideEntryRow,
       currentValue: formatOverrideSummary(entry.override),
       submenu: (_cv, done) => {
         // Re-read the entry so the submenu prefills with the current
         // values (the list is rebuilt after every successful persist,
         // so `i` is stable for this list instance's lifetime)
         const current = this.getEntries()[i] ?? entry;
-        const fieldItems = buildOverrideFieldItems(current, this.options.tui);
+        const fieldItems = buildOverrideFieldItems(current, theme, tui);
         return new SettingsList(
           fieldItems,
           Math.min(fieldItems.length + 2, 15),
@@ -420,14 +389,61 @@ class OverrideEntryListEditor implements Component, Focusable {
 
   private beginAdd(): void {
     this.mode = "add";
-    this.addInput.setValue("");
-    this.error = undefined;
+    this.addDialog = new InputDialog({
+      theme: this.options.theme,
+      tui: this.options.tui,
+      title: TITLES.addOverride,
+      message: `${TERMS.pattern} ${PATTERN_MATCH_NOTE}`,
+      placeholder: PLACEHOLDERS.pattern,
+      validate: (raw) => {
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      },
+      onSubmit: (value) => {
+        this.addDialog = undefined;
+        void this.saveAdd(value);
+      },
+      onCancel: () => {
+        this.addDialog = undefined;
+        this.mode = "list";
+        this.options.tui.requestRender();
+      },
+    });
+    this.addDialog.focused = this.isFocused;
+    this.options.tui.requestRender();
+  }
+
+  private beginConfirm(): void {
+    const entry = this.getEntries()[this._selectedIndex];
+    if (!entry) return;
+
+    this.mode = "confirm";
+    this.confirmDialog = new ConfirmDialog({
+      theme: this.options.theme,
+      tui: this.options.tui,
+      title: TITLES.deleteOverride,
+      message: `Delete "${entry.pattern}"?`,
+      onConfirm: () => {
+        this.confirmDialog = undefined;
+        void this.deleteSelected();
+      },
+      onCancel: () => {
+        this.confirmDialog = undefined;
+        this.mode = "list";
+        this.options.tui.requestRender();
+      },
+    });
+    this.confirmDialog.focused = this.isFocused;
     this.options.tui.requestRender();
   }
 
   private async saveAdd(pattern: string): Promise<void> {
     const server = this.options.servers[this.serverIndex];
-    if (!server) return;
+    if (!server) {
+      this.mode = "list";
+      this.options.tui.requestRender();
+      return;
+    }
 
     // Uniquify the pattern
     const existing = new Set(Object.keys(server.overrides ?? {}));
@@ -444,7 +460,9 @@ class OverrideEntryListEditor implements Component, Focusable {
     );
     await this.persistSnapshot(next, () => {
       this.mode = "list";
-      this._selectedIndex = this.getEntries().length - 1;
+      // Fresh SettingsList starts with the cursor at index 0 — keep the
+      // manual tracker in sync so add/delete target the highlighted row
+      this._selectedIndex = 0;
       this.settingsList = this.buildSettingsList();
       this.options.onChanged();
       this.options.tui.requestRender();
@@ -460,7 +478,9 @@ class OverrideEntryListEditor implements Component, Focusable {
     );
     await this.persistSnapshot(next, () => {
       this.mode = "list";
-      this._selectedIndex = Math.max(0, this.getEntries().length - 1);
+      // Fresh SettingsList starts with the cursor at index 0 — keep the
+      // manual tracker in sync so add/delete target the highlighted row
+      this._selectedIndex = 0;
       this.settingsList = this.buildSettingsList();
       this.options.onChanged();
       this.options.tui.requestRender();
@@ -483,6 +503,7 @@ class OverrideEntryListEditor implements Component, Focusable {
       await this.options.persist(next);
     } catch (err) {
       this.options.onError(String(err));
+      this.mode = "list";
       this.options.tui.requestRender();
       return;
     }
@@ -512,6 +533,8 @@ class OverrideEntryListEditor implements Component, Focusable {
         entry.override,
       );
       await this.persistSnapshot(next, () => {
+        // Rebuild resets the SettingsList cursor → re-sync the tracker
+        this._selectedIndex = 0;
         this.settingsList = this.buildSettingsList();
         this.options.tui.requestRender();
       });

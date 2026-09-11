@@ -222,7 +222,9 @@ describe("CommandManager", () => {
         matches: vi.fn(
           (data: string, name: string) =>
             (data === ENTER && name === "tui.select.confirm") ||
-            (data === ESC && name === "tui.select.cancel"),
+            (data === ESC && name === "tui.select.cancel") ||
+            (data === "\x1b[A" && name === "tui.select.up") ||
+            (data === "\x1b[B" && name === "tui.select.down"),
         ),
       }) as unknown as KeybindingsManager;
 
@@ -290,10 +292,16 @@ describe("CommandManager", () => {
       // Seeded with the merged snapshot
       expect(editor.render(80).join("\n")).toContain("http://seed:1");
 
-      // Add a server through the editor → setLlamaSetting("servers", …)
+      // Add a server through the wizard (URL → ID → name) →
+      // setLlamaSetting("servers", …) persists only after the final step
       editor.handleInput("a");
+      expect(editor.render(80).join("\n")).toContain("Add server · 1/3");
       for (const ch of "http://new:2") editor.handleInput(ch);
       editor.handleInput(ENTER);
+      expect(editor.render(80).join("\n")).toContain("Add server · 2/3");
+      editor.handleInput(ENTER); // skip optional ID
+      expect(editor.render(80).join("\n")).toContain("Add server · 3/3");
+      editor.handleInput(ENTER); // skip optional name → persist
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(editorSettings.setLlamaSetting).toHaveBeenCalledWith("servers", [
         { url: "http://seed:1" },
@@ -303,6 +311,86 @@ describe("CommandManager", () => {
       // Esc closes the editor
       editor.handleInput(ESC);
       expect(done).toHaveBeenCalledTimes(1);
+    });
+
+    it("should persist nothing when the add wizard is cancelled", async () => {
+      const editorSettings = makeSettingsStub({
+        getLlamaServers: vi.fn(async () => [{ url: "http://seed:1" }]),
+      });
+      commandManager = new CommandManager(serverManager, editorSettings);
+      const ctx = createMockCtx(() => null);
+
+      await commandManager.handleCommand("servers", ctx as any, mockPi as any);
+
+      const factory = vi.mocked(ctx.ui.custom).mock.calls[0][0] as (
+        tui: TUI,
+        theme: Theme,
+        kb: KeybindingsManager,
+        done: (result: undefined) => void,
+      ) => ServerSettingsList;
+      const editor = factory(
+        { requestRender: vi.fn() } as unknown as TUI,
+        createMockTheme(),
+        createMockKeybindings(),
+        vi.fn(),
+      );
+
+      // Walk to wizard step 2, then abort — nothing must be persisted
+      editor.handleInput("a");
+      for (const ch of "http://new:2") editor.handleInput(ch);
+      editor.handleInput(ENTER);
+      editor.handleInput(ESC);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(editorSettings.setLlamaSetting).not.toHaveBeenCalled();
+      // Back to the list view
+      expect(editor.render(80).join("\n")).toContain("http://seed:1");
+    });
+
+    it("should delete the selected server after confirming", async () => {
+      const editorSettings = makeSettingsStub({
+        getLlamaServers: vi.fn(async () => [
+          { url: "http://seed:1" },
+          { url: "http://doomed:2" },
+        ]),
+      });
+      commandManager = new CommandManager(serverManager, editorSettings);
+      const ctx = createMockCtx(() => null);
+
+      await commandManager.handleCommand("servers", ctx as any, mockPi as any);
+
+      const factory = vi.mocked(ctx.ui.custom).mock.calls[0][0] as (
+        tui: TUI,
+        theme: Theme,
+        kb: KeybindingsManager,
+        done: (result: undefined) => void,
+      ) => ServerSettingsList;
+      const editor = factory(
+        { requestRender: vi.fn() } as unknown as TUI,
+        createMockTheme(),
+        createMockKeybindings(),
+        vi.fn(),
+      );
+
+      // Move to the second row and open the confirm dialog
+      editor.handleInput("\x1b[B");
+      editor.handleInput("d");
+      expect(editor.render(80).join("\n")).toContain(
+        'Delete "http://doomed:2"?',
+      );
+
+      // Esc keeps the server
+      editor.handleInput(ESC);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(editorSettings.setLlamaSetting).not.toHaveBeenCalled();
+
+      // Re-open and confirm the default "Delete" selection
+      editor.handleInput("d");
+      editor.handleInput(ENTER);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(editorSettings.setLlamaSetting).toHaveBeenCalledWith("servers", [
+        { url: "http://seed:1" },
+      ]);
     });
   });
 
