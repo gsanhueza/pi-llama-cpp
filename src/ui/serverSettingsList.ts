@@ -259,16 +259,30 @@ export class ServerSettingsList implements Component, Focusable {
   // -- helpers ---------------------------------------------------------------
 
   private selectedIndex(): number {
-    // SettingsList tracks its own selection; we approximate by counting
-    // items rendered before the current selection.
-    // For simplicity, we use the SettingsList's internal state by
-    // accessing the items array length.
-    // Actually, we need a way to get the SettingsList's selected index.
-    // Since SettingsList doesn't expose it, we'll track it manually.
+    // Manual tracker for add/delete targeting, kept in sync with the
+    // SettingsList's cursor by rebuildList (SettingsList doesn't expose
+    // a getter)
     return this._selectedIndex;
   }
 
   private _selectedIndex = 0;
+
+  /**
+   * Rebuilds the server list and places the cursor on `targetIndex`
+   * (clamped to the last row). A fresh SettingsList starts its cursor
+   * at index 0, so `selectItem` is used to restore the position.
+   */
+  private rebuildList(targetIndex: number): void {
+    this.settingsList = this.buildSettingsList();
+    const count = this.options.servers.length;
+    if (count === 0) {
+      this._selectedIndex = 0;
+      return;
+    }
+    const target = Math.min(targetIndex, count - 1);
+    this._selectedIndex = target;
+    this.settingsList.selectItem(`server-${target}`);
+  }
 
   // -- add wizard ---------------------------------------------------------------
 
@@ -364,10 +378,10 @@ export class ServerSettingsList implements Component, Focusable {
     ];
     try {
       await this.options.persist(next);
-      // Adopt the persisted list and rebuild so the new row appears
+      // Adopt the persisted list and rebuild so the new row appears;
+      // the new server is appended last — put the cursor on it
       this.options.servers = next;
-      this.settingsList = this.buildSettingsList();
-      this._selectedIndex = 0;
+      this.rebuildList(next.length - 1);
       this.mode = "list";
     } catch (err) {
       this.options.onError(String(err));
@@ -408,10 +422,11 @@ export class ServerSettingsList implements Component, Focusable {
     const next = servers.filter((_, i) => i !== idx);
     try {
       await this.options.persist(next);
-      // Adopt the persisted list and rebuild so the row disappears
+      // Adopt the persisted list and rebuild so the row disappears;
+      // the server that followed the deleted one now sits at the same
+      // index (rebuildList clamps when the last row was deleted)
       this.options.servers = next;
-      this.settingsList = this.buildSettingsList();
-      this._selectedIndex = 0;
+      this.rebuildList(idx);
       this.mode = "list";
     } catch (err) {
       this.options.onError(String(err));
@@ -438,10 +453,10 @@ export class ServerSettingsList implements Component, Focusable {
 
     try {
       await this.options.persist(next);
-      // URL/id/name changes alter row labels → rebuild the list
+      // URL/id/name changes alter row labels → rebuild the list;
+      // keep the cursor on the edited server
       this.options.servers = next;
-      this.settingsList = this.buildSettingsList();
-      this._selectedIndex = 0;
+      this.rebuildList(idx);
       this.options.tui.requestRender();
     } catch (err) {
       this.options.onError(String(err));

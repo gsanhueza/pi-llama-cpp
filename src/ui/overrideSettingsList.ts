@@ -404,6 +404,25 @@ class OverrideEntryListEditor implements Component, Focusable {
     );
   }
 
+  /**
+   * Rebuilds the entry list and places the cursor on `targetIndex`
+   * (clamped to the last entry). A fresh SettingsList starts its cursor
+   * at index 0 and `selectedIndex` is private, so `selectItem` is the
+   * supported way to restore the position; the manual `_selectedIndex`
+   * tracker (used for add/delete targeting) is kept in sync.
+   */
+  private rebuildList(targetIndex: number): void {
+    this.settingsList = this.buildSettingsList();
+    const count = this.getEntries().length;
+    if (count === 0) {
+      this._selectedIndex = 0;
+      return;
+    }
+    const target = Math.min(targetIndex, count - 1);
+    this._selectedIndex = target;
+    this.settingsList.selectItem(`entry-${target}`);
+  }
+
   private beginAdd(): void {
     this.mode = "add";
     this.addDialog = new InputDialog({
@@ -477,10 +496,8 @@ class OverrideEntryListEditor implements Component, Focusable {
     );
     await this.persistSnapshot(next, () => {
       this.mode = "list";
-      // Fresh SettingsList starts with the cursor at index 0 — keep the
-      // manual tracker in sync so add/delete target the highlighted row
-      this._selectedIndex = 0;
-      this.settingsList = this.buildSettingsList();
+      // The new entry is appended last — put the cursor on it
+      this.rebuildList(this.getEntries().length - 1);
       this.options.onChanged();
       this.options.tui.requestRender();
     });
@@ -495,10 +512,9 @@ class OverrideEntryListEditor implements Component, Focusable {
     );
     await this.persistSnapshot(next, () => {
       this.mode = "list";
-      // Fresh SettingsList starts with the cursor at index 0 — keep the
-      // manual tracker in sync so add/delete target the highlighted row
-      this._selectedIndex = 0;
-      this.settingsList = this.buildSettingsList();
+      // The entry that followed the deleted one now sits at the same
+      // index (rebuildList clamps when the last entry was deleted)
+      this.rebuildList(idx);
       this.options.onChanged();
       this.options.tui.requestRender();
     });
@@ -550,9 +566,8 @@ class OverrideEntryListEditor implements Component, Focusable {
         entry.override,
       );
       await this.persistSnapshot(next, () => {
-        // Rebuild resets the SettingsList cursor → re-sync the tracker
-        this._selectedIndex = 0;
-        this.settingsList = this.buildSettingsList();
+        // Keep the cursor on the renamed entry
+        this.rebuildList(entryIndex);
         this.options.tui.requestRender();
       });
       return;
