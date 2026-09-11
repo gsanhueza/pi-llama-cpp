@@ -1,9 +1,7 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 
 /**
- * Read/write access to pi's global settings.json on behalf of this extension.
+ * Read/write access to a settings.json file on behalf of this extension.
  * Owns serialization of writes and atomicity; knows nothing about pi's
  * SettingsManager.
  */
@@ -11,9 +9,7 @@ export class SettingsStore {
   /** Serializes whole-file read-modify-write cycles (last write wins). */
   private writeQueue: Promise<void> = Promise.resolve();
 
-  constructor(
-    private readonly path: string = join(getAgentDir(), "settings.json"),
-  ) {}
+  constructor(private readonly path: string) {}
 
   /**
    * Reads and parses the whole settings file.

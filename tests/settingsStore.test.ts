@@ -1,10 +1,5 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsStore } from "../src/utils/settingsStore";
-
-vi.mock("@earendil-works/pi-coding-agent", () => ({
-  getAgentDir: vi.fn().mockReturnValue("/fake/agent/dir"),
-}));
 
 const mockReadFile = vi.hoisted(() => vi.fn());
 const mockWriteFile = vi.hoisted(() => vi.fn());
@@ -16,14 +11,11 @@ vi.mock("node:fs/promises", () => ({
   rename: mockRename,
 }));
 
-const mockGetAgentDir = vi.mocked(getAgentDir);
-
 const SETTINGS_PATH = "/fake/agent/dir/settings.json";
 
 describe("SettingsStore.read", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
   });
 
   it("should return {} when the file is missing (ENOENT)", async () => {
@@ -53,21 +45,11 @@ describe("SettingsStore.read", () => {
 
     await expect(store.read()).rejects.toMatchObject({ code: "EACCES" });
   });
-
-  it("should default the path to <agentDir>/settings.json", async () => {
-    mockReadFile.mockResolvedValue('{"a":1}');
-
-    const store = new SettingsStore();
-    await store.read();
-
-    expect(mockReadFile).toHaveBeenCalledWith(SETTINGS_PATH, "utf-8");
-  });
 });
 
 describe("SettingsStore.updateKey — file content", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockWriteFile.mockResolvedValue(undefined);
     mockRename.mockResolvedValue(undefined);
   });
@@ -122,7 +104,6 @@ describe("SettingsStore.updateKey — file content", () => {
 describe("SettingsStore.updateKey — write path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockWriteFile.mockResolvedValue(undefined);
     mockRename.mockResolvedValue(undefined);
   });

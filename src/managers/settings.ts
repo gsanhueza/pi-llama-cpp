@@ -1,8 +1,11 @@
 import { ApiKeyCredential, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
+  getAgentDir,
   readStoredCredential,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 import {
   API_KEY_PLACEHOLDER,
   AUTOLOAD_ON_MESSAGE,
@@ -27,7 +30,22 @@ import { isValidServerUrl, normalizeUrl } from "../utils/urls";
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
 
-  constructor(private readonly store: SettingsStore = new SettingsStore()) {}
+  private globalStore = new SettingsStore(join(getAgentDir(), "settings.json"));
+  private projectStore = new SettingsStore(
+    join(process.cwd(), ".pi", "settings.json"),
+  );
+
+  /**
+   * Check if project settings file exists in the current working directory.
+   */
+  private async hasProjectSettings(): Promise<boolean> {
+    try {
+      await access(join(process.cwd(), ".pi", "settings.json"));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   /** Warnings collected during URL resolution (dropped invalid entries). */
   private warnings: string[] = [];
@@ -285,8 +303,11 @@ export class LlamaSettingsManager {
   }
 
   /**
-   * Persists one llamaSettings field to the global settings file and
-   * reloads the in-memory settings so resolvers see the change immediately.
+   * Persists one llamaSettings field to settings and reloads the in-memory
+   * settings so resolvers see the change immediately.
+   *
+   * When `scope` is `"auto"` (default), writes to the project `.pi/settings.json`
+   * if it exists, otherwise to global `~/.pi/agent/settings.json`.
    *
    * Rejects if the file can't be read (e.g. invalid JSON) or written —
    * in-memory state stays consistent (reload only on success).
@@ -294,8 +315,18 @@ export class LlamaSettingsManager {
   async setLlamaSetting<K extends keyof LlamaSettings>(
     key: K,
     value: LlamaSettings[K],
+    scope: "auto" | "global" | "project" = "auto",
   ): Promise<void> {
-    await this.store.updateKey(SETTINGS_KEY, (current) => {
+    const store =
+      scope === "auto"
+        ? (await this.hasProjectSettings())
+          ? this.projectStore
+          : this.globalStore
+        : scope === "project"
+          ? this.projectStore
+          : this.globalStore;
+
+    await store.updateKey(SETTINGS_KEY, (current) => {
       const merged =
         typeof current === "object" && current !== null
           ? (current as Record<string, unknown>)

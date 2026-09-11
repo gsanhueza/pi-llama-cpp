@@ -36,10 +36,12 @@ vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   rename: vi.fn(),
+  access: vi.fn(),
 }));
 
 // Import mocked modules
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { access } from "node:fs/promises";
 
 describe("URL resolution fallback chain", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
@@ -698,12 +700,20 @@ describe("setLlamaSetting", () => {
   const mockReadFile = vi.mocked(readFile);
   const mockWriteFile = vi.mocked(writeFile);
   const mockRename = vi.mocked(rename);
+  const mockAccess = vi.mocked(access);
 
-  const SETTINGS_PATH = "/fake/agent/dir/settings.json";
+  const GLOBAL_SETTINGS_PATH = "/fake/agent/dir/settings.json";
+  const PROJECT_SETTINGS_PATH = "/fake/project/.pi/settings.json";
+  const FAKE_CWD = "/fake/project";
+
+  afterEach(() => {
+    vi.resetModules();
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    vi.spyOn(process, "cwd").mockReturnValue(FAKE_CWD);
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
     mockReload.mockResolvedValue(undefined);
@@ -712,7 +722,72 @@ describe("setLlamaSetting", () => {
     mockRename.mockResolvedValue(undefined);
   });
 
+  it("should write to project settings when .pi/settings.json exists (auto scope)", async () => {
+    mockAccess.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue("{}");
+
+    const { settings } = await import("../src/managers/settings");
+    await settings.setLlamaSetting("sortBy", "desc");
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      `${PROJECT_SETTINGS_PATH}.tmp`,
+      expect.any(String),
+      "utf-8",
+    );
+    expect(mockRename).toHaveBeenCalledWith(
+      `${PROJECT_SETTINGS_PATH}.tmp`,
+      PROJECT_SETTINGS_PATH,
+    );
+  });
+
+  it("should write to global settings when .pi/settings.json does not exist (auto scope)", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
+    mockReadFile.mockResolvedValue("{}");
+
+    const { settings } = await import("../src/managers/settings");
+    await settings.setLlamaSetting("sortBy", "desc");
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      `${GLOBAL_SETTINGS_PATH}.tmp`,
+      expect.any(String),
+      "utf-8",
+    );
+    expect(mockRename).toHaveBeenCalledWith(
+      `${GLOBAL_SETTINGS_PATH}.tmp`,
+      GLOBAL_SETTINGS_PATH,
+    );
+  });
+
+  it("should always write to global when scope is explicitly 'global'", async () => {
+    mockAccess.mockResolvedValue(undefined); // project exists but we override
+    mockReadFile.mockResolvedValue("{}");
+
+    const { settings } = await import("../src/managers/settings");
+    await settings.setLlamaSetting("sortBy", "desc", "global");
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      `${GLOBAL_SETTINGS_PATH}.tmp`,
+      expect.any(String),
+      "utf-8",
+    );
+  });
+
+  it("should always write to project when scope is explicitly 'project'", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT")); // project doesn't exist but we override
+    mockReadFile.mockResolvedValue("{}");
+
+    const { settings } = await import("../src/managers/settings");
+    await settings.setLlamaSetting("sortBy", "desc", "project");
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      `${PROJECT_SETTINGS_PATH}.tmp`,
+      expect.any(String),
+      "utf-8",
+    );
+  });
+
   it("should write the merged llamaSettings key atomically and reload", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT")); // no project settings
     mockReadFile.mockResolvedValue(
       JSON.stringify(
         { unrelated: true, llamaSettings: { reactToModelSelect: true } },
@@ -721,11 +796,12 @@ describe("setLlamaSetting", () => {
       ),
     );
 
+    const { settings } = await import("../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
     const [tmpPath, written, encoding] = mockWriteFile.mock.calls[0];
-    expect(tmpPath).toBe(`${SETTINGS_PATH}.tmp`);
+    expect(tmpPath).toBe(`${GLOBAL_SETTINGS_PATH}.tmp`);
     expect(encoding).toBe("utf-8");
     const parsed = JSON.parse(written as string);
     expect(parsed).toEqual({
@@ -733,10 +809,14 @@ describe("setLlamaSetting", () => {
       llamaSettings: { reactToModelSelect: true, sortBy: "desc" },
     });
     expect(mockRename).toHaveBeenCalledWith(
-      `${SETTINGS_PATH}.tmp`,
-      SETTINGS_PATH,
+      `${GLOBAL_SETTINGS_PATH}.tmp`,
+      GLOBAL_SETTINGS_PATH,
     );
     expect(mockReload).toHaveBeenCalledTimes(1);
+  });
+
+  afterEach(() => {
+    vi.resetModules();
   });
 
   it("should reflect the new value in resolvers immediately after the write", async () => {
@@ -746,14 +826,17 @@ describe("setLlamaSetting", () => {
       });
     });
 
+    const { settings } = await import("../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(await settings.resolveSortBy()).toBe("desc");
   });
 
   it("should reject and skip reload when the write fails", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockWriteFile.mockRejectedValue(new Error("ENOSPC: simulated"));
 
+    const { settings } = await import("../src/managers/settings");
     await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       "ENOSPC",
     );
@@ -761,8 +844,10 @@ describe("setLlamaSetting", () => {
   });
 
   it("should reject and leave the file untouched when the JSON is invalid", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockReadFile.mockResolvedValue("{ broken");
 
+    const { settings } = await import("../src/managers/settings");
     await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       /Cannot parse/,
     );
@@ -771,6 +856,8 @@ describe("setLlamaSetting", () => {
   });
 
   it("should persist booleans and numbers with type fidelity", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
+    const { settings } = await import("../src/managers/settings");
     await settings.setLlamaSetting("reactToModelSelect", false);
 
     const [, firstWrite] = mockWriteFile.mock.calls[0];

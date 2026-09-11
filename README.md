@@ -61,6 +61,18 @@ The recommended way to configure the extension is using the `llamaSettings` key.
 
 Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
 
+#### Minimal configuration
+
+```json
+{
+  "llamaSettings": {
+    "servers": [{ "url": "http://127.0.0.1:8080" }]
+  }
+}
+```
+
+#### Full configuration
+
 ```json
 {
   "llamaSettings": {
@@ -68,7 +80,8 @@ Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (g
       {
         "url": "http://127.0.0.1:8080",
         "id": "local",
-        "name": "Local Server"
+        "name": "Local Server",
+        "overrides": {}
       },
       {
         "url": "http://10.0.0.5:8080",
@@ -110,48 +123,23 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 
 #### In-session settings menu
 
-Run `/models settings` to edit the scalar settings above without hand-editing JSON:
-
-- **Enter/Space** cycles the value under the cursor; **Esc** closes the menu.
-- Booleans toggle `on`/`off`, `sortBy` cycles through the sort orders, and the
-  timeouts cycle through presets (`pollingTimeout`: 15s/30s/60s/120s/300s,
-  `serverTimeout`: 500ms/1s/2s/5s/10s).
-- Changes are written to the **global** `~/.pi/agent/settings.json` only. If a
-  project `.pi/settings.json` defines the same key, its value keeps winning in
-  the merged view until you remove it there.
-- Boolean and sort changes apply immediately; timeout changes apply on the next
-  model load.
-- The `servers` list is edited with `/models servers` (see below), and per-
-  server model overrides with `/models overrides` (see
-  [Model Overrides](#model-overrides)).
+Run `/models settings` to edit the scalar settings above without hand-editing JSON. Changes are written to the **project** `.pi/settings.json` if it exists, otherwise to **global** `~/.pi/agent/settings.json`. Boolean and sort changes apply immediately; timeout changes apply on the next model load. The `servers` list is edited with `/models servers` (see below), and per-server model overrides with `/models overrides` (see [Model Overrides](#model-overrides)).
 
 #### Server list editor
 
 Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
-without hand-editing JSON:
+without hand-editing JSON. Each change is written immediately to the **project**
+`.pi/settings.json` if it exists, otherwise to **global**
+`~/.pi/agent/settings.json`.
 
-- **↑/↓** moves the cursor, **Enter** on a server row drills into its
-  field-edit submenu (URL, id, name); **a** adds a new server (inline Input
-  for URL), **d** deletes the selected server (after an "Are you sure?"
-  confirmation — only **y** confirms; **Esc/n** cancels), **Esc** closes
-  the editor.
-- One URL per entry (`http://host:port`). Trailing slashes are stripped on
-  save; `;`-separated values are rejected — use separate entries instead.
-- Each change is written immediately to the **global**
-  `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
-  `servers`, its list keeps winning in the merged view until you remove it
-  there.
-- Changes take effect immediately after closing the editor: new servers
-  register their providers, removed ones leave pi's registry right away,
-  and edited ones are re-registered with the fresh config — no restart or
-  `/models` needed.
-- Limitation: a model already loading in the background on a removed or
-  edited server finishes loading, but its progress notifications stop;
-  re-select it from the (new) provider afterwards.
-- Per-server `id`/`name` overrides are edited in the field submenu; saving an
-  empty value clears the override. The list shows them as a
-  `(<id> - <name>)` suffix, falling back to the auto-detected
-  `llama-server=<url>` id when no custom `id` is set.
+Changes take effect immediately after closing the editor: new servers
+register their providers, removed ones leave pi's registry right away,
+and edited ones are re-registered with the fresh config — no restart or
+`/models` needed.
+
+Limitation: a model already loading in the background on a removed or
+edited server finishes loading, but its progress notifications stop;
+re-select it from the (new) provider afterwards.
 
 #### Environment variable
 
@@ -365,39 +353,14 @@ Every field of an override is optional — absent fields fall back to what the e
 #### Override editor
 
 Run `/models overrides` to edit a server's override entries without hand-editing
-JSON. It opens a settings menu (same UX as `/models settings` and
-`/tps`-style menus):
+JSON. It opens a settings menu (same UX as `/models settings`).
 
-- The first menu lists your servers with their entry counts; **Enter**
-  drills into the selected server's override entries, **Esc** closes the editor.
-  Servers themselves are not added or removed here — use `/models servers`.
-- The entry menu lists the server's override entries with a compact summary
-  (`input: $0.2, output: $0.6, capabilities: text,image …` — see
-  `formatOverrideSummary`: zero/absent fields are omitted, `—` when empty).
-  **Enter** drills into an entry, **a**
-  adds a new entry (default pattern `new-pattern`, empty override — rename it
-  right after), **d** deletes the entry under the cursor (after an "Are you
-  sure?" confirmation — only **y** confirms; **Esc/n** cancels), **Esc** goes
-  back.
-- The entry menu shows eight rows — **pattern** and the four **cost** fields
-  (input, output, cacheRead, cacheWrite) use inline input (**Enter** to type,
-  **Enter** to save, **Esc** to cancel); **capabilities** cycles between
-  `text` and `text | image` (**Enter** to cycle, **Esc** to cancel);
-  **reasoning** cycles between `true` and `false` (**Enter** to cycle,
-  **Esc** to cancel); **maxTokens** uses inline input (**Enter** to type,
-  **Enter** to save, **Esc** to cancel).
-- The pattern must be non-empty; cost fields must be non-negative numbers
-  (an empty cost field means zero). Capabilities are limited to `text` or
-  `text | image` (select via Enter to cycle); reasoning is `true` or `false`
-  (select via Enter to cycle); maxTokens must be a non-negative number
-  (an empty field means zero). Invalid input shows an inline error and keeps
-  the input open for correction.
-- Each change is written immediately to the **global**
-  `~/.pi/agent/settings.json`. If a project `.pi/settings.json` defines
-  `servers`, its list keeps winning in the merged view until you remove it
-  there.
-- Overrides take effect on the next provider request after closing the editor —
-  no `/reload` needed.
+Each change is written immediately to the **project**
+`.pi/settings.json` if it exists, otherwise to **global**
+`~/.pi/agent/settings.json`.
+
+Overrides take effect on the next provider request after closing the editor —
+no `/reload` needed.
 
 #### Cost Fields
 
