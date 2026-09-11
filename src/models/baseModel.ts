@@ -169,8 +169,10 @@ export abstract class BaseModel {
    * @returns A Pi configuration object
    */
   async toProviderConfig(): Promise<ProviderModelConfig> {
+    const override = this.server.findOverrideForModel(this.id) ?? {};
+
     // Merge the matched override's cost with zero defaults
-    const userCost = this.server.findOverrideForModel(this.id)?.cost ?? {};
+    const userCost = override.cost ?? {};
     const cost: ModelCost = {
       input: userCost.input ?? 0,
       output: userCost.output ?? 0,
@@ -178,7 +180,7 @@ export abstract class BaseModel {
       cacheWrite: userCost.cacheWrite ?? 0,
     };
 
-    const response = {
+    const response: ProviderModelConfig = {
       id: this.id,
       name: this.name,
       reasoning: this.reasoning,
@@ -193,10 +195,13 @@ export abstract class BaseModel {
       input: await this.getCapabilities(),
       contextWindow: await this.getContextSize(),
       cost,
-      maxTokens:
-        this.server.findOverrideForModel(this.id)?.maxTokens ??
-        (await this.getContextSize()),
+      maxTokens: override.maxTokens ?? (await this.getContextSize()),
     };
+
+    // Add compat if the override specifies it
+    if (override.compat) {
+      response.compat = override.compat;
+    }
 
     return response;
   }

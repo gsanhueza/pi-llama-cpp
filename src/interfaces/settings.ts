@@ -1,4 +1,4 @@
-import type { ModelCost } from "@earendil-works/pi-ai";
+import type { ModelCost, OpenAICompletionsCompat } from "@earendil-works/pi-ai";
 import type { SortBy } from "../constants";
 
 /**
@@ -25,6 +25,11 @@ export interface ModelOverride {
    * absent, falls back to the context size detected from the server.
    */
   maxTokens?: number;
+  /**
+   * OpenAI-compatible provider compatibility settings. Merged with any
+   * provider-level compat when the model is registered with Pi.
+   */
+  compat?: Partial<OpenAICompletionsCompat>;
 }
 
 /**

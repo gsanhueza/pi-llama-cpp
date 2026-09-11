@@ -333,7 +333,7 @@ The extension automatically injects the appropriate `thinking_budget_tokens` int
 
 A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes — and fine-tune what the extension reports about each model.
 
-This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities`, `reasoning`, and `maxTokens`, regardless of what the server reports.
+This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities`, `reasoning`, `maxTokens`, and `compat`, regardless of what the server reports.
 
 Add overrides to your server configuration:
 
@@ -419,6 +419,34 @@ All four fields are optional — unspecified fields default to zero.
 | `capabilities` | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities. |
 | `reasoning`    | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                        |
 | `maxTokens`    | number           | Override max generation tokens. Falls back to context size when absent.                        |
+| `compat`       | object           | OpenAI-compatible provider compatibility settings (see below).                                 |
+
+#### Compatibility (`compat`)
+
+The `compat` field accepts any subset of [OpenAI-compatible provider compatibility settings](https://github.com/earendil-works/pi/blob/main/packages/ai/src/types.ts) used by the `openai-completions` API. These control how the extension talks to your server — for example, disabling `developer` role support, choosing the thinking format, enabling Anthropic-style cache control, or setting thinking token budgets.
+
+Example:
+
+```json
+{
+  "llamaSettings": {
+    "servers": [
+      {
+        "url": "http://127.0.0.1:8080",
+        "overrides": {
+          "llama-3": {
+            "compat": {
+              "supportsDeveloperRole": false,
+              "thinkingFormat": "openai",
+              "thinkingTokenBudgetField": "thinking_budget_tokens"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+```
 
 ### Prefix matching
 
@@ -471,6 +499,7 @@ Each model exposed to Pi includes the following defaults:
 - **`maxTokens`** — dynamically set to the model's context window (detected from llama-server); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`reasoning`** — `true` by default (llama.cpp's `/v1/models` endpoint does not expose it); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
+- **`compat`** — OpenAI-compatible provider compatibility settings; can be set per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 
 ## Dependencies
 
