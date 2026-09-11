@@ -10,7 +10,7 @@ import type {
 } from "@earendil-works/pi-tui";
 import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../interfaces/settings";
-import { ConfirmDialog, InputDialog, inputSubmenu } from "./dialog";
+import { ConfirmDialog, InputDialog } from "./dialog";
 import { formatServerSuffix, normalizeServerUrl } from "./serverListEditor";
 import { HINTS, PLACEHOLDERS, TERMS, TITLES } from "./strings";
 
@@ -53,7 +53,7 @@ const buildServerFieldItems = (
     label: TERMS.serverUrl,
     description: `${TERMS.serverUrl} (http://host:port)`,
     currentValue: server.url,
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.serverUrl),
@@ -68,7 +68,7 @@ const buildServerFieldItems = (
     label: TERMS.providerId,
     description: `${TERMS.providerId} (empty uses auto-detected)`,
     currentValue: server.id ?? "",
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.providerId),
@@ -82,7 +82,7 @@ const buildServerFieldItems = (
     label: TERMS.displayName,
     description: `Custom ${TERMS.displayName.toLowerCase()}`,
     currentValue: server.name ?? "",
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.displayName),

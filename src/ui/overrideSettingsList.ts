@@ -11,7 +11,7 @@ import type {
 } from "@earendil-works/pi-tui";
 import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer, ModelOverride } from "../interfaces/settings";
-import { ConfirmDialog, InputDialog, inputSubmenu } from "./dialog";
+import { ConfirmDialog, InputDialog } from "./dialog";
 import {
   addOverrideEntry,
   formatOverrideSummary,
@@ -79,7 +79,7 @@ const buildOverrideFieldItems = (
     label: TERMS.pattern,
     description: `Model id prefix (longest match wins) ${PATTERN_MATCH_NOTE}`,
     currentValue: entry.pattern,
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.pattern),
@@ -98,7 +98,7 @@ const buildOverrideFieldItems = (
     label: TERMS.inputCost,
     description: "Token cost per 1M input tokens",
     currentValue: String(entry.override.cost?.input ?? 0),
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.inputCost),
@@ -117,7 +117,7 @@ const buildOverrideFieldItems = (
     label: TERMS.outputCost,
     description: "Token cost per 1M output tokens",
     currentValue: String(entry.override.cost?.output ?? 0),
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.outputCost),
@@ -136,7 +136,7 @@ const buildOverrideFieldItems = (
     label: TERMS.cacheReadCost,
     description: "Token cost per 1M cached tokens (read)",
     currentValue: String(entry.override.cost?.cacheRead ?? 0),
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.cacheReadCost),
@@ -155,7 +155,7 @@ const buildOverrideFieldItems = (
     label: TERMS.cacheWriteCost,
     description: "Token cost per 1M cached tokens (write)",
     currentValue: String(entry.override.cost?.cacheWrite ?? 0),
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.cacheWriteCost),
@@ -196,7 +196,7 @@ const buildOverrideFieldItems = (
     description:
       "Override max generation tokens (0 = same as detected context size)",
     currentValue: String(entry.override.maxTokens ?? 0),
-    submenu: inputSubmenu(
+    submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(TERMS.maxTokens),
@@ -243,6 +243,7 @@ class OverrideEntryListEditor implements Component, Focusable {
   private confirmDialog: ConfirmDialog | undefined;
   private isFocused = false;
   private _selectedIndex = 0;
+  private submenuOpen = false;
 
   constructor(
     /** Shared options object — `persistSnapshot` updates `options.servers`
@@ -283,6 +284,15 @@ class OverrideEntryListEditor implements Component, Focusable {
 
     if (this.mode === "confirm") {
       this.confirmDialog?.handleInput(data);
+      return;
+    }
+
+    // A pattern row's field submenu is open: delegate everything (Esc,
+    // a/d, arrows) to the containing SettingsList, which forwards input
+    // to the submenu. Intercepting here would close the whole editor on
+    // Esc and trigger add/delete while typing in a field.
+    if (this.submenuOpen && this.settingsList) {
+      this.settingsList.handleInput(data);
       return;
     }
 
@@ -351,6 +361,9 @@ class OverrideEntryListEditor implements Component, Focusable {
 
   private buildSettingsList(): SettingsList {
     const { theme, tui } = this.options;
+    // A fresh list never has a submenu open (also covers the pattern-key
+    // rebuild path, which discards the open field submenu)
+    this.submenuOpen = false;
     const items: SettingItem[] = this.getEntries().map((entry, i) => ({
       id: `entry-${i}`,
       label: entry.pattern,
@@ -364,6 +377,7 @@ class OverrideEntryListEditor implements Component, Focusable {
         // so `i` is stable for this list instance's lifetime)
         const current = this.getEntries()[i] ?? entry;
         const fieldItems = buildOverrideFieldItems(current, theme, tui);
+        this.submenuOpen = true;
         return new SettingsList(
           fieldItems,
           Math.min(fieldItems.length + 2, 15),
@@ -371,7 +385,10 @@ class OverrideEntryListEditor implements Component, Focusable {
           // Field commits — finite cycling (capabilities, reasoning) and
           // input submenus (pattern, costs) — all arrive here
           (field, value) => void this.handleFieldChange(i, field, value),
-          done,
+          () => {
+            this.submenuOpen = false;
+            done();
+          },
         );
       },
     }));
@@ -591,6 +608,10 @@ class OverrideEntryListEditor implements Component, Focusable {
 export const createOverrideSettingsList = (
   options: OverrideSettingsListOptions,
 ): SettingsList => {
+  // Assigned right after the items are built; the submenu closures below
+  // only run after that, so they can safely reference the list
+  let serverList: SettingsList;
+
   const serverItems: SettingItem[] = options.servers.map((server, i) => ({
     id: `server-${i}`,
     label: server.url,
@@ -600,10 +621,19 @@ export const createOverrideSettingsList = (
       // Pass the shared options object through: the entry editor replaces
       // `options.servers` after each successful persist, so a fresh editor
       // created on the next drill-down starts from the adopted list
-      new OverrideEntryListEditor(options, i, done),
+      new OverrideEntryListEditor(options, i, () => {
+        // The entry count may have changed (add/delete/pattern rename)
+        // while this editor was open — refresh the row before redisplay
+        const current = options.servers[i];
+        serverList?.updateValue(
+          `server-${i}`,
+          `${Object.keys(current?.overrides ?? {}).length} entries`,
+        );
+        done();
+      }),
   }));
 
-  return new SettingsList(
+  serverList = new SettingsList(
     serverItems,
     Math.min(serverItems.length + 2, 15),
     getSettingsListTheme(),
@@ -614,4 +644,5 @@ export const createOverrideSettingsList = (
       options.done();
     },
   );
+  return serverList;
 };
