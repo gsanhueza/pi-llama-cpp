@@ -235,6 +235,7 @@ llama-server --model path/to/model.gguf ...
 
 The extension determines the context size as follows:
 
+- A per-model `contextSize` override (see [Model Overrides](#model-overrides)) takes precedence over everything below
 - **Router mode**
   - When loaded, reads `meta.n_ctx` from the `/v1/models` endpoint
   - When not loaded, reads `--ctx-size` and/or `--fit-ctx` from the server arguments (which can also originate from the **presets.ini** file the llama.cpp server uses to load its models).
@@ -321,7 +322,7 @@ The extension automatically injects the appropriate `thinking_budget_tokens` int
 
 A locally-run `llama.cpp` server is free, but you can simulate costs for budgeting, experimentation, or comparison purposes — and fine-tune what the extension reports about each model.
 
-This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities`, `reasoning`, `maxTokens`, and `compat`, regardless of what the server reports.
+This extension supports **per-model, per-server configuration** via the `overrides` key inside each server entry of `llamaSettings.servers`. Each entry can override the model's `cost`, `capabilities`, `reasoning`, `contextSize`, `maxTokens`, and `compat`, regardless of what the server reports.
 
 Add overrides to your server configuration:
 
@@ -339,6 +340,7 @@ Add overrides to your server configuration:
             "cost": { "input": 0.15, "output": 0.5, "cacheRead": 0.03 },
             "capabilities": ["text"],
             "reasoning": false,
+            "contextSize": 32768,
             "maxTokens": 4096
           }
         }
@@ -381,7 +383,8 @@ All four fields are optional — unspecified fields default to zero.
 | -------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
 | `capabilities` | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities. |
 | `reasoning`    | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                        |
-| `maxTokens`    | number           | Override max generation tokens. Falls back to context size when absent.                        |
+| `contextSize`  | number           | Override the model's context size in tokens. Falls back to autodetection when absent or `0`.   |
+| `maxTokens`    | number           | Override max generation tokens. Falls back to context size when absent or `0`.                 |
 | `compat`       | object           | OpenAI-compatible provider compatibility settings (see below).                                 |
 
 #### Compatibility (`compat`)
@@ -459,6 +462,7 @@ If loading takes longer than **60 seconds** (configurable via `pollingTimeout`),
 
 Each model exposed to Pi includes the following defaults:
 
+- **`contextWindow`** — detected from llama-server (see how the extension determines the context size above); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`maxTokens`** — dynamically set to the model's context window (detected from llama-server); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`reasoning`** — `true` by default (llama.cpp's `/v1/models` endpoint does not expose it); can be overridden per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))
 - **`cost`** — all zero by default; can be customized per-model via `llamaSettings.servers[].overrides` (see [Model Overrides](#model-overrides))

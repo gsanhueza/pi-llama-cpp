@@ -12,6 +12,7 @@ import {
 } from "../src/constants";
 import { Mode } from "../src/enums/mode";
 import { Status } from "../src/enums/status";
+import type { ModelOverride } from "../src/interfaces/settings";
 import type { LlamaSettingsManager } from "../src/managers/settings";
 import { BaseModel } from "../src/models/baseModel";
 import { Server } from "../src/server";
@@ -102,6 +103,7 @@ export type MockServerOverrides = Partial<
   models?: BaseModel[];
   pollingTimeout?: number;
   serverTimeout?: number;
+  overrides?: Record<string, ModelOverride>;
 };
 
 /**
@@ -124,6 +126,7 @@ export const createMockServer = (
     models,
     pollingTimeout,
     serverTimeout,
+    overrides: modelOverrides,
     initialize,
     ...members
   } = overrides;
@@ -145,6 +148,7 @@ export const createMockServer = (
       baseUrl: baseUrl ?? "http://127.0.0.1:8080",
       customId,
       customName,
+      overrides: modelOverrides,
     },
     {
       createApiClient: () => apiClient,

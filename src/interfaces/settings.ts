@@ -21,6 +21,12 @@ export interface ModelOverride {
    */
   reasoning?: boolean;
   /**
+   * Override the model's context size (in tokens), replacing the value
+   * autodetected from the server. When absent or `0`, falls back to
+   * detection (then `FALLBACK_CTX`).
+   */
+  contextSize?: number;
+  /**
    * Override the maximum number of tokens the model can generate. When
    * absent, falls back to the context size detected from the server.
    */

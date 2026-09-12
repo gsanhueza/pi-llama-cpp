@@ -189,6 +189,25 @@ const buildOverrideFieldItems = (
           : "false",
     values: ["true", "false"],
   },
+  // Context size — infinite
+  {
+    id: "contextSize",
+    label: TERMS.contextSize,
+    description: "Override detected context size (0 = autodetect)",
+    currentValue: String(entry.override.contextSize ?? 0),
+    submenu: InputDialog.inputSubmenu(
+      theme,
+      tui,
+      TITLES.edit(TERMS.contextSize),
+      MESSAGES.contextSize(TERMS.contextSize),
+      PLACEHOLDERS.contextSize,
+      String(entry.override.contextSize ?? 0),
+      (raw) => {
+        const n = Number(raw.trim());
+        return n >= 0 && isFinite(n) ? String(n) : null;
+      },
+    ),
+  },
   // Max tokens — infinite
   {
     id: "maxTokens",
@@ -593,7 +612,12 @@ class OverrideEntryListEditor implements Component, Focusable {
       }
     } else if (field === "maxTokens") {
       const n = Number(value);
-      updatedOverride.maxTokens = isFinite(n) && n >= 0 ? n : undefined;
+      if (isFinite(n) && n > 0) updatedOverride.maxTokens = n;
+      else delete updatedOverride.maxTokens;
+    } else if (field === "contextSize") {
+      const n = Number(value);
+      if (isFinite(n) && n > 0) updatedOverride.contextSize = n;
+      else delete updatedOverride.contextSize;
     }
 
     const next = updateOverrideEntry(

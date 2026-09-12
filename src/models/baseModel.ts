@@ -122,9 +122,16 @@ export abstract class BaseModel {
   /**
    * Gets the context size of a particular model.
    *
+   * An override's `contextSize` (when set and `> 0`) replaces detection;
+   * otherwise the value is autodetected from the server, falling back to
+   * {@link FALLBACK_CTX}. A stored `0` behaves as if the key were absent.
+   *
    * @returns The context size in tokens
    */
   async getContextSize(): Promise<number> {
+    const overridden = this.server.findOverrideForModel(this.id)?.contextSize;
+    if (overridden && overridden > 0) return overridden;
+
     try {
       const { data } = await this.server.fetchModels();
       const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;

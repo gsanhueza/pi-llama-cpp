@@ -22,6 +22,7 @@ export const TERMS = {
   cacheWriteCost: "Cache write cost",
   capabilities: "Capabilities",
   reasoning: "Reasoning",
+  contextSize: "Context size",
   maxTokens: "Max tokens",
 } as const;
 
@@ -54,6 +55,7 @@ export const MESSAGES = {
   cacheReadCost: (term: string) => `${term} (per 1M tokens)`,
   cacheWriteCost: (term: string) => `${term} (per 1M tokens)`,
   maxTokens: (term: string) => `${term} (0 = context size)`,
+  contextSize: (term: string) => `${term} (0 = autodetect)`,
 } as const;
 
 /** Example values shown dim as `e.g., <placeholder>` in input dialogs */
@@ -67,6 +69,7 @@ export const PLACEHOLDERS = {
   cacheReadCost: "0.01",
   cacheWriteCost: "0.02",
   maxTokens: "4096",
+  contextSize: "32768",
 } as const;
 
 /** Keybinding hint lines shared by the editors' lists */
