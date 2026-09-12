@@ -7,30 +7,97 @@ import { LLAMA_SERVER_URL } from "../constants";
  * `'startsWith'` matching note, so the field is never ambiguous.
  */
 
-/**
- * Field terms, as shown to the user. Used as `SettingItem` labels and
- * composed into dialog titles/prompts (`Edit ${TERMS.x}`).
- */
-export const TERMS = {
-  pattern: "Pattern",
-  serverUrl: "Server URL",
-  providerId: "Provider ID",
-  displayName: "Display name",
-  inputCost: "Input cost",
-  outputCost: "Output cost",
-  cacheReadCost: "Cache read cost",
-  cacheWriteCost: "Cache write cost",
-  capabilities: "Capabilities",
-  reasoning: "Reasoning",
-  contextSize: "Context size",
-  maxTokens: "Max tokens",
-} as const;
+/** Definition of one editable field, as shown to the user. */
+export interface Field {
+  /** Term for the field, used as `SettingItem` label and composed into
+   * dialog titles (`Edit ${field.label}`). */
+  label: string;
+  /** Parenthetical appended to the field's dialog prompt. */
+  note?: string;
+  /** Row description in the containing `SettingsList`. */
+  description: string;
+  /** Example value shown dim as `e.g., <placeholder>` in input dialogs. */
+  placeholder?: string;
+}
 
-/** Matching semantics of the override `Pattern` (the word alone can be
- * interpreted in multiple ways — regex, glob, exact id…). Appended to
- * pattern prompts and hints.
+/** Every editable field, as shown to the user. The single source of
+ * truth for a field's label, row description, dialog prompt and
+ * placeholder.
  */
-export const PATTERN_MATCH_NOTE = "(using 'startsWith')";
+export const FIELDS = {
+  pattern: {
+    label: "Pattern",
+    note: "(using 'startsWith')",
+    description: "Model id prefix (longest match wins - uses 'startsWith')",
+    placeholder: "qwen-3",
+  },
+  serverUrl: {
+    label: "Server URL",
+    description: "Server URL (http://host or http://host:port)",
+    placeholder: LLAMA_SERVER_URL,
+  },
+  providerId: {
+    label: "Provider ID",
+    note: "(empty uses auto-detected)",
+    description: "Provider ID (empty uses auto-detected)",
+    placeholder: "llama-local",
+  },
+  displayName: {
+    label: "Display name",
+    description: "Custom display name",
+    placeholder: "Local workstation",
+  },
+  inputCost: {
+    label: "Input cost",
+    note: "(per 1M tokens)",
+    description: "Token cost per 1M input tokens",
+    placeholder: "0.15",
+  },
+  outputCost: {
+    label: "Output cost",
+    note: "(per 1M tokens)",
+    description: "Token cost per 1M output tokens",
+    placeholder: "0.6",
+  },
+  cacheReadCost: {
+    label: "Cache read cost",
+    note: "(per 1M tokens)",
+    description: "Token cost per 1M cached tokens (read)",
+    placeholder: "0.01",
+  },
+  cacheWriteCost: {
+    label: "Cache write cost",
+    note: "(per 1M tokens)",
+    description: "Token cost per 1M cached tokens (write)",
+    placeholder: "0.02",
+  },
+  capabilities: {
+    label: "Capabilities",
+    description: "Model capabilities (replaces detected)",
+  },
+  reasoning: {
+    label: "Reasoning",
+    description: "Is this a reasoning model? (true = default)",
+  },
+  contextSize: {
+    label: "Context size",
+    note: "(0 = autodetect)",
+    description: "Override detected context size (0 = autodetect)",
+    placeholder: "32768",
+  },
+  maxTokens: {
+    label: "Max tokens",
+    note: "(0 = autodetect)",
+    description: "Override max generation tokens (0 = autodetect)",
+    placeholder: "4096",
+  },
+} as const satisfies Record<string, Field>;
+
+/** Dialog prompt for a field: the `label` plus its parenthetical `note`
+ * (or an overriding note, e.g. the add-server wizard's "(optional)").
+ */
+export const fieldMessage = (field: Field, note = field.note): string =>
+  note ? `${field.label} ${note}` : field.label;
 
 /**
  * Dialog titles. `edit` composes the shared `Edit <term>` title so the
@@ -45,41 +112,16 @@ export const TITLES = {
   deleteOverride: "Delete override",
 } as const;
 
-/** Message strings for input dialogs, composed with `TERMS` to keep
- * phrasing uniform across all field submenus.
- */
-export const MESSAGES = {
-  pattern: (term: string) => `${term} ${PATTERN_MATCH_NOTE}`,
-  inputCost: (term: string) => `${term} (per 1M tokens)`,
-  outputCost: (term: string) => `${term} (per 1M tokens)`,
-  cacheReadCost: (term: string) => `${term} (per 1M tokens)`,
-  cacheWriteCost: (term: string) => `${term} (per 1M tokens)`,
-  maxTokens: (term: string) => `${term} (0 = context size)`,
-  contextSize: (term: string) => `${term} (0 = autodetect)`,
-} as const;
-
-/** Example values shown dim as `e.g., <placeholder>` in input dialogs */
-export const PLACEHOLDERS = {
-  serverUrl: LLAMA_SERVER_URL,
-  providerId: "llama-local",
-  displayName: "Local workstation",
-  pattern: "qwen-3",
-  inputCost: "0.15",
-  outputCost: "0.6",
-  cacheReadCost: "0.01",
-  cacheWriteCost: "0.02",
-  maxTokens: "4096",
-  contextSize: "32768",
-} as const;
-
 /** Keybinding hint lines shared by the editors' lists */
 export const HINTS = {
   /** Row description for an editable server in the `/models servers` list */
-  serverRow: "Enter: edit URL/id/name · a add · d delete · Esc: done",
+  serverRow:
+    "Enter: edit URL/id/name · (a) add server · (d) delete · Esc: done",
   /** Row description for an override entry in the per-server entry list */
-  overrideEntryRow: "Enter: edit fields · a add · d delete · Esc back",
+  overrideEntryRow:
+    "Enter: edit fields · (a) add override · (d) delete · Esc back",
   /** Hint line when the servers list is empty (no rows → no description) */
-  emptyServers: "  a add · Esc done",
+  emptyServers: "  (a) add server · Esc done",
   /** Hint line when the override entry list is empty */
-  emptyOverrideEntries: "  a add · Esc back",
+  emptyOverrideEntries: "  (a) add override · Esc back",
 } as const;

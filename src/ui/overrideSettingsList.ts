@@ -20,14 +20,7 @@ import {
   removeOverrideEntry,
   updateOverrideEntry,
 } from "./overrideEntryEditor";
-import {
-  HINTS,
-  MESSAGES,
-  PATTERN_MATCH_NOTE,
-  PLACEHOLDERS,
-  TERMS,
-  TITLES,
-} from "./strings";
+import { fieldMessage, FIELDS, HINTS, TITLES } from "./strings";
 
 /**
  * Options for the SettingsList-based overrides editor.
@@ -77,15 +70,15 @@ const buildOverrideFieldItems = (
   // Pattern — infinite
   {
     id: "pattern",
-    label: TERMS.pattern,
-    description: `Model id prefix (longest match wins) ${PATTERN_MATCH_NOTE}`,
+    label: FIELDS.pattern.label,
+    description: FIELDS.pattern.description,
     currentValue: entry.pattern,
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.pattern),
-      MESSAGES.pattern(TERMS.pattern),
-      PLACEHOLDERS.pattern,
+      TITLES.edit(FIELDS.pattern.label),
+      fieldMessage(FIELDS.pattern),
+      FIELDS.pattern.placeholder,
       entry.pattern,
       (raw) => {
         const trimmed = raw.trim();
@@ -96,15 +89,15 @@ const buildOverrideFieldItems = (
   // Input cost — infinite
   {
     id: "cost.input",
-    label: TERMS.inputCost,
-    description: "Token cost per 1M input tokens",
+    label: FIELDS.inputCost.label,
+    description: FIELDS.inputCost.description,
     currentValue: String(entry.override.cost?.input ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.inputCost),
-      MESSAGES.inputCost(TERMS.inputCost),
-      PLACEHOLDERS.inputCost,
+      TITLES.edit(FIELDS.inputCost.label),
+      fieldMessage(FIELDS.inputCost),
+      FIELDS.inputCost.placeholder,
       String(entry.override.cost?.input ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
@@ -115,15 +108,15 @@ const buildOverrideFieldItems = (
   // Output cost — infinite
   {
     id: "cost.output",
-    label: TERMS.outputCost,
-    description: "Token cost per 1M output tokens",
+    label: FIELDS.outputCost.label,
+    description: FIELDS.outputCost.description,
     currentValue: String(entry.override.cost?.output ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.outputCost),
-      MESSAGES.outputCost(TERMS.outputCost),
-      PLACEHOLDERS.outputCost,
+      TITLES.edit(FIELDS.outputCost.label),
+      fieldMessage(FIELDS.outputCost),
+      FIELDS.outputCost.placeholder,
       String(entry.override.cost?.output ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
@@ -134,15 +127,15 @@ const buildOverrideFieldItems = (
   // Cache read cost — infinite
   {
     id: "cost.cacheRead",
-    label: TERMS.cacheReadCost,
-    description: "Token cost per 1M cached tokens (read)",
+    label: FIELDS.cacheReadCost.label,
+    description: FIELDS.cacheReadCost.description,
     currentValue: String(entry.override.cost?.cacheRead ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.cacheReadCost),
-      MESSAGES.cacheReadCost(TERMS.cacheReadCost),
-      PLACEHOLDERS.cacheReadCost,
+      TITLES.edit(FIELDS.cacheReadCost.label),
+      fieldMessage(FIELDS.cacheReadCost),
+      FIELDS.cacheReadCost.placeholder,
       String(entry.override.cost?.cacheRead ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
@@ -153,15 +146,15 @@ const buildOverrideFieldItems = (
   // Cache write cost — infinite
   {
     id: "cost.cacheWrite",
-    label: TERMS.cacheWriteCost,
-    description: "Token cost per 1M cached tokens (write)",
+    label: FIELDS.cacheWriteCost.label,
+    description: FIELDS.cacheWriteCost.description,
     currentValue: String(entry.override.cost?.cacheWrite ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.cacheWriteCost),
-      MESSAGES.cacheWriteCost(TERMS.cacheWriteCost),
-      PLACEHOLDERS.cacheWriteCost,
+      TITLES.edit(FIELDS.cacheWriteCost.label),
+      fieldMessage(FIELDS.cacheWriteCost),
+      FIELDS.cacheWriteCost.placeholder,
       String(entry.override.cost?.cacheWrite ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
@@ -172,16 +165,16 @@ const buildOverrideFieldItems = (
   // Capabilities — finite: text or text | image
   {
     id: "capabilities",
-    label: TERMS.capabilities,
-    description: "Model capabilities (replaces detected)",
+    label: FIELDS.capabilities.label,
+    description: FIELDS.capabilities.description,
     currentValue: entry.override.capabilities?.join(" | ") ?? "text",
     values: ["text", "text | image"],
   },
   // Reasoning — finite: true or false
   {
     id: "reasoning",
-    label: TERMS.reasoning,
-    description: "Is this a reasoning model? (true = default)",
+    label: FIELDS.reasoning.label,
+    description: FIELDS.reasoning.description,
     currentValue:
       entry.override.reasoning === undefined
         ? "true"
@@ -193,15 +186,15 @@ const buildOverrideFieldItems = (
   // Context size — infinite
   {
     id: "contextSize",
-    label: TERMS.contextSize,
-    description: "Override detected context size (0 = autodetect)",
+    label: FIELDS.contextSize.label,
+    description: FIELDS.contextSize.description,
     currentValue: String(entry.override.contextSize ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.contextSize),
-      MESSAGES.contextSize(TERMS.contextSize),
-      PLACEHOLDERS.contextSize,
+      TITLES.edit(FIELDS.contextSize.label),
+      fieldMessage(FIELDS.contextSize),
+      FIELDS.contextSize.placeholder,
       String(entry.override.contextSize ?? 0),
       (raw) => {
         const n = Number(raw.trim());
@@ -212,15 +205,15 @@ const buildOverrideFieldItems = (
   // Max tokens — infinite
   {
     id: "maxTokens",
-    label: TERMS.maxTokens,
-    description: "Override max generation tokens (0 = autodetect)",
+    label: FIELDS.maxTokens.label,
+    description: FIELDS.maxTokens.description,
     currentValue: String(entry.override.maxTokens ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.maxTokens),
-      MESSAGES.maxTokens(TERMS.maxTokens),
-      PLACEHOLDERS.maxTokens,
+      TITLES.edit(FIELDS.maxTokens.label),
+      fieldMessage(FIELDS.maxTokens),
+      FIELDS.maxTokens.placeholder,
       String(entry.override.maxTokens ?? 0),
       (raw) => {
         const n = Number(raw.trim());
@@ -448,8 +441,8 @@ class OverrideEntryListEditor implements Component, Focusable {
       theme: this.options.theme,
       tui: this.options.tui,
       title: TITLES.addOverride,
-      message: `${TERMS.pattern} ${PATTERN_MATCH_NOTE}`,
-      placeholder: PLACEHOLDERS.pattern,
+      message: fieldMessage(FIELDS.pattern),
+      placeholder: FIELDS.pattern.placeholder,
       validate: (raw) => {
         const trimmed = raw.trim();
         return trimmed.length > 0 ? trimmed : null;

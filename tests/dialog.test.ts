@@ -181,6 +181,6 @@ describe("ServerSettingsList add wizard", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(persist).not.toHaveBeenCalled();
     // Back at the (empty) list view
-    expect(editor.render(80).join("\n")).toContain("a add");
+    expect(editor.render(80).join("\n")).toContain("(a) add server");
   });
 });

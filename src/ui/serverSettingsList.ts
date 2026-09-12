@@ -12,7 +12,7 @@ import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../interfaces/settings";
 import { ConfirmDialog, InputDialog } from "./dialog";
 import { formatServerSuffix, normalizeServerUrl } from "./serverListEditor";
-import { HINTS, PLACEHOLDERS, TERMS, TITLES } from "./strings";
+import { fieldMessage, FIELDS, HINTS, TITLES } from "./strings";
 
 /**
  * Options for the SettingsList-based server editor.
@@ -50,44 +50,44 @@ const buildServerFieldItems = (
 ): SettingItem[] => [
   {
     id: "url",
-    label: TERMS.serverUrl,
-    description: `${TERMS.serverUrl} (http://host:port)`,
+    label: FIELDS.serverUrl.label,
+    description: FIELDS.serverUrl.description,
     currentValue: server.url,
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.serverUrl),
-      TERMS.serverUrl,
-      PLACEHOLDERS.serverUrl,
+      TITLES.edit(FIELDS.serverUrl.label),
+      fieldMessage(FIELDS.serverUrl),
+      FIELDS.serverUrl.placeholder,
       server.url,
       normalizeServerUrl,
     ),
   },
   {
     id: "id",
-    label: TERMS.providerId,
-    description: `${TERMS.providerId} (empty uses auto-detected)`,
+    label: FIELDS.providerId.label,
+    description: FIELDS.providerId.description,
     currentValue: server.id ?? "",
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.providerId),
-      `${TERMS.providerId} (empty uses auto-detected)`,
-      PLACEHOLDERS.providerId,
+      TITLES.edit(FIELDS.providerId.label),
+      fieldMessage(FIELDS.providerId),
+      FIELDS.providerId.placeholder,
       server.id ?? "",
     ),
   },
   {
     id: "name",
-    label: TERMS.displayName,
-    description: `Custom ${TERMS.displayName.toLowerCase()}`,
+    label: FIELDS.displayName.label,
+    description: FIELDS.displayName.description,
     currentValue: server.name ?? "",
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
-      TITLES.edit(TERMS.displayName),
-      TERMS.displayName,
-      PLACEHOLDERS.displayName,
+      TITLES.edit(FIELDS.displayName.label),
+      fieldMessage(FIELDS.displayName),
+      FIELDS.displayName.placeholder,
       server.name ?? "",
     ),
   },
@@ -309,8 +309,8 @@ export class ServerSettingsList implements Component, Focusable {
             theme,
             tui,
             title: TITLES.addServerStep(1),
-            message: TERMS.serverUrl,
-            placeholder: PLACEHOLDERS.serverUrl,
+            message: fieldMessage(FIELDS.serverUrl),
+            placeholder: FIELDS.serverUrl.placeholder,
             validate: normalizeServerUrl,
             onSubmit: (value) => this.wizardSubmit(value),
             onCancel: () => this.cancelWizard(),
@@ -320,8 +320,8 @@ export class ServerSettingsList implements Component, Focusable {
               theme,
               tui,
               title: TITLES.addServerStep(2),
-              message: `${TERMS.providerId} (optional)`,
-              placeholder: PLACEHOLDERS.providerId,
+              message: fieldMessage(FIELDS.providerId, "(optional)"),
+              placeholder: FIELDS.providerId.placeholder,
               onSubmit: (value) => this.wizardSubmit(value),
               onCancel: () => this.cancelWizard(),
             })
@@ -329,8 +329,8 @@ export class ServerSettingsList implements Component, Focusable {
               theme,
               tui,
               title: TITLES.addServerStep(3),
-              message: `${TERMS.displayName} (optional)`,
-              placeholder: PLACEHOLDERS.displayName,
+              message: fieldMessage(FIELDS.displayName, "(optional)"),
+              placeholder: FIELDS.displayName.placeholder,
               onSubmit: (value) => this.wizardSubmit(value),
               onCancel: () => this.cancelWizard(),
             });
