@@ -1,9 +1,10 @@
+import type { ModelCost, ModelCostRates } from "@earendil-works/pi-ai";
 import type { LlamaServer, ModelOverride } from "../interfaces/settings";
 
 /**
- * Parses a raw cost-field value. Empty input means zero (unspecified fields
- * default to zero in the settings). Everything else must be a finite,
- * non-negative number.
+ * Parses a raw cost-field value. Empty input means zero (treated as unset
+ * — the key is removed from the settings). Everything else must be a
+ * finite, non-negative number.
  *
  * @returns The parsed value, or `null` when the input is invalid
  */
@@ -13,6 +14,23 @@ export const parseCostValue = (raw: string): number | null => {
   const n = Number(v);
   if (isNaN(n) || !isFinite(n) || n < 0) return null;
   return n;
+};
+
+/**
+ * Returns a copy of `cost` with `field` set to `value`. A `0` (or
+ * non-finite) value removes the field — unset cost fields default to
+ * zero at read time — and when no fields remain, returns `undefined` so
+ * the whole `cost` object can be dropped. Immutable.
+ */
+export const applyCostFieldValue = (
+  cost: ModelOverride["cost"],
+  field: keyof ModelCostRates,
+  value: number,
+): Partial<ModelCost> | undefined => {
+  const next = { ...cost };
+  if (isFinite(value) && value > 0) next[field] = value;
+  else delete next[field];
+  return Object.keys(next).length > 0 ? next : undefined;
 };
 
 /**

@@ -5,6 +5,7 @@ import { SingleModel } from "../src/models/singleModel";
 import { Server } from "../src/server";
 import {
   addOverrideEntry,
+  applyCostFieldValue,
   formatOverrideSummary,
   parseCostValue,
   removeOverrideEntry,
@@ -326,5 +327,26 @@ describe("override entry list helpers", () => {
     expect(parseCostValue("-1")).toBeNull();
     expect(parseCostValue("abc")).toBeNull();
     expect(parseCostValue("Infinity")).toBeNull();
+  });
+
+  it("applyCostFieldValue should set a positive value, keeping other fields", () => {
+    const next = applyCostFieldValue({ input: 0.2 }, "output", 0.6);
+    expect(next).toEqual({ input: 0.2, output: 0.6 });
+  });
+
+  it("applyCostFieldValue should remove the field on zero", () => {
+    const next = applyCostFieldValue({ input: 0.2, output: 0.6 }, "input", 0);
+    expect(next).toEqual({ output: 0.6 });
+  });
+
+  it("applyCostFieldValue should return undefined when the last field is zeroed", () => {
+    expect(applyCostFieldValue({ input: 0.2 }, "input", 0)).toBeUndefined();
+    expect(applyCostFieldValue(undefined, "input", 0)).toBeUndefined();
+  });
+
+  it("applyCostFieldValue should treat an empty override as unset cost", () => {
+    expect(applyCostFieldValue(undefined, "input", 0.5)).toEqual({
+      input: 0.5,
+    });
   });
 });

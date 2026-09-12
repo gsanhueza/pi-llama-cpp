@@ -376,6 +376,7 @@ Inside an override, the `cost` object accepts:
 | `cacheWrite` | number | Cost per million cache write tokens |
 
 All four fields are optional — unspecified fields default to zero.
+In the override editor, entering `0` (or leaving a field empty) removes the field from the settings — and the `cost` object itself once no fields remain — with the same effect as leaving it unset.
 
 #### Other Fields
 

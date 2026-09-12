@@ -14,6 +14,7 @@ import type { LlamaServer, ModelOverride } from "../interfaces/settings";
 import { ConfirmDialog, InputDialog } from "./dialog";
 import {
   addOverrideEntry,
+  applyCostFieldValue,
   formatOverrideSummary,
   parseCostValue,
   removeOverrideEntry,
@@ -212,8 +213,7 @@ const buildOverrideFieldItems = (
   {
     id: "maxTokens",
     label: TERMS.maxTokens,
-    description:
-      "Override max generation tokens (0 = same as detected context size)",
+    description: "Override max generation tokens (0 = autodetect)",
     currentValue: String(entry.override.maxTokens ?? 0),
     submenu: InputDialog.inputSubmenu(
       theme,
@@ -596,11 +596,13 @@ class OverrideEntryListEditor implements Component, Focusable {
 
     if (field.startsWith("cost.")) {
       const costField = field.split(".")[1] as keyof ModelCostRates;
-      const numValue = Number(value);
-      updatedOverride.cost = {
-        ...entry.override.cost,
-        [costField]: numValue,
-      };
+      const nextCost = applyCostFieldValue(
+        entry.override.cost,
+        costField,
+        Number(value),
+      );
+      if (nextCost) updatedOverride.cost = nextCost;
+      else delete updatedOverride.cost;
     } else if (field === "capabilities") {
       updatedOverride.capabilities = parseCapabilitiesLabel(value);
     } else if (field === "reasoning") {
