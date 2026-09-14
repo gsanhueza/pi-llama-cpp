@@ -11,6 +11,7 @@ import {
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import type { LlamaSettingsManager } from "../src/managers/settings";
+import * as serverListEditor from "../src/ui/serverListEditor";
 import { ServerSettingsList } from "../src/ui/serverSettingsList";
 import {
   createMockCtx,
@@ -25,7 +26,26 @@ beforeEach(() => {
   initTheme();
   vi.clearAllMocks();
   mockRpc.mockResolvedValue({ data: [] });
+  // Mock health checks to return "healthy" immediately
+  vi.spyOn(serverListEditor, "getServerHealthEmoji").mockResolvedValue("🟢");
 });
+
+/**
+ * Waits for a ServerSettingsList to finish its async initialization
+ * (health checks + SettingsList construction).
+ */
+const waitForEditor = (editor: ServerSettingsList): Promise<void> =>
+  new Promise((resolve) => {
+    const check = () => {
+      // @ts-expect-error settingsList is private
+      if (editor.settingsList) {
+        resolve();
+      } else {
+        setTimeout(check, 10);
+      }
+    };
+    check();
+  });
 
 describe("CommandManager", () => {
   let serverManager: ServerManager;
@@ -289,6 +309,8 @@ describe("CommandManager", () => {
       );
 
       expect(editor).toBeInstanceOf(ServerSettingsList);
+      // Wait for async health checks to complete
+      await waitForEditor(editor);
       // Seeded with the merged snapshot
       expect(editor.render(80).join("\n")).toContain("http://seed:1");
 
@@ -302,6 +324,7 @@ describe("CommandManager", () => {
       editor.handleInput(ENTER); // skip optional ID
       expect(editor.render(80).join("\n")).toContain("Add server · 3/3");
       editor.handleInput(ENTER); // skip optional name → persist
+      // Wait for async persist and rebuild
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(editorSettings.setLlamaSetting).toHaveBeenCalledWith("servers", [
         { url: "http://seed:1" },
@@ -371,6 +394,9 @@ describe("CommandManager", () => {
         createMockKeybindings(),
         vi.fn(),
       );
+
+      // Wait for async health checks to complete
+      await waitForEditor(editor);
 
       // Move to the second row and open the confirm dialog
       editor.handleInput("\x1b[B");

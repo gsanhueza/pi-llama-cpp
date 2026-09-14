@@ -32,6 +32,16 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 
 > **Note:** You can run your server with API authentication with `llama-server --api-key <your key> ...`.
 
+### Server Health Indicators
+
+When browsing servers via `/models servers`, each server URL is prefixed with a health indicator:
+
+| Icon | Status      | Description                                   |
+| ---- | ----------- | --------------------------------------------- |
+| 🟢   | Healthy     | Server responded successfully to health check |
+| 🟡   | Timeout     | Server health check timed out                 |
+| 🔴   | Unreachable | Server could not be reached                   |
+
 ## Installation
 
 This package is a Pi extension. Install it with
@@ -128,7 +138,9 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
 #### Server list editor
 
 Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
-without hand-editing JSON. Each change is written immediately to the **project**
+without hand-editing JSON. Each server URL is prefixed with a health indicator
+(🟢 healthy, 🟡 timeout, 🔴 unreachable) that reflects the result of a
+health check against the server. Each change is written immediately to the **project**
 `.pi/settings.json` if it exists, otherwise to **global**
 `~/.pi/agent/settings.json`.
 
