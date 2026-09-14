@@ -43,7 +43,8 @@ export interface ModelOverride {
  */
 export interface LlamaServer {
   /**
-   * The URL of the llama.cpp server.
+   * The URL of the llama.cpp server. Must be the bare origin — the
+   * OpenAI-compatible API is assumed under `/v1` (see {@link ENDPOINT_PREFIX}).
    */
   url: string;
   /**

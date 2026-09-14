@@ -29,6 +29,14 @@ export const API_KEY_PLACEHOLDER = "sk-placeholder";
 export const LLAMA_SERVER_URL = "http://127.0.0.1:8080";
 
 /**
+ * Endpoint prefix of the OpenAI-compatible API exposed by llama-server.
+ * Native routes (/health, /props, /models/sse, ...) live directly under the
+ * server root; only OpenAI-dialect consumers (the Pi provider registration
+ * and the /models listing) address the API under this prefix.
+ */
+export const ENDPOINT_PREFIX = "/v1";
+
+/**
  * The default context if the server didn't expose it
  */
 export const FALLBACK_CTX = 128000;

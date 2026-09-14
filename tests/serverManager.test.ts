@@ -69,7 +69,7 @@ describe("ServerManager", () => {
       "llama-server=http://127.0.0.1:8080",
       {
         name: "Llama.cpp (http://127.0.0.1:8080)",
-        baseUrl: "http://127.0.0.1:8080",
+        baseUrl: "http://127.0.0.1:8080/v1",
         api: "openai-completions",
         apiKey: "key-1",
         models: [{ id: "test-model" }],
@@ -79,7 +79,7 @@ describe("ServerManager", () => {
       "llama-server=http://127.0.0.1:8081",
       {
         name: "Llama.cpp (http://127.0.0.1:8081)",
-        baseUrl: "http://127.0.0.1:8081",
+        baseUrl: "http://127.0.0.1:8081/v1",
         api: "openai-completions",
         apiKey: "key-2",
         models: [{ id: "test-model" }],
@@ -133,7 +133,7 @@ describe("ServerManager", () => {
 
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
         "llama-server=http://127.0.0.1:8081",
-        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081" }),
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081/v1" }),
       );
       expect(manager.servers).toHaveLength(2);
       const models = await manager.getAllModels();
@@ -184,7 +184,7 @@ describe("ServerManager", () => {
       );
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
         "llama-server=http://127.0.0.1:9090",
-        expect.objectContaining({ baseUrl: "http://127.0.0.1:9090" }),
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:9090/v1" }),
       );
       expect(manager.servers[0]?.providerId).toBe(
         "llama-server=http://127.0.0.1:9090",

@@ -35,6 +35,26 @@ describe("Server providerName", () => {
   });
 });
 
+describe("Server apiBaseUrl", () => {
+  it("should append the ENDPOINT_PREFIX to baseUrl", () => {
+    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
+    expect(server.apiBaseUrl).toBe("http://127.0.0.1:8080/v1");
+  });
+
+  it("should not double the prefix when baseUrl already ends with it", () => {
+    const server = new Server(settings, {
+      baseUrl: "http://127.0.0.1:8080/v1",
+    });
+    expect(server.apiBaseUrl).toBe("http://127.0.0.1:8080/v1");
+  });
+
+  it("should keep baseUrl untouched for provider identity", () => {
+    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
+    expect(server.baseUrl).toBe("http://127.0.0.1:8080");
+    expect(server.providerId).toBe("llama-server=http://127.0.0.1:8080");
+  });
+});
+
 describe("Server fetchModels", () => {
   it("should call the /models endpoint", async () => {
     mockRpc.mockResolvedValueOnce({

@@ -133,7 +133,7 @@ export class ServerManager {
    * @param server The server
    */
   private async registerProvider(server: Server, pi: ExtensionAPI) {
-    const { baseUrl, models, providerId, providerName } = server;
+    const { apiBaseUrl, models, providerId, providerName } = server;
     const apiKey = server.getApiKey();
     const modelConfigs = await Promise.all(
       models.map((m) => m.toProviderConfig()),
@@ -141,7 +141,7 @@ export class ServerManager {
 
     pi.registerProvider(providerId, {
       name: providerName,
-      baseUrl: baseUrl,
+      baseUrl: apiBaseUrl,
       api: API_TYPE,
       apiKey: apiKey,
       models: modelConfigs,

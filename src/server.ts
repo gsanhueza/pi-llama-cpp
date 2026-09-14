@@ -1,6 +1,7 @@
 import { ApiClient } from "./api/client";
 import {
   API_KEY_PLACEHOLDER,
+  ENDPOINT_PREFIX,
   PROVIDER_NAME,
   PROVIDER_PREFIX,
 } from "./constants";
@@ -57,6 +58,19 @@ export class Server {
   /** Base URL of this server endpoint. */
   get baseUrl(): string {
     return this.options.baseUrl;
+  }
+
+  /**
+   * Base URL of the OpenAI-compatible API: {@link baseUrl} joined with
+   * {@link ENDPOINT_PREFIX}. Idempotent — a baseUrl that already ends with
+   * the prefix is returned untouched, so proxied setups exposing the API
+   * under a /v1 path don't double up.
+   */
+  get apiBaseUrl(): string {
+    const { baseUrl } = this.options;
+    return baseUrl.endsWith(ENDPOINT_PREFIX)
+      ? baseUrl
+      : `${baseUrl}${ENDPOINT_PREFIX}`;
   }
 
   /**
@@ -202,7 +216,9 @@ export class Server {
    * @return The models from the server
    */
   async fetchModels(): Promise<ModelsEndpoint> {
-    return await this.apiClient.get<ModelsEndpoint>("/v1/models");
+    return await this.apiClient.get<ModelsEndpoint>(
+      `${ENDPOINT_PREFIX}/models`,
+    );
   }
 
   /**
