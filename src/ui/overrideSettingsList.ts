@@ -62,7 +62,34 @@ export interface OverrideSettingsListOptions {
  * `onChange` (both finite cycling and `done(value)` from the input
  * submenus arrive there), so no per-field callback is needed here.
  */
-const buildOverrideFieldItems = (
+/**
+ * Canonical display label for one of an override's editable fields —
+ * the single source of truth for both the field rows' `currentValue`
+ * and the post-commit refresh of an open field submenu, so the two
+ * can't drift.
+ */
+export const overrideFieldValue = (
+  field: string,
+  override: ModelOverride,
+): string => {
+  if (field.startsWith("cost.")) {
+    const costField = field.split(".")[1] as keyof ModelCostRates;
+    return String(override.cost?.[costField] ?? 0);
+  }
+  if (field === "capabilities")
+    return override.capabilities?.join(" | ") ?? "text";
+  if (field === "reasoning")
+    return override.reasoning === undefined
+      ? "true"
+      : override.reasoning
+        ? "true"
+        : "false";
+  if (field === "maxTokens") return String(override.maxTokens ?? 0);
+  if (field === "contextSize") return String(override.contextSize ?? 0);
+  return "";
+};
+
+export const buildOverrideFieldItems = (
   entry: { pattern: string; override: ModelOverride },
   theme: Theme,
   tui: TUI,
@@ -79,7 +106,6 @@ const buildOverrideFieldItems = (
       TITLES.edit(FIELDS.pattern.label),
       fieldMessage(FIELDS.pattern),
       FIELDS.pattern.placeholder,
-      entry.pattern,
       (raw) => {
         const trimmed = raw.trim();
         return trimmed.length > 0 ? trimmed : null;
@@ -91,14 +117,13 @@ const buildOverrideFieldItems = (
     id: "cost.input",
     label: FIELDS.inputCost.label,
     description: FIELDS.inputCost.description,
-    currentValue: String(entry.override.cost?.input ?? 0),
+    currentValue: overrideFieldValue("cost.input", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.inputCost.label),
       fieldMessage(FIELDS.inputCost),
       FIELDS.inputCost.placeholder,
-      String(entry.override.cost?.input ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
         return parsed === null ? null : String(parsed);
@@ -110,14 +135,13 @@ const buildOverrideFieldItems = (
     id: "cost.output",
     label: FIELDS.outputCost.label,
     description: FIELDS.outputCost.description,
-    currentValue: String(entry.override.cost?.output ?? 0),
+    currentValue: overrideFieldValue("cost.output", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.outputCost.label),
       fieldMessage(FIELDS.outputCost),
       FIELDS.outputCost.placeholder,
-      String(entry.override.cost?.output ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
         return parsed === null ? null : String(parsed);
@@ -129,14 +153,13 @@ const buildOverrideFieldItems = (
     id: "cost.cacheRead",
     label: FIELDS.cacheReadCost.label,
     description: FIELDS.cacheReadCost.description,
-    currentValue: String(entry.override.cost?.cacheRead ?? 0),
+    currentValue: overrideFieldValue("cost.cacheRead", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.cacheReadCost.label),
       fieldMessage(FIELDS.cacheReadCost),
       FIELDS.cacheReadCost.placeholder,
-      String(entry.override.cost?.cacheRead ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
         return parsed === null ? null : String(parsed);
@@ -148,14 +171,13 @@ const buildOverrideFieldItems = (
     id: "cost.cacheWrite",
     label: FIELDS.cacheWriteCost.label,
     description: FIELDS.cacheWriteCost.description,
-    currentValue: String(entry.override.cost?.cacheWrite ?? 0),
+    currentValue: overrideFieldValue("cost.cacheWrite", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.cacheWriteCost.label),
       fieldMessage(FIELDS.cacheWriteCost),
       FIELDS.cacheWriteCost.placeholder,
-      String(entry.override.cost?.cacheWrite ?? 0),
       (raw) => {
         const parsed = parseCostValue(raw);
         return parsed === null ? null : String(parsed);
@@ -167,7 +189,7 @@ const buildOverrideFieldItems = (
     id: "capabilities",
     label: FIELDS.capabilities.label,
     description: FIELDS.capabilities.description,
-    currentValue: entry.override.capabilities?.join(" | ") ?? "text",
+    currentValue: overrideFieldValue("capabilities", entry.override),
     values: ["text", "text | image"],
   },
   // Reasoning — finite: true or false
@@ -175,12 +197,7 @@ const buildOverrideFieldItems = (
     id: "reasoning",
     label: FIELDS.reasoning.label,
     description: FIELDS.reasoning.description,
-    currentValue:
-      entry.override.reasoning === undefined
-        ? "true"
-        : entry.override.reasoning
-          ? "true"
-          : "false",
+    currentValue: overrideFieldValue("reasoning", entry.override),
     values: ["true", "false"],
   },
   // Context size — infinite
@@ -188,14 +205,13 @@ const buildOverrideFieldItems = (
     id: "contextSize",
     label: FIELDS.contextSize.label,
     description: FIELDS.contextSize.description,
-    currentValue: String(entry.override.contextSize ?? 0),
+    currentValue: overrideFieldValue("contextSize", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.contextSize.label),
       fieldMessage(FIELDS.contextSize),
       FIELDS.contextSize.placeholder,
-      String(entry.override.contextSize ?? 0),
       (raw) => {
         const n = Number(raw.trim());
         return n >= 0 && isFinite(n) ? String(n) : null;
@@ -207,14 +223,13 @@ const buildOverrideFieldItems = (
     id: "maxTokens",
     label: FIELDS.maxTokens.label,
     description: FIELDS.maxTokens.description,
-    currentValue: String(entry.override.maxTokens ?? 0),
+    currentValue: overrideFieldValue("maxTokens", entry.override),
     submenu: InputDialog.inputSubmenu(
       theme,
       tui,
       TITLES.edit(FIELDS.maxTokens.label),
       fieldMessage(FIELDS.maxTokens),
       FIELDS.maxTokens.placeholder,
-      String(entry.override.maxTokens ?? 0),
       (raw) => {
         const n = Number(raw.trim());
         return n >= 0 && isFinite(n) ? String(n) : null;
@@ -256,6 +271,8 @@ class OverrideEntryListEditor implements Component, Focusable {
   private isFocused = false;
   private _selectedIndex = 0;
   private submenuOpen = false;
+  /** Currently open field submenu, so commits can refresh its rows */
+  private fieldList: SettingsList | null = null;
 
   constructor(
     /** Shared options object — `persistSnapshot` updates `options.servers`
@@ -389,8 +406,7 @@ class OverrideEntryListEditor implements Component, Focusable {
         // so `i` is stable for this list instance's lifetime)
         const current = this.getEntries()[i] ?? entry;
         const fieldItems = buildOverrideFieldItems(current, theme, tui);
-        this.submenuOpen = true;
-        return new SettingsList(
+        const fieldList = new SettingsList(
           fieldItems,
           Math.min(fieldItems.length + 2, 15),
           getSettingsListTheme(),
@@ -399,9 +415,15 @@ class OverrideEntryListEditor implements Component, Focusable {
           (field, value) => void this.handleFieldChange(i, field, value),
           () => {
             this.submenuOpen = false;
+            this.fieldList = null;
             done();
           },
         );
+        // Kept so handleFieldChange can refresh the open submenu's rows
+        // after a commit (the submenu stays open across edits)
+        this.fieldList = fieldList;
+        this.submenuOpen = true;
+        return fieldList;
       },
     }));
 
@@ -622,11 +644,17 @@ class OverrideEntryListEditor implements Component, Focusable {
       entry.pattern,
       updatedOverride,
     );
-    // Keep the field submenu open — just refresh the entry's summary row
+    // Keep the field submenu open — refresh the entry's summary row and
+    // the open submenu's own row so re-entering the field prefills the
+    // value just saved (InputDialog prefills from the row's currentValue)
     await this.persistSnapshot(next, () => {
       this.settingsList?.updateValue(
         `entry-${entryIndex}`,
         formatOverrideSummary(updatedOverride),
+      );
+      this.fieldList?.updateValue(
+        field,
+        overrideFieldValue(field, updatedOverride),
       );
       this.options.tui.requestRender();
     });

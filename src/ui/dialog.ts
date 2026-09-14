@@ -167,6 +167,10 @@ export class InputDialog extends BaseDialog {
 
   /**
    * Builds a `SettingItem.submenu` factory that opens an `InputDialog`.
+   * The dialog prefills from the `currentValue` the containing
+   * `SettingsList` passes at activation time — not a value captured at
+   * build time — so re-entering a field after a commit shows the
+   * just-saved value.
    */
   static inputSubmenu =
     (
@@ -175,11 +179,10 @@ export class InputDialog extends BaseDialog {
       title: string,
       message: string,
       placeholder: string | undefined,
-      initialValue: string,
       validate?: (raw: string) => string | null,
     ) =>
     (
-      _currentValue: string,
+      currentValue: string,
       done: (selectedValue?: string) => void,
     ): Component => {
       const dialog = new InputDialog({
@@ -188,7 +191,7 @@ export class InputDialog extends BaseDialog {
         title,
         message,
         placeholder,
-        initialValue,
+        initialValue: currentValue,
         validate,
         onSubmit: (value) => done(value),
         onCancel: () => done(undefined),

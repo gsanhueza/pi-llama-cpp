@@ -59,7 +59,6 @@ const buildServerFieldItems = (
       TITLES.edit(FIELDS.serverUrl.label),
       fieldMessage(FIELDS.serverUrl),
       FIELDS.serverUrl.placeholder,
-      server.url,
       normalizeServerUrl,
     ),
   },
@@ -74,7 +73,6 @@ const buildServerFieldItems = (
       TITLES.edit(FIELDS.providerId.label),
       fieldMessage(FIELDS.providerId),
       FIELDS.providerId.placeholder,
-      server.id ?? "",
     ),
   },
   {
@@ -88,7 +86,6 @@ const buildServerFieldItems = (
       TITLES.edit(FIELDS.displayName.label),
       fieldMessage(FIELDS.displayName),
       FIELDS.displayName.placeholder,
-      server.name ?? "",
     ),
   },
 ];

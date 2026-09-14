@@ -11,6 +11,7 @@ import {
   removeOverrideEntry,
   updateOverrideEntry,
 } from "../src/ui/overrideEntryEditor";
+import { overrideFieldValue } from "../src/ui/overrideSettingsList";
 import { createMockServer, mockRpc } from "./mocks";
 
 beforeEach(() => {
@@ -348,5 +349,36 @@ describe("override entry list helpers", () => {
     expect(applyCostFieldValue(undefined, "input", 0.5)).toEqual({
       input: 0.5,
     });
+  });
+});
+
+describe("overrideFieldValue", () => {
+  it("formats cost fields, defaulting to 0", () => {
+    expect(overrideFieldValue("cost.input", {})).toBe("0");
+    expect(overrideFieldValue("cost.input", { cost: { input: 0.2 } })).toBe(
+      "0.2",
+    );
+    expect(overrideFieldValue("cost.cacheWrite", {})).toBe("0");
+  });
+
+  it("formats capabilities and reasoning labels", () => {
+    expect(overrideFieldValue("capabilities", {})).toBe("text");
+    expect(
+      overrideFieldValue("capabilities", { capabilities: ["text", "image"] }),
+    ).toBe("text | image");
+    expect(overrideFieldValue("reasoning", {})).toBe("true");
+    expect(overrideFieldValue("reasoning", { reasoning: false })).toBe("false");
+  });
+
+  it("formats maxTokens/contextSize, defaulting to 0", () => {
+    expect(overrideFieldValue("maxTokens", {})).toBe("0");
+    expect(overrideFieldValue("maxTokens", { maxTokens: 4096 })).toBe("4096");
+    expect(overrideFieldValue("contextSize", { contextSize: 8192 })).toBe(
+      "8192",
+    );
+  });
+
+  it("returns an empty label for unknown fields", () => {
+    expect(overrideFieldValue("other", {})).toBe("");
   });
 });

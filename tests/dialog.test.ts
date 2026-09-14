@@ -6,6 +6,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfirmDialog, InputDialog } from "../src/ui/dialog";
+import { createOverrideSettingsList } from "../src/ui/overrideSettingsList";
 import { ServerSettingsList } from "../src/ui/serverSettingsList";
 
 beforeEach(() => {
@@ -182,5 +183,46 @@ describe("ServerSettingsList add wizard", () => {
     expect(persist).not.toHaveBeenCalled();
     // Back at the (empty) list view
     expect(editor.render(80).join("\n")).toContain("(a) add server");
+  });
+});
+
+describe("OverrideEntryListEditor cost re-prefill", () => {
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("re-entering a cost field prefills the just-saved value", async () => {
+    const persist = vi.fn().mockResolvedValue(undefined);
+    const list = createOverrideSettingsList({
+      tui: createMockTui(),
+      theme: createMockTheme(),
+      keybindings: createKeybindings(),
+      servers: [
+        {
+          url: "http://x:1",
+          overrides: { "gpt-*": { cost: { input: 0.2 } } },
+        },
+      ] as never[],
+      persist,
+      done: vi.fn(),
+      onError: vi.fn(),
+      onChanged: vi.fn(),
+    });
+
+    const DOWN = "\x1b[B"; // tui.select.down
+    const CLEAR = "\x15"; // tui.editor.deleteToLineStart
+
+    list.handleInput(ENTER); // drill into the server row
+    list.handleInput(ENTER); // open the field submenu (cursor: pattern)
+    list.handleInput(DOWN); // cursor: cost.input
+    list.handleInput(ENTER); // open the input dialog (prefilled "0.2")
+    list.handleInput(CLEAR);
+    for (const ch of "0.5") list.handleInput(ch);
+    list.handleInput(ENTER); // commit
+    await flush();
+
+    // Re-enter the field: the prefill must be the saved value
+    list.handleInput(ENTER);
+    const rendered = list.render(80).join("\n");
+    expect(rendered).toContain("0.5");
+    expect(rendered).not.toContain("0.2");
   });
 });
