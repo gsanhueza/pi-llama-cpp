@@ -107,6 +107,7 @@ const buildServerRow = (
   tui: TUI,
   onChange: (field: string, value: string) => void,
   healthEmoji: string,
+  onSubmenuChange: (open: boolean) => void,
 ): SettingItem => ({
   id: `server-${index}`,
   label: `${healthEmoji} ${server.url}`,
@@ -115,13 +116,17 @@ const buildServerRow = (
   submenu: (_cv, done) => {
     // Rebuild the field items on open so they prefill with current values
     const items = buildServerFieldItems(server, theme, tui);
+    onSubmenuChange(true);
     return new SettingsList(
       items,
       Math.min(items.length + 2, 15),
       getSettingsListTheme(),
       // Field commits arrive here: done(value) from the input submenus
       (field, value) => onChange(field, value),
-      done,
+      () => {
+        onSubmenuChange(false);
+        done();
+      },
     );
   },
 });
@@ -147,6 +152,8 @@ export class ServerSettingsList implements Component, Focusable {
   private wizardDialog: InputDialog | undefined;
   private confirmDialog: ConfirmDialog | undefined;
   private isFocused = false;
+  /** True while a server row's field-edit submenu is open */
+  private submenuOpen = false;
 
   constructor(private readonly options: ServerSettingsListOptions) {
     this.buildSettingsList().then((list) => {
@@ -171,6 +178,9 @@ export class ServerSettingsList implements Component, Focusable {
       ),
     );
 
+    // A fresh list never has a submenu open (also covers the rebuild
+    // paths, which discard any open field submenu)
+    this.submenuOpen = false;
     const items: SettingItem[] = this.options.servers.map((server, i) =>
       buildServerRow(
         server,
@@ -179,6 +189,9 @@ export class ServerSettingsList implements Component, Focusable {
         tui,
         (field, value) => this.handleFieldChange(field, value),
         healthEmojis[i],
+        (open) => {
+          this.submenuOpen = open;
+        },
       ),
     );
 
@@ -223,6 +236,15 @@ export class ServerSettingsList implements Component, Focusable {
 
     if (this.mode === "confirm") {
       this.confirmDialog?.handleInput(data);
+      return;
+    }
+
+    // A server row's field submenu is open: delegate everything (Esc,
+    // a/d, arrows) to the containing SettingsList, which forwards input
+    // to the submenu. Intercepting here would close the whole editor on
+    // Esc and trigger add/delete while typing in a field.
+    if (this.submenuOpen) {
+      this.settingsList?.handleInput(data);
       return;
     }
 
