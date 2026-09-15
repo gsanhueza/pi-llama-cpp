@@ -1,6 +1,7 @@
 import { PROVIDER_PREFIX } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import type { LlamaServer } from "../interfaces/settings";
+import { checkServerHealth } from "../utils/health";
 import { normalizeUrl } from "../utils/urls";
 
 /**
@@ -44,6 +45,9 @@ const SERVER_STATUS_ICONS: Record<ServerStatus, string> = {
 /**
  * Checks the health of a server and returns the corresponding emoji.
  *
+ * Delegates the probe/classification to the shared `checkServerHealth`
+ * (`utils/health`) — this wrapper only maps the status to its icon.
+ *
  * @param url - The server URL to check
  * @param timeout - Maximum time (ms) to wait for the health check
  * @returns The health emoji for the server status
@@ -51,23 +55,5 @@ const SERVER_STATUS_ICONS: Record<ServerStatus, string> = {
 export const getServerHealthEmoji = async (
   url: string,
   timeout: number,
-): Promise<string> => {
-  try {
-    const response = await fetch(`${url}/health`, {
-      signal: AbortSignal.timeout(timeout),
-    });
-    const data = (await response.json()) as { status?: string };
-    return data.status === "ok"
-      ? SERVER_STATUS_ICONS[ServerStatus.READY]
-      : SERVER_STATUS_ICONS[ServerStatus.UNREACHABLE];
-  } catch (error) {
-    // `AbortSignal.timeout` rejects `fetch` with a `TimeoutError` DOMException
-    // (some runtimes surface it as `AbortError` with a timeout message).
-    const isTimeout =
-      error instanceof Error &&
-      (error.name === "TimeoutError" || error.name === "AbortError");
-    return isTimeout
-      ? SERVER_STATUS_ICONS[ServerStatus.TIMEOUT]
-      : SERVER_STATUS_ICONS[ServerStatus.UNREACHABLE];
-  }
-};
+): Promise<string> =>
+  SERVER_STATUS_ICONS[await checkServerHealth(url, timeout)];

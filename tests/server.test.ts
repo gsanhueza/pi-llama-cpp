@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../src/constants";
 import { ServerStatus } from "../src/enums/serverStatus";
 import type { LlamaSettingsManager } from "../src/managers/settings";
@@ -215,8 +215,18 @@ describe("Server timeouts", async () => {
 });
 
 describe("Server isReady", () => {
+  // `isReady` delegates to the shared health probe (`utils/health`), which
+  // uses plain `fetch` instead of the ApiClient — stub it per test.
+  const stubFetch = (impl: () => Promise<unknown>) => {
+    vi.stubGlobal("fetch", vi.fn(impl));
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("should return READY when health status is ok", async () => {
-    mockRpc.mockResolvedValueOnce({ status: "ok" });
+    stubFetch(async () => ({ json: async () => ({ status: "ok" }) }));
 
     const server = createMockServer();
     const status = await server.isReady(1000);
@@ -225,7 +235,9 @@ describe("Server isReady", () => {
   });
 
   it("should return UNREACHABLE when health check fails", async () => {
-    mockRpc.mockRejectedValueOnce(new Error("connection refused"));
+    stubFetch(async () => {
+      throw new Error("connection refused");
+    });
 
     const server = createMockServer();
     const status = await server.isReady(1000);
@@ -234,11 +246,22 @@ describe("Server isReady", () => {
   });
 
   it("should return UNREACHABLE when health status is not ok", async () => {
-    mockRpc.mockResolvedValueOnce({ status: "error" });
+    stubFetch(async () => ({ json: async () => ({ status: "error" }) }));
 
     const server = createMockServer();
     const status = await server.isReady(1000);
 
     expect(status).toBe(ServerStatus.UNREACHABLE);
+  });
+
+  it("should return TIMEOUT when the health check aborts", async () => {
+    stubFetch(async () => {
+      throw new DOMException("The operation timed out.", "TimeoutError");
+    });
+
+    const server = createMockServer();
+    const status = await server.isReady(1000);
+
+    expect(status).toBe(ServerStatus.TIMEOUT);
   });
 });
