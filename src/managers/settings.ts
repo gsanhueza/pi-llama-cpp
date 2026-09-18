@@ -25,7 +25,7 @@ import {
 } from "../interfaces/settings";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
-import { isValidServerUrl, normalizeUrl } from "../utils/urls";
+import { ServerUrl } from "../utils/urls";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
@@ -75,7 +75,7 @@ export class LlamaSettingsManager {
    * Convenience method for the `llamaSettings` key.
    * Reloads settings from disk before reading.
    */
-  async getLlamaSettings(): Promise<LlamaSettings> {
+  private async getLlamaSettings(): Promise<LlamaSettings> {
     return (await this.getMergedSettings())[SETTINGS_KEY] ?? {};
   }
 
@@ -160,10 +160,10 @@ export class LlamaSettingsManager {
   private parseUrls(raw: string): string[] {
     return raw
       .split(";")
-      .map(normalizeUrl)
+      .map(ServerUrl.normalize)
       .filter((u) => {
         if (u.length === 0) return false;
-        if (!isValidServerUrl(u)) {
+        if (!ServerUrl.isValid(u)) {
           this.warnings.push(
             `Ignoring invalid server URL '${u}' (needs http(s)://)`,
           );

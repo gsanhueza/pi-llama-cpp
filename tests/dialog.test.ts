@@ -5,9 +5,10 @@ import {
   type TUI,
 } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ConfirmDialog, InputDialog } from "../src/ui/dialog";
-import { createOverrideSettingsList } from "../src/ui/overrideSettingsList";
-import { ServerSettingsList } from "../src/ui/serverSettingsList";
+import { ConfirmDialog } from "../src/ui/dialog/confirm";
+import { InputDialog } from "../src/ui/dialog/input";
+import { OverrideSettingsList } from "../src/ui/editors/override/overrideList";
+import { ServerSettingsList } from "../src/ui/editors/server/serverEditor";
 
 beforeEach(() => {
   initTheme();
@@ -191,7 +192,7 @@ describe("OverrideEntryListEditor cost re-prefill", () => {
 
   it("re-entering a cost field prefills the just-saved value", async () => {
     const persist = vi.fn().mockResolvedValue(undefined);
-    const list = createOverrideSettingsList({
+    const list = new OverrideSettingsList({
       tui: createMockTui(),
       theme: createMockTheme(),
       keybindings: createKeybindings(),

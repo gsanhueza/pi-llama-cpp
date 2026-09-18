@@ -29,23 +29,23 @@ describe("SingleModel mode", () => {
   });
 });
 
-describe("SingleModel capabilities", () => {
+describe("SingleModel capabilities (via toProviderConfig)", () => {
   it("should detect image capability when multimodal is in capabilities", async () => {
     mockRpc.mockResolvedValueOnce({ modalities: { vision: true } });
 
     const model = createModel();
-    const capabilities = await model.getCapabilities();
+    const { input } = await model.toProviderConfig();
 
-    expect(capabilities).toEqual(["text", "image"]);
+    expect(input).toEqual(["text", "image"]);
   });
 
   it("should detect text-only capability when multimodal is not in capabilities", async () => {
     mockRpc.mockResolvedValueOnce({ modalities: { vision: false } });
 
     const model = createModel();
-    const capabilities = await model.getCapabilities();
+    const { input } = await model.toProviderConfig();
 
-    expect(capabilities).toEqual(["text"]);
+    expect(input).toEqual(["text"]);
   });
 
   it("should fall back to the models endpoint when auth fails", async () => {
@@ -59,9 +59,9 @@ describe("SingleModel capabilities", () => {
       }); // /v1/models retry in SingleModel's catch
 
     const model = createModel();
-    const capabilities = await model.getCapabilities();
+    const { input } = await model.toProviderConfig();
 
-    expect(capabilities).toEqual(["text", "image"]);
+    expect(input).toEqual(["text", "image"]);
   });
 
   it("should fall back to text-only when the models endpoint reports no multimodal", async () => {
@@ -75,9 +75,9 @@ describe("SingleModel capabilities", () => {
       }); // /v1/models retry in SingleModel's catch
 
     const model = createModel();
-    const capabilities = await model.getCapabilities();
+    const { input } = await model.toProviderConfig();
 
-    expect(capabilities).toEqual(["text"]);
+    expect(input).toEqual(["text"]);
   });
 });
 
@@ -104,16 +104,16 @@ describe("SingleModel getStatus", () => {
   });
 });
 
-describe("SingleModel getContextSize", () => {
+describe("SingleModel context size (via toProviderConfig)", () => {
   it("should return n_ctx from /v1/models endpoint meta", async () => {
     mockRpc.mockResolvedValue({
       data: [{ id: "test", meta: { n_ctx: 8192 } }],
     });
 
     const model = createModel();
-    const ctxSize = await model.getContextSize();
+    const { contextWindow } = await model.toProviderConfig();
 
-    expect(ctxSize).toBe(8192);
+    expect(contextWindow).toBe(8192);
     expect(mockRpc).toHaveBeenCalledWith("/v1/models");
   });
 });

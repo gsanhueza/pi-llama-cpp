@@ -14,8 +14,8 @@ import { Mode } from "../enums/mode";
 import { Status } from "../enums/status";
 import { LlamaSettings } from "../interfaces/settings";
 import { BaseModel } from "../models/baseModel";
-import { createOverrideSettingsList } from "../ui/overrideSettingsList";
-import { ServerSettingsList } from "../ui/serverSettingsList";
+import { OverrideSettingsList } from "../ui/editors/override/overrideList";
+import { ServerSettingsList } from "../ui/editors/server/serverEditor";
 import { errorMessage } from "../utils/errors";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
@@ -374,21 +374,22 @@ export class CommandManager {
     }
 
     const servers = await this.settings.getLlamaServers();
-    await ctx.ui.custom<void>((tui, theme, keybindings, done) =>
-      createOverrideSettingsList({
-        tui,
-        theme,
-        keybindings,
-        servers,
-        persist: (next) => this.settings.setLlamaSetting("servers", next),
-        done: () => {
-          done(undefined);
-          // Re-register providers so the updated overrides take effect
-          this.serverManager.update(pi);
-        },
-        onError: (message) => ctx.ui.notify(message, "error"),
-        onChanged: () => {}, // no per-change notification needed
-      }),
+    await ctx.ui.custom<void>(
+      (tui, theme, keybindings, done) =>
+        new OverrideSettingsList({
+          tui,
+          theme,
+          keybindings,
+          servers,
+          persist: (next) => this.settings.setLlamaSetting("servers", next),
+          done: () => {
+            done(undefined);
+            // Re-register providers so the updated overrides take effect
+            this.serverManager.update(pi);
+          },
+          onError: (message) => ctx.ui.notify(message, "error"),
+          onChanged: () => {}, // no per-change notification needed
+        }),
     );
   }
 

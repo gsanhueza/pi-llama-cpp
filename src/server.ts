@@ -3,7 +3,6 @@ import {
   API_KEY_PLACEHOLDER,
   ENDPOINT_PREFIX,
   PROVIDER_NAME,
-  PROVIDER_PREFIX,
 } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
@@ -22,6 +21,7 @@ import { RouterModel } from "./models/routerModel";
 import { SingleModel } from "./models/singleModel";
 import { SSEManager } from "./sse/manager";
 import { checkServerHealth } from "./utils/health";
+import { ServerIds } from "./utils/serverIds";
 
 /**
  * Optional constructor collaborators for {@link Server} — the seam tests use
@@ -102,7 +102,7 @@ export class Server {
    * Uses custom ID if provided, otherwise falls back to URL-based ID.
    */
   get providerId(): string {
-    return this.options.customId ?? `${PROVIDER_PREFIX}=${this.baseUrl}`;
+    return ServerIds.resolve(this.baseUrl, this.options.customId);
   }
 
   /**
@@ -129,7 +129,7 @@ export class Server {
       if (key !== API_KEY_PLACEHOLDER) return key;
     }
     // Fall back to URL-based ID
-    return this.settings.resolveApiKey(`${PROVIDER_PREFIX}=${this.baseUrl}`);
+    return this.settings.resolveApiKey(ServerIds.fromUrl(this.baseUrl));
   }
 
   /**

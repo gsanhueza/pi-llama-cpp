@@ -72,7 +72,7 @@ export abstract class BaseModel {
    *
    * @returns An array of capabilities, as expected by Pi
    */
-  async getCapabilities(): Promise<("text" | "image")[]> {
+  protected async getCapabilities(): Promise<("text" | "image")[]> {
     const overridden = this.server.findOverrideForModel(this.id)?.capabilities;
     if (overridden) return overridden;
 
@@ -128,7 +128,7 @@ export abstract class BaseModel {
    *
    * @returns The context size in tokens
    */
-  async getContextSize(): Promise<number> {
+  protected async getContextSize(): Promise<number> {
     const overridden = this.server.findOverrideForModel(this.id)?.contextSize;
     if (overridden && overridden > 0) return overridden;
 
@@ -187,6 +187,10 @@ export abstract class BaseModel {
       cacheWrite: userCost.cacheWrite ?? 0,
     };
 
+    const input = await this.getCapabilities();
+    const contextWindow = await this.getContextSize();
+    const maxTokens = this.getMaxTokens(contextWindow);
+
     const response: ProviderModelConfig = {
       id: this.id,
       name: this.name,
@@ -199,10 +203,10 @@ export abstract class BaseModel {
         xhigh: "xhigh",
         max: "max",
       },
-      input: await this.getCapabilities(),
-      contextWindow: await this.getContextSize(),
+      input,
+      contextWindow,
       cost,
-      maxTokens: override.maxTokens ?? (await this.getContextSize()),
+      maxTokens,
     };
 
     // Add compat if the override specifies it
@@ -211,6 +215,22 @@ export abstract class BaseModel {
     }
 
     return response;
+  }
+
+  /**
+   * Gets the maximum number of tokens the model can generate.
+   *
+   * An override's `maxTokens` (when set and `> 0`) replaces the value;
+   * otherwise it falls back to the context size — a model cannot generate
+   * more tokens than its context holds. A stored `0` behaves as if the
+   * key were absent.
+   *
+   * @param contextSize - The already-resolved context size, used as fallback
+   * @returns The maximum number of tokens
+   */
+  protected getMaxTokens(contextSize: number): number {
+    const overridden = this.server.findOverrideForModel(this.id)?.maxTokens;
+    return overridden && overridden > 0 ? overridden : contextSize;
   }
 
   /**
@@ -269,7 +289,7 @@ export abstract class BaseModel {
    * @param timeout The maximum amount of ms before timeout. Defaults to server's pollingTimeout
    * @param interval The polling interval. Defaults to POLLING_INTERVAL
    */
-  async pollStatus(
+  protected async pollStatus(
     startTime: number = Date.now(),
     timeout?: number,
     interval: number = POLLING_INTERVAL,

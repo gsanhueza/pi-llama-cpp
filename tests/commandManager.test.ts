@@ -11,8 +11,8 @@ import {
 } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import type { LlamaSettingsManager } from "../src/managers/settings";
-import * as serverListEditor from "../src/ui/serverListEditor";
-import { ServerSettingsList } from "../src/ui/serverSettingsList";
+import { ServerSettingsList } from "../src/ui/editors/server/serverEditor";
+import { ServerDisplay } from "../src/ui/editors/server/utils";
 import {
   createMockCtx,
   createMockModel,
@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRpc.mockResolvedValue({ data: [] });
   // Mock health checks to return "healthy" immediately
-  vi.spyOn(serverListEditor, "getServerHealthEmoji").mockResolvedValue("🟢");
+  vi.spyOn(ServerDisplay, "healthEmoji").mockResolvedValue("🟢");
 });
 
 /**

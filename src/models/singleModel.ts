@@ -6,7 +6,7 @@ export class SingleModel extends BaseModel {
     return Mode.SINGLE;
   }
 
-  async getCapabilities(): Promise<("text" | "image")[]> {
+  protected async getCapabilities(): Promise<("text" | "image")[]> {
     try {
       return await super.getCapabilities();
     } catch {

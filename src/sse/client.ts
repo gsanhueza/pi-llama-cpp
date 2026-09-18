@@ -50,7 +50,7 @@ export class SSEClient {
    *
    * @returns true if the connection was established successfully
    */
-  async connect(): Promise<boolean> {
+  private async connect(): Promise<boolean> {
     if (this.connected) return true;
 
     const url = buildSSEUrl(this.sseEndpoint, this.apiKey);

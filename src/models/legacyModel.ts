@@ -13,7 +13,7 @@ export class LegacyModel extends SingleModel {
    *
    * @returns The context size
    */
-  async getContextSize(): Promise<number> {
+  protected async getContextSize(): Promise<number> {
     const props = await this.server.fetchModelProps(this.id);
     const models = await this.server.fetchModels();
 
@@ -34,7 +34,7 @@ export class LegacyModel extends SingleModel {
    *
    * @returns An array of capabilities, as expected by Pi
    */
-  async getCapabilities(): Promise<("text" | "image")[]> {
+  protected async getCapabilities(): Promise<("text" | "image")[]> {
     try {
       return await super.getCapabilities();
     } catch {

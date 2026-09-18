@@ -94,10 +94,12 @@ export const FIELDS = {
 } as const satisfies Record<string, Field>;
 
 /** Dialog prompt for a field: the `label` plus its parenthetical `note`
- * (or an overriding note, e.g. the add-server wizard's "(optional)").
- */
-export const fieldMessage = (field: Field, note = field.note): string =>
-  note ? `${field.label} ${note}` : field.label;
+ * (or an overriding note, e.g. the add-server wizard's "(optional)"). */
+export class FieldMessages {
+  static of(field: Field, note = field.note): string {
+    return note ? `${field.label} ${note}` : field.label;
+  }
+}
 
 /**
  * Dialog titles. `edit` composes the shared `Edit <term>` title so the
@@ -124,4 +126,6 @@ export const HINTS = {
   emptyServers: "  (a) add server · Esc done",
   /** Hint line when the override entry list is empty */
   emptyOverrideEntries: "  (a) add override · Esc back",
+  /** Row description for a server in the overrides editor */
+  overrideServerRow: "Enter: edit this server's override entries",
 } as const;

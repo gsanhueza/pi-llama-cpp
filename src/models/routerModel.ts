@@ -26,7 +26,7 @@ export class RouterModel extends BaseModel {
    *
    * In exchange, it will allow unloaded models to be correctly shown as "unloaded".
    */
-  async pollStatus(startTime = Date.now()): Promise<void> {
+  protected async pollStatus(startTime = Date.now()): Promise<void> {
     let elapsed = 0;
     const limit = 5000;
 
@@ -52,7 +52,7 @@ export class RouterModel extends BaseModel {
    *
    * @returns The context size in tokens
    */
-  async getContextSize(): Promise<number> {
+  protected async getContextSize(): Promise<number> {
     // We can get a more accurate context size if the model is already loaded
     if ((await this.getStatus()) === Status.LOADED) {
       return super.getContextSize();

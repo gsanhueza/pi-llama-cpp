@@ -32,7 +32,7 @@ export class SettingsStore {
   }
 
   /** Serializes (2-space indent) and writes atomically via temp file + rename. */
-  async write(root: Record<string, unknown>): Promise<void> {
+  private async write(root: Record<string, unknown>): Promise<void> {
     const tmp = `${this.path}.tmp`;
     await writeFile(tmp, JSON.stringify(root, null, 2), "utf-8");
     await rename(tmp, this.path);
