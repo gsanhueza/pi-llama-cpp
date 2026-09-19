@@ -9,7 +9,6 @@ import { join } from "node:path";
 import {
   API_KEY_PLACEHOLDER,
   AUTOLOAD_ON_MESSAGE,
-  LLAMA_SERVER_URL,
   POLLING_TIMEOUT,
   REACT_TO_MODEL_SELECT,
   SERVER_TIMEOUT,
@@ -25,7 +24,7 @@ import {
 import type { SortBy } from "../interfaces/sortBy";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
-import { ServerUrl } from "../utils/urls";
+import { UrlResolver } from "../utils/urlResolver";
 
 export class LlamaSettingsManager {
   private settingsManager = SettingsManager.create(process.cwd());
@@ -47,16 +46,17 @@ export class LlamaSettingsManager {
     }
   }
 
-  /** Warnings collected during URL resolution (dropped invalid entries). */
-  private warnings: string[] = [];
+  /** Delegated multi-source URL resolution chain (see `utils/urlResolver`). */
+  private urlResolver = new UrlResolver({
+    getLlamaSettings: () => this.getLlamaSettings(),
+    getMergedSettings: () => this.getMergedSettings(),
+  });
 
   /**
    * Returns and clears warnings collected during URL resolution.
    */
   takeWarnings(): string[] {
-    const warnings = [...this.warnings];
-    this.warnings.length = 0;
-    return warnings;
+    return this.urlResolver.takeWarnings();
   }
 
   /**
@@ -88,89 +88,13 @@ export class LlamaSettingsManager {
   }
 
   /**
-   * Resolves the server URLs to use in the following order:
-   *
-   * - `LLAMA_SERVER_URL` env variable
-   * - `llamaSettings` key (current - project, then global)
-   * - `llamaServerUrl` key (legacy - project, then global)
-   * - Default URL
+   * Resolves the server URLs to use. Delegates to the URL resolver chain
+   * (env → settings → legacy → default, see `utils/urlResolver`).
    *
    * @returns The list of URLs to use
    */
   async resolveUrls(): Promise<string[]> {
-    let response = this.resolveEnvUrls();
-    if (response.length > 0) return response;
-
-    response = await this.resolveServerUrls();
-    if (response.length > 0) return response;
-
-    response = await this.resolveLegacyUrls();
-    if (response.length > 0) return response;
-
-    return [LLAMA_SERVER_URL];
-  }
-
-  /**
-   * Resolves the llama-server URLs from the environment variable.
-   *
-   * @returns A list of detected URLs
-   */
-  private resolveEnvUrls(): string[] {
-    const raw = process.env.LLAMA_SERVER_URL;
-    if (!raw) return [];
-
-    return this.parseUrls(raw);
-  }
-
-  /**
-   * Resolves the llama-server URLs from `llamaSettings.servers`.
-   * Settings are merged, prioritizing project over global settings.
-   * Reloads settings from disk before reading.
-   *
-   * @returns A list of detected URLs
-   */
-  private async resolveServerUrls(): Promise<string[]> {
-    const { servers = [] } = await this.getLlamaSettings();
-    return servers.map((s) => this.parseUrls(s.url)).flat();
-  }
-
-  /**
-   * Resolves the llama-server URLs from `llamaServerUrl` legacy key.
-   * Settings are merged, prioritizing project over global settings.
-   * Reloads settings from disk before reading.
-   *
-   * @returns A list of detected URLs
-   */
-  private async resolveLegacyUrls(): Promise<string[]> {
-    const { llamaServerUrl = null } = await this.getMergedSettings();
-    if (!llamaServerUrl) return [];
-
-    return this.parseUrls(llamaServerUrl);
-  }
-
-  /**
-   * Parses a raw URL string into an array of cleaned URLs.
-   * Splits on semicolons, trims whitespace, filters empty strings, strips
-   * trailing slashes, and drops entries without an http(s) scheme —
-   * collecting a warning for each dropped entry (same validation the
-   * `/models servers` editor applies).
-   *
-   * @returns A sanitized URL
-   */
-  private parseUrls(raw: string): string[] {
-    return raw
-      .split(";")
-      .map(ServerUrl.normalize)
-      .filter((u) => {
-        if (u.length === 0) return false;
-        if (!ServerUrl.isValid(u)) {
-          this.warnings.push(
-            `Ignoring invalid server URL '${u}' (needs http(s)://)`,
-          );
-          return false;
-        }
-        return true;
-      });
+    return this.urlResolver.resolveUrls();
   }
 
   /**

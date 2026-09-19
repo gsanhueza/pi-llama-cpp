@@ -1,7 +1,7 @@
 /**
  * Shared server-URL handling: the single place where normalization and
- * validation live, used by the settings parser
- * (`LlamaSettingsManager.parseUrls`) and the editor field validator
+ * validation live, used by the settings parser (`UrlResolver.parseUrls`,
+ * see `utils/urlResolver`) and the editor field validator
  * (`ServerFields`) so the two can't drift.
  */
 export class ServerUrl {
