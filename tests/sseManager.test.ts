@@ -21,14 +21,10 @@ const createManager = (
 describe("SSEManager subscribeToStatus", () => {
   it("should reject after the server's pollingTimeout, not the constant", async () => {
     vi.useFakeTimers();
+    // Never-resolving fetch: the connection stays open but no events arrive
     vi.stubGlobal(
-      "EventSource",
-      class StubEventSource {
-        onopen = null;
-        onerror = null;
-        onmessage = null;
-        close() {}
-      },
+      "fetch",
+      vi.fn(async () => new Promise<Response>(() => {})),
     );
 
     try {
@@ -50,14 +46,10 @@ describe("SSEManager subscribeToStatus", () => {
 
   it("should resolve when a terminal status arrives before the timeout", async () => {
     vi.useFakeTimers();
+    // Never-resolving fetch: events are dispatched manually below
     vi.stubGlobal(
-      "EventSource",
-      class StubEventSource {
-        onopen = null;
-        onerror = null;
-        onmessage = null;
-        close() {}
-      },
+      "fetch",
+      vi.fn(async () => new Promise<Response>(() => {})),
     );
 
     try {

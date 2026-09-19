@@ -1,5 +1,6 @@
 import type { Server } from "../server";
-import { SSEClient, buildSSEUrl } from "./client";
+import { SSEClient } from "./client";
+import { buildAuthHeaders } from "./fetch";
 import {
   DownloadProgressData,
   ProgressData,
@@ -14,7 +15,7 @@ import {
  * Manages SSE connections and event routing for a single llama-server instance.
  *
  * Handles:
- * - Shared EventSource connection
+ * - Shared SSE connection
  * - Model-based event subscription with callback aggregation
  * - Progress parsing and callback dispatch
  */
@@ -43,9 +44,9 @@ export class SSEManager {
     if (this.sseSupported !== null) return this.sseSupported;
 
     try {
-      const url = buildSSEUrl(this.sseEndpoint, this.server.getApiKey());
-      const response = await fetch(url, {
+      const response = await fetch(this.sseEndpoint, {
         method: "GET",
+        headers: buildAuthHeaders(this.server.getApiKey()),
         signal: AbortSignal.timeout(await this.server.getServerTimeout()),
       });
       this.sseSupported =

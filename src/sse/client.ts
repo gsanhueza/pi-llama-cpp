@@ -1,30 +1,22 @@
 import { POLLING_INTERVAL } from "../constants";
+import { openSSEStream } from "./fetch";
 import type { SSECallback, SSECleanup, SSEEvent } from "./types";
-
-/**
- * Builds the full SSE endpoint URL, appending the API key as a query
- * parameter when one is set. Shared by {@link SSEClient} and
- * {@link SSEManager.probeSSE} so the two can't drift.
- */
-export const buildSSEUrl = (endpoint: string, apiKey?: string): string => {
-  if (apiKey) {
-    return `${endpoint}?api_key=${encodeURIComponent(apiKey)}`;
-  }
-  return endpoint;
-};
 
 /**
  * SSE client for llama-server's /models/sse endpoint.
  *
- * Uses a single shared EventSource per server instance.
+ * Uses a single shared stream per server instance, consumed with `fetch`
+ * (EventSource cannot send the API key as a header, and llama-server no
+ * longer accepts it as a query parameter — see `fetch.ts`).
  * Supports multiple model subscriptions with automatic event routing.
  * Handles reconnection by re-subscribing all callbacks.
  */
 export class SSEClient {
-  private eventSource: EventSource | null = null;
+  private abortController: AbortController | null = null;
+  private disposed: boolean = false;
   private subscribers: Map<string, SSECallback> = new Map();
   private connected: boolean = false;
-  private reconnecting: boolean = false; // tracks if EventSource auto-reconnect is in progress
+  private reconnecting: boolean = false; // tracks if reconnect is in progress
   /**
    * Single shared slot — each setOnConnectFailed call overwrites the
    * previous callback (see there for the constraint this imposes).
@@ -42,7 +34,15 @@ export class SSEClient {
   ) {}
 
   /**
-   * Connects to the SSE endpoint.
+   * Waits the given amount of time (used between reconnection attempts).
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Connects to the SSE endpoint and keeps it open, reconnecting with a
+   * fixed delay until `disconnect()` is called.
    *
    * No current caller consumes the result: `subscribe()` triggers the
    * connection without awaiting it, and connection failures before the
@@ -52,54 +52,108 @@ export class SSEClient {
    */
   private async connect(): Promise<boolean> {
     if (this.connected) return true;
+    this.disposed = false;
 
-    const url = buildSSEUrl(this.sseEndpoint, this.apiKey);
+    // Loop-local so a stale, already-aborted controller from a previous
+    // connection can't be confused with the current one after a revival.
+    let abortController: AbortController | null = this.abortController;
 
-    try {
-      this.eventSource = new EventSource(url);
-    } catch {
-      this.connected = false;
-      return false;
+    while (!this.disposed) {
+      if (abortController?.signal.aborted) return false;
+      abortController = new AbortController();
+      this.abortController = abortController;
+
+      let body: ReadableStream<Uint8Array>;
+      try {
+        body = await openSSEStream(
+          this.sseEndpoint,
+          this.apiKey,
+          abortController.signal,
+        );
+      } catch {
+        if (this.disposed || abortController.signal.aborted) return false;
+        this.notifyConnectFailed();
+        this.reconnecting = true;
+        await this.delay(POLLING_INTERVAL);
+        continue;
+      }
+
+      this.connected = true;
+      this.reconnecting = false;
+
+      await this.consume(body);
+
+      if (this.disposed || abortController.signal.aborted) return false;
+      // Stream ended (server closed or network error): reconnect
+      this.reconnecting = true;
+      await this.delay(POLLING_INTERVAL);
     }
 
-    this.eventSource.onerror = () => {
-      // EventSource will auto-reconnect; we just track state
-      this.connected = false;
-      this.reconnecting = true;
+    return false;
+  }
 
-      // Notify subscriber if connection fails before any event is received
-      if (!this._hasReceivedEvents && this._onConnectFailed) {
-        this._onConnectFailed();
+  /**
+   * Reads the raw byte stream, parses the SSE framing and dispatches
+   * `data:` payloads. Resolves when the stream ends or errors.
+   */
+  private async consume(body: ReadableStream<Uint8Array>): Promise<void> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          this.handleLine(line);
+        }
       }
-    };
+      // Flush a trailing data line that lacked its event-terminating newline
+      if (buffer) this.handleLine(buffer);
+    } catch {
+      // Stream aborted or network error — handled by the reconnect logic
+    } finally {
+      reader.releaseLock();
+    }
+  }
 
-    this.eventSource.onmessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        const sseEvent: SSEEvent = {
-          event: data.event ?? "unknown",
-          model: data.model ?? "*",
-          data: data.data,
-        };
-        this._hasReceivedEvents = true;
-        this.dispatch(sseEvent);
-      } catch {
-        // Invalid JSON, ignore
-      }
-    };
+  /**
+   * Handles a single SSE line, dispatching `data:` payloads as events.
+   */
+  private handleLine(line: string): void {
+    if (!line.startsWith("data:")) return;
 
-    // Wait a bit for the connection to establish
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => resolve(), POLLING_INTERVAL);
-      this.eventSource!.onopen = () => {
-        clearTimeout(timeout);
-        this.connected = true;
-        this.reconnecting = false;
-        resolve();
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+
+    try {
+      const data = JSON.parse(payload);
+      const sseEvent: SSEEvent = {
+        event: data.event ?? "unknown",
+        model: data.model ?? "*",
+        data: data.data,
       };
-    });
+      this._hasReceivedEvents = true;
+      this.dispatch(sseEvent);
+    } catch {
+      // Invalid JSON, ignore
+    }
+  }
 
-    return this.connected;
+  /**
+   * Notifies the connect-failed callback if the connection failed before
+   * any event was received.
+   */
+  private notifyConnectFailed(): void {
+    if (!this._hasReceivedEvents && this._onConnectFailed) {
+      this._onConnectFailed();
+    }
   }
 
   /**
@@ -143,11 +197,11 @@ export class SSEClient {
    * Disconnects from the SSE endpoint and clears all subscriptions.
    */
   disconnect(): void {
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
+    this.disposed = true;
+    this.abortController?.abort();
+    this.abortController = null;
     this.connected = false;
+    this.reconnecting = false;
     this.subscribers.clear();
   }
 
