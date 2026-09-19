@@ -16,7 +16,6 @@ const createManager = (
       pollingTimeout,
       serverTimeout,
     }),
-    "",
   );
 
 describe("SSEManager subscribeToStatus", () => {

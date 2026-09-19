@@ -24,10 +24,7 @@ export class SSEManager {
   private modelCallbacks: Map<string, SSECallback[]> = new Map();
   private sseSupported: boolean | null = null;
 
-  constructor(
-    private readonly server: Server,
-    private readonly apiKey: string,
-  ) {}
+  constructor(private readonly server: Server) {}
 
   /**
    * The SSE endpoint URL.
@@ -46,7 +43,7 @@ export class SSEManager {
     if (this.sseSupported !== null) return this.sseSupported;
 
     try {
-      const url = buildSSEUrl(this.sseEndpoint, this.apiKey);
+      const url = buildSSEUrl(this.sseEndpoint, this.server.getApiKey());
       const response = await fetch(url, {
         method: "GET",
         signal: AbortSignal.timeout(await this.server.getServerTimeout()),
@@ -80,7 +77,7 @@ export class SSEManager {
     this.modelCallbacks.set(modelId, callbacks);
 
     // Create SSE client if not already created
-    this.sseClient ??= new SSEClient(this.sseEndpoint, this.apiKey);
+    this.sseClient ??= new SSEClient(this.sseEndpoint, this.server.getApiKey());
 
     // Subscribe a single dispatching callback to the SSE client
     if (!this.sseSubscribers.has(modelId)) {

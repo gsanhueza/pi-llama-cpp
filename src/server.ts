@@ -27,14 +27,15 @@ import { ServerIds } from "./utils/serverIds";
  * to run the real Server against fake clients.
  *
  * Both are factories because their arguments only exist around construction:
- * the API key is (re-)resolved by the Server, and SSEManager needs its owner.
- * Factories must stay pure functions of their arguments — `initialize()`
- * re-invokes both on every scan (the ApiClient rebuild picks up a fresh key,
- * by design), so captured per-server state would leak across re-scans.
+ * the API key is (re-)resolved by the Server, and SSEManager needs its owner
+ * (it reads the key and timeouts live through it). Factories must stay pure
+ * functions of their arguments — `initialize()` re-invokes both on every scan
+ * (the ApiClient rebuild picks up a fresh key, by design), so captured
+ * per-server state would leak across re-scans.
  */
 export type ServerDeps = {
   createApiClient?: (apiKey: string) => ApiClient;
-  createSSEManager?: (server: Server, apiKey: string) => SSEManager;
+  createSSEManager?: (server: Server) => SSEManager;
 };
 
 export class Server {
@@ -140,9 +141,7 @@ export class Server {
     this.apiClient =
       this.deps.createApiClient?.(apiKey) ??
       new ApiClient(this.baseUrl, apiKey);
-    this.sse =
-      this.deps.createSSEManager?.(this, apiKey) ??
-      new SSEManager(this, apiKey);
+    this.sse = this.deps.createSSEManager?.(this) ?? new SSEManager(this);
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode(data);
 
