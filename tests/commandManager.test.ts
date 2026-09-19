@@ -3,16 +3,16 @@ import { initTheme } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action } from "../src/enums/action";
-import {
-  applySettingChange,
-  buildSettingsItems,
-  CommandManager,
-  formatMs,
-} from "../src/managers/command";
+import { CommandManager } from "../src/managers/command";
 import { ServerManager } from "../src/managers/server";
 import type { LlamaSettingsManager } from "../src/managers/settings";
 import { ServerSettingsList } from "../src/ui/editors/server/serverEditor";
 import { ServerDisplay } from "../src/ui/editors/server/utils";
+import {
+  applySettingChange,
+  buildSettingsItems,
+  formatMs,
+} from "../src/ui/settings";
 import {
   createMockCtx,
   createMockModel,
