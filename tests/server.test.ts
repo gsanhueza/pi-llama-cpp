@@ -107,18 +107,6 @@ describe("Server fetchModelProps", () => {
   });
 });
 
-describe("Server fetchServerHealth", () => {
-  it("should call the /health endpoint", async () => {
-    mockRpc.mockResolvedValueOnce({ status: "ok" });
-
-    const server = createMockServer();
-    const result = await server.fetchServerHealth();
-
-    expect(result).toEqual({ status: "ok" });
-    expect(mockRpc).toHaveBeenCalledWith("/health");
-  });
-});
-
 describe("Server fetchServerProps", () => {
   it("should call the /props endpoint without model", async () => {
     mockRpc.mockResolvedValueOnce({

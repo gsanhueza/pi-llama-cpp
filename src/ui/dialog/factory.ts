@@ -26,11 +26,17 @@ type ConfirmOptions = Omit<ConfirmDialogOptions, "theme" | "tui">;
  */
 export class DialogFactory {
   constructor(
-    public readonly theme: Theme,
-    /** Exposed for consumers that change UI state asynchronously after a
-     * dialog commit (e.g. the wizard) and need to request a re-render. */
-    public readonly tui: TUI,
+    private readonly theme: Theme,
+    /** Used internally to request re-renders after async dialog commits
+     * (e.g. the wizard). */
+    private readonly tui: TUI,
   ) {}
+
+  /** Requests a UI re-render. Used by callers that need to update the
+   * display asynchronously after a dialog commit. */
+  requestRender(): void {
+    this.tui.requestRender();
+  }
 
   /** Creates a framed text-input dialog: Enter commits, Esc cancels. */
   input(options: InputOptions): InputDialog {

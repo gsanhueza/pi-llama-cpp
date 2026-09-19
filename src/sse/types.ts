@@ -8,10 +8,6 @@
 export const SSEEventType = {
   status_change: "status_change",
   download_progress: "download_progress",
-  download_finished: "download_finished",
-  download_failed: "download_failed",
-  models_reload: "models_reload",
-  model_remove: "model_remove",
 } as const;
 
 export type SSEEventType = (typeof SSEEventType)[keyof typeof SSEEventType];

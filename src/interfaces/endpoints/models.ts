@@ -10,7 +10,7 @@ export interface ModelsEndpoint {
   data: DataProperty[];
 }
 
-export interface ModelProperty {
+interface ModelProperty {
   name: string;
   model: string;
   modified_at: string;

@@ -19,15 +19,6 @@ const createManager = (
     "",
   );
 
-describe("SSEManager timeouts", async () => {
-  it("should expose the timeouts of its server", async () => {
-    const manager = createManager(5678, 1234);
-
-    expect(await manager.getPollingTimeout()).toBe(5678);
-    expect(await manager.getServerTimeout()).toBe(1234);
-  });
-});
-
 describe("SSEManager subscribeToStatus", () => {
   it("should reject after the server's pollingTimeout, not the constant", async () => {
     vi.useFakeTimers();

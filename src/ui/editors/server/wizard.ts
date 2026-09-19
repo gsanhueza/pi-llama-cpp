@@ -83,7 +83,7 @@ export class ServerWizard {
     }
 
     this.showStep();
-    this.dialogs.tui.requestRender();
+    this.dialogs.requestRender();
   }
 
   /** Abort the wizard and call the cancel callback. */

@@ -1065,18 +1065,20 @@ describe("Server with overrides", () => {
       },
     });
 
-    expect(server.getOverrides()).toEqual({
-      "model-a": { cost: { input: 0.2, output: 0.6 } },
-      "model-b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+    expect(server.findOverrideForModel("model-a")).toEqual({
+      cost: { input: 0.2, output: 0.6 },
+    });
+    expect(server.findOverrideForModel("model-b")).toEqual({
+      cost: { input: 0.1, output: 0.3, cacheRead: 0.01 },
     });
   });
 
-  it("should return empty object when no overrides are provided", () => {
+  it("should return undefined for findOverrideForModel when no overrides are provided", () => {
     const server = new Server(settings, {
       baseUrl: "http://127.0.0.1:8080",
     });
 
-    expect(server.getOverrides()).toEqual({});
+    expect(server.findOverrideForModel("any-model")).toBeUndefined();
   });
 });
 
@@ -1118,10 +1120,10 @@ describe("resolveServers passes overrides", () => {
     const result = await settings.resolveServers();
 
     expect(result).toHaveLength(2);
-    expect(result[0].getOverrides()).toEqual({
-      "model-x": { cost: { input: 0.5, output: 1.0 } },
+    expect(result[0].findOverrideForModel("model-x")).toEqual({
+      cost: { input: 0.5, output: 1.0 },
     });
-    expect(result[1].getOverrides()).toEqual({});
+    expect(result[1].findOverrideForModel("any-model")).toBeUndefined();
   });
 });
 

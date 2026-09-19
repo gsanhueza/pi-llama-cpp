@@ -6,7 +6,6 @@ import {
 } from "./constants";
 import { Mode } from "./enums/mode";
 import { ServerStatus } from "./enums/serverStatus";
-import { HealthEndpoint } from "./interfaces/endpoints/health";
 import { ModelsEndpoint } from "./interfaces/endpoints/models";
 import {
   PropsEndpoint,
@@ -191,15 +190,6 @@ export class Server {
   }
 
   /**
-   * Retrieves the health status of the server
-   *
-   * @returns The health status
-   */
-  async fetchServerHealth(): Promise<HealthEndpoint> {
-    return await this.apiClient.get<HealthEndpoint>("/health");
-  }
-
-  /**
    * Fetches models from the server
    *
    * @return The models from the server
@@ -232,13 +222,6 @@ export class Server {
   }
 
   /**
-   * Returns the per-model override configuration for this server.
-   */
-  getOverrides(): Record<string, ModelOverride> {
-    return this.options.overrides ?? {};
-  }
-
-  /**
    * Resolves the override for a given model ID using prefix matching.
    *
    * Keys in the overrides map are treated as prefix filters — a model ID
@@ -249,7 +232,7 @@ export class Server {
    * @returns The matching override, or `undefined` if no key matches.
    */
   findOverrideForModel(modelId: string): ModelOverride | undefined {
-    const overrides = this.getOverrides();
+    const overrides = this.options.overrides ?? {};
     let best: ModelOverride | undefined;
     let bestLen = 0;
 
