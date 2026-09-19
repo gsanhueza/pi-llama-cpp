@@ -96,12 +96,6 @@ export class ModelsMenu {
         if (!piModel)
           throw new Error(`Cannot find model ${model.name} in pi registry`);
 
-        // Verify auth
-        if ((await model.getStatus()) === Status.UNAUTHORIZED)
-          throw new Error(
-            `Unauthorized for ${model.name}. Use /login and add your API key.`,
-          );
-
         // Verify failure
         if ((await model.getStatus()) === Status.FAILED)
           throw new Error(`Failed to load model ${model.name}`);
@@ -227,7 +221,6 @@ export class ModelsMenu {
           ? [Action.SWITCH, Action.UNLOAD, ...base]
           : [Action.SWITCH, ...base],
       [Status.UNLOADED]: [Action.LOAD_AND_SWITCH, Action.LOAD, ...base],
-      [Status.UNAUTHORIZED]: [...base],
     };
 
     const status = await model.getStatus();

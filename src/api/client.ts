@@ -1,6 +1,19 @@
 import { POLLING_INTERVAL } from "../constants";
 
 /**
+ * Error thrown by the API client when the server rejects a request.
+ */
+export class ApiError extends Error {
+  constructor(
+    public readonly type: "authentication" | "server" | "unknown",
+    public readonly statusCode: number,
+  ) {
+    super(`API error (${statusCode})`);
+    this.name = "ApiError";
+  }
+}
+
+/**
  * How long GET responses stay cached: half the polling interval, so a poll
  * tick always reaches the server while multiple reads within one tick
  * (fan-outs like `toProviderConfig`, concurrent model polls) do not.
@@ -126,6 +139,8 @@ export class ApiClient {
    *
    * @param endpoint The endpoint path to fetch (e.g. "/health")
    * @returns The parsed JSON response from the server
+   * @throws ApiError with status 401 when the server rejects the request
+   *   due to authentication (invalid/missing API key).
    */
   private async do_get<T>(endpoint: string): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -133,6 +148,10 @@ export class ApiClient {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     });
+
+    if (res.status === 401) {
+      throw new ApiError("authentication", res.status);
+    }
 
     return res.json();
   }
@@ -144,6 +163,8 @@ export class ApiClient {
    * @param endpoint The endpoint path to post to
    * @param body The optional request body
    * @returns The parsed JSON response from the server
+   * @throws ApiError with status 401 when the server rejects the request
+   *   due to authentication (invalid/missing API key).
    */
   private async do_post<T>(
     endpoint: string,
@@ -159,6 +180,10 @@ export class ApiClient {
       },
       body: body ? JSON.stringify(body) : undefined,
     });
+
+    if (res.status === 401) {
+      throw new ApiError("authentication", res.status);
+    }
 
     return res.json();
   }

@@ -17,14 +17,13 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 
 ### Status Indicators
 
-| Icon | Status       | Description                            |
-| ---- | ------------ | -------------------------------------- |
-| 🟢   | Loaded       | Model is active and ready to use       |
-| 🟡   | Loading      | Model is currently being loaded        |
-| 🔴   | Failed       | Model failed to load                   |
-| 🔵   | Sleeping     | Model is available, but inactive       |
-| ⚪   | Unloaded     | Model is not loaded on the server      |
-| ⛔   | Unauthorized | Model can't be used (API key required) |
+| Icon | Status   | Description                       |
+| ---- | -------- | --------------------------------- |
+| 🟢   | Loaded   | Model is active and ready to use  |
+| 🟡   | Loading  | Model is currently being loaded   |
+| 🔴   | Failed   | Model failed to load              |
+| 🔵   | Sleeping | Model is available, but inactive  |
+| ⚪   | Unloaded | Model is not loaded on the server |
 
 > **Note**: The `Sleeping` status only shows when you start your server with `llama-server --sleep-idle-seconds <n> ...`.
 > This is a **llama.cpp server flag** that tells the server to put idle models to sleep after `n` seconds.

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { ApiError } from "../api/client";
 import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import type { SortBy } from "../interfaces/sortBy";
@@ -81,7 +82,28 @@ export class ServerManager {
       try {
         await server.initialize();
         await this.registerProvider(server, pi);
-      } catch {
+      } catch (err) {
+        if (err instanceof ApiError && err.type === "authentication") {
+          // Register the provider with an empty model list so the user can
+          // still configure the API key via `/login` or `auth.json`. On the
+          // next scan the provider will re-initialize and discover models.
+          // Don't add to `failedUrls` — the server IS reachable, auth just
+          // isn't configured yet, so the health indicator should stay green.
+          const message = [
+            "[pi-llama-cpp]",
+            `Server at '${server.baseUrl}' requires a valid API key.`,
+            "Configure the key via `/login` or in `~/.pi/agent/auth.json`.",
+          ].join("\n");
+          this.warnings.push(message);
+          pi.registerProvider(server.providerId, {
+            name: server.providerName,
+            baseUrl: server.apiBaseUrl,
+            api: API_TYPE,
+            apiKey: server.getApiKey(),
+            models: [],
+          });
+          continue;
+        }
         this.failedUrls.push(server.baseUrl);
         continue;
       }
@@ -129,9 +151,10 @@ export class ServerManager {
   }
 
   /**
-   * Creates a Pi provider for the given server
+   * Creates a Pi provider for the given server.
    *
    * @param server The server
+   * @param pi The Pi API
    */
   private async registerProvider(server: Server, pi: ExtensionAPI) {
     const { apiBaseUrl, models, providerId, providerName } = server;
