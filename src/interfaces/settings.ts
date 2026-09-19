@@ -1,5 +1,5 @@
 import type { ModelCost, OpenAICompletionsCompat } from "@earendil-works/pi-ai";
-import type { SortBy } from "../constants";
+import type { SortBy } from "./sortBy";
 
 /**
  * Per-model overrides applied on top of what llama-server reports.

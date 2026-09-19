@@ -16,13 +16,13 @@ import {
   SETTINGS_KEY,
   SORT_BY,
   THINKING_BUDGETS,
-  type SortBy,
 } from "../constants";
 import {
   LlamaServer,
   LlamaSettings,
   ModelOverride,
 } from "../interfaces/settings";
+import type { SortBy } from "../interfaces/sortBy";
 import { Server } from "../server";
 import { SettingsStore } from "../utils/settingsStore";
 import { ServerUrl } from "../utils/urls";

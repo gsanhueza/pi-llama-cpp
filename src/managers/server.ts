@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API_TYPE, PROVIDER_NAME, type SortBy } from "../constants";
+import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
+import type { SortBy } from "../interfaces/sortBy";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
 import type { LlamaSettingsManager } from "./settings";

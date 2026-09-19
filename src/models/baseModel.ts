@@ -134,8 +134,7 @@ export abstract class BaseModel {
 
     try {
       const { data } = await this.server.fetchModels();
-      const { n_ctx } = data.find((m) => m.id === this.id)?.meta!;
-
+      const n_ctx = data.find((m) => m.id === this.id)?.meta?.n_ctx;
       return n_ctx ?? FALLBACK_CTX;
     } catch {
       return FALLBACK_CTX;

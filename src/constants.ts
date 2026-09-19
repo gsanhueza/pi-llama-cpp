@@ -77,11 +77,6 @@ export const AUTOLOAD_ON_MESSAGE = false;
 export const SORT_BY = "asc";
 
 /**
- * Sort order options for model lists.
- */
-export type SortBy = "asc" | "desc" | "asc-name" | "desc-name" | "api";
-
-/**
  * Thinking budgets to send to the server, depending on user-selected level in Pi.
  */
 export const THINKING_BUDGETS = {
