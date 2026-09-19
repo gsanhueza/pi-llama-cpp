@@ -27,6 +27,14 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
     this.settingsList = this.buildSettingsList();
   }
 
+  // -- hooks ---------------------------------------------------------------
+
+  /** Esc steps back to the server list, not out of the whole dialog —
+   * `options.done` is the top-level close (shared options object). */
+  protected close(): void {
+    this.done();
+  }
+
   // -- abstract hooks -------------------------------------------------------
 
   protected buildSettingsList(): SettingsList {

@@ -78,6 +78,19 @@ export abstract class ListEditor<
   /** Title for the delete confirmation dialog (e.g. "Delete server"). */
   protected abstract get deleteTitle(): string;
 
+  // -- hooks -----------------------------------------------------------------
+
+  /**
+   * Closes this editor on Esc. The base implementation ends the whole
+   * dialog (`options.done`) — correct for top-level editors. Drill-down
+   * subclasses that live inside another editor's submenu override this
+   * to step back one level instead (their `options.done` still points
+   * at the top-level close inherited through the shared options).
+   */
+  protected close(): void {
+    this.options.done();
+  }
+
   // -- Focusable ------------------------------------------------------------
 
   get focused(): boolean {
@@ -116,7 +129,7 @@ export abstract class ListEditor<
     // moves the rendered cursor.
     const kb = this.options.keybindings;
     if (kb.matches(data, "tui.select.cancel")) {
-      this.options.done();
+      this.close();
       return;
     }
     if (kb.matches(data, "tui.select.up")) {

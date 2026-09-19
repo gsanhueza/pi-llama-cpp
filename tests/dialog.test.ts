@@ -227,3 +227,53 @@ describe("OverrideEntryListEditor cost re-prefill", () => {
     expect(rendered).not.toContain("0.2");
   });
 });
+
+describe("OverrideSettingsList escape navigation", () => {
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const build = () => {
+    const done = vi.fn();
+    const list = new OverrideSettingsList({
+      tui: createMockTui(),
+      theme: createMockTheme(),
+      keybindings: createKeybindings(),
+      servers: [
+        {
+          url: "http://x:1",
+          overrides: { "gpt-*": { cost: { input: 0.2 } } },
+        },
+      ] as never[],
+      persist: vi.fn().mockResolvedValue(undefined),
+      done,
+      onError: vi.fn(),
+      onChanged: vi.fn(),
+    });
+    return { list, done };
+  };
+
+  it("Esc from the field submenu then the entry list lands on the server list", async () => {
+    const { list, done } = build();
+
+    list.handleInput(ENTER); // drill into the server row (entry list)
+    list.handleInput(ENTER); // open the field submenu
+    expect(list.render(80).join("\n")).not.toContain("http://x:1");
+
+    list.handleInput(ESC); // field submenu → entry list
+    await flush();
+    expect(done).not.toHaveBeenCalled();
+    expect(list.render(80).join("\n")).not.toContain("http://x:1");
+
+    list.handleInput(ESC); // entry list → server list
+    await flush();
+    // The dialog must stay open, showing the server row again
+    expect(done).not.toHaveBeenCalled();
+    expect(list.render(80).join("\n")).toContain("http://x:1");
+  });
+
+  it("Esc from the server list closes the dialog", async () => {
+    const { list, done } = build();
+
+    list.handleInput(ESC);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+});
