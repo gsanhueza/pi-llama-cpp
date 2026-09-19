@@ -254,7 +254,7 @@ describe("CommandManager", () => {
         bold: (text: string) => text,
       }) as unknown as Theme;
 
-    it("should open the editor without touching servers", async () => {
+    it("should re-register providers after the editor closes", async () => {
       const updateSpy = vi
         .spyOn(serverManager, "update")
         .mockResolvedValue(undefined);
@@ -262,8 +262,13 @@ describe("CommandManager", () => {
 
       await commandManager.handleCommand("servers", ctx as any, mockPi as any);
 
-      expect(updateSpy).not.toHaveBeenCalled();
       expect(ctx.ui.custom).toHaveBeenCalledTimes(1);
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      // Re-registration happens on close, not on open. The mock dialog
+      // resolves immediately, so the update call must come after custom.
+      expect(updateSpy.mock.invocationCallOrder[0]).toBeGreaterThan(
+        vi.mocked(ctx.ui.custom).mock.invocationCallOrder[0],
+      );
     });
 
     it("should notify instead of opening the editor outside the TUI", async () => {

@@ -144,14 +144,8 @@ export class CommandManager {
   }
 
   /**
-   * Runs the interactive servers editor for `llamaSettings.servers`.
-   * Enter on a server row drills into its field-edit submenu (URL/id/name);
-   * a adds a new server (inline Input), d deletes (after confirmation);
-   * Esc closes.
-   *
-   * Writes go to the global `~/.pi/agent/settings.json` via
-   * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
-   * the editor stays open with the pre-mutation list. After closing,
+   * Runs the interactive servers editor for `llamaSettings.servers`
+   * (see `ServerSettingsList` for the editing semantics). After closing,
    * providers are re-registered so server changes apply immediately.
    */
   private async runServersEditor(
@@ -166,49 +160,17 @@ export class CommandManager {
       return;
     }
 
-    const servers = await this.settings.getLlamaServers();
-    const { serverTimeout } = await this.settings.resolveTimeouts();
+    await ServerSettingsList.show(ctx.ui, this.settings);
 
-    await ctx.ui.custom<void>(
-      (tui, theme, keybindings, done) =>
-        new ServerSettingsList({
-          tui,
-          theme,
-          keybindings,
-          servers,
-          persist: (next) => this.settings.setLlamaSetting("servers", next),
-          done: () => {
-            done(undefined);
-            // Re-register providers so the updated server list takes effect
-            this.serverManager.update(pi);
-          },
-          onError: (message) => ctx.ui.notify(message, "error"),
-          serverTimeout,
-        }),
-    );
+    // Re-register providers so the updated server list takes effect
+    await this.serverManager.update(pi);
   }
 
   /**
    * Runs the interactive overrides editor for
-   * `llamaSettings.servers[].overrides`: a SettingsList of servers drilling
-   * down into each server's override entries (one row per pattern, with
-   * add/delete support). Within a server's entry list: Enter drills into
-   * the field-edit submenu; a adds, d deletes (after confirmation).
-   *
-   * Fields use a mix of finite (Enter to cycle) and infinite (Enter to
-   * type) editing:
-   *
-   * - Pattern / costs (input, output, cacheRead, cacheWrite): infinite —
-   *   Enter opens an Input for typing.
-   * - Capabilities: finite — Enter cycles between `text` and `text | image`.
-   * - Reasoning: finite — Enter cycles between `true` and `false`.
-   *
-   * Servers themselves are not managed here — use `/models servers`.
-   *
-   * Writes go to the global `~/.pi/agent/settings.json` via
-   * `LlamaSettingsManager.setLlamaSetting()`; write errors are notified and
-   * leave the values unchanged. After closing, providers are
-   * re-registered so new overrides take effect on the next request.
+   * `llamaSettings.servers[].overrides` (see `OverrideSettingsList` for
+   * the editing semantics). After closing, providers are re-registered
+   * so new overrides take effect on the next request.
    */
   private async runOverridesEditor(
     ctx: ExtensionCommandContext,
@@ -222,24 +184,10 @@ export class CommandManager {
       return;
     }
 
-    const servers = await this.settings.getLlamaServers();
-    await ctx.ui.custom<void>(
-      (tui, theme, keybindings, done) =>
-        new OverrideSettingsList({
-          tui,
-          theme,
-          keybindings,
-          servers,
-          persist: (next) => this.settings.setLlamaSetting("servers", next),
-          done: () => {
-            done(undefined);
-            // Re-register providers so the updated overrides take effect
-            this.serverManager.update(pi);
-          },
-          onError: (message) => ctx.ui.notify(message, "error"),
-          onChanged: () => {}, // no per-change notification needed
-        }),
-    );
+    await OverrideSettingsList.show(ctx.ui, this.settings);
+
+    // Re-register providers so the updated overrides take effect
+    await this.serverManager.update(pi);
   }
 
   /**

@@ -11,8 +11,8 @@ import { ServerManager } from "./server";
 
 export class EventManager {
   /**
-   * Model with a load currently in flight. Deliberately a class static
-   * (REFACTOR.md §3.3): the load is started by CommandManager
+   * Model with a load currently in flight. Deliberately a class static:
+   * the load is started by CommandManager
    * (fire-and-forget from the /models editor) while the "session switched
    * mid-load" warning must be emitted here, from the session_before_switch
    * hook — a shared static is the least-plumbing bridge between the two

@@ -1,3 +1,4 @@
+import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type {
   Component,
   Focusable,
@@ -5,6 +6,7 @@ import type {
   SettingsList,
 } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../../interfaces/settings";
+import type { LlamaSettingsManager } from "../../../managers/settings";
 import { HINTS } from "../../strings";
 import type { OverrideSettingsListOptions } from "../editorOptions";
 import { SettingsListFactory } from "../settingsListFactory";
@@ -15,6 +17,17 @@ import { OverrideEntryListEditor } from "./entryEditor";
  * override entries.
  *
  * Unlike `ServerSettingsList`, this has no add/delete — just drill-down.
+ *
+ * Within a server's entry list: Enter drills into the field-edit submenu;
+ * a adds, d deletes (after confirmation). Fields use a mix of finite
+ * (Enter to cycle) and infinite (Enter to type) editing:
+ *
+ * - Pattern / costs (input, output, cacheRead, cacheWrite): infinite —
+ *   Enter opens an Input for typing.
+ * - Capabilities: finite — Enter cycles between `text` and `text | image`.
+ * - Reasoning: finite — Enter cycles between `true` and `false`.
+ *
+ * Servers themselves are not managed here — use `/models servers`.
  */
 export class OverrideSettingsList implements Component, Focusable {
   private settingsList: SettingsList | null = null;
@@ -22,6 +35,34 @@ export class OverrideSettingsList implements Component, Focusable {
 
   constructor(private readonly options: OverrideSettingsListOptions) {
     this.settingsList = this.buildSettingsList();
+  }
+
+  /**
+   * Opens the editor in a modal `ui.custom` dialog seeded with the
+   * current `llamaSettings.servers` and resolves when the user closes
+   * it (Esc). Writes go through `settings.setLlamaSetting()`; write
+   * errors are notified via `ui` and the editor stays open with the
+   * pre-mutation list.
+   */
+  static async show(
+    ui: ExtensionUIContext,
+    settings: LlamaSettingsManager,
+  ): Promise<void> {
+    const servers = await settings.getLlamaServers();
+
+    await ui.custom<void>(
+      (tui, theme, keybindings, done) =>
+        new OverrideSettingsList({
+          tui,
+          theme,
+          keybindings,
+          servers,
+          persist: (next) => settings.setLlamaSetting("servers", next),
+          done: () => done(undefined),
+          onError: (message) => ui.notify(message, "error"),
+          onChanged: () => {}, // no per-change notification needed
+        }),
+    );
   }
 
   // -- Component -------------------------------------------------------------

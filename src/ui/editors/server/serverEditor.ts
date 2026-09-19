@@ -1,6 +1,8 @@
+import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
 import { SERVER_TIMEOUT } from "../../../constants";
 import type { LlamaServer } from "../../../interfaces/settings";
+import type { LlamaSettingsManager } from "../../../managers/settings";
 import { TITLES } from "../../strings";
 import type { ServerSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
@@ -29,6 +31,35 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
       this.settingsList = list;
       this.options.tui.requestRender();
     });
+  }
+
+  /**
+   * Opens the editor in a modal `ui.custom` dialog seeded with the
+   * current `llamaSettings.servers` and resolves when the user closes
+   * it (Esc). Writes go through `settings.setLlamaSetting()`; write
+   * errors are notified via `ui` and the editor stays open with the
+   * pre-mutation list.
+   */
+  static async show(
+    ui: ExtensionUIContext,
+    settings: LlamaSettingsManager,
+  ): Promise<void> {
+    const servers = await settings.getLlamaServers();
+    const { serverTimeout } = await settings.resolveTimeouts();
+
+    await ui.custom<void>(
+      (tui, theme, keybindings, done) =>
+        new ServerSettingsList({
+          tui,
+          theme,
+          keybindings,
+          servers,
+          persist: (next) => settings.setLlamaSetting("servers", next),
+          done: () => done(undefined),
+          onError: (message) => ui.notify(message, "error"),
+          serverTimeout,
+        }),
+    );
   }
 
   // -- abstract hooks -------------------------------------------------------
