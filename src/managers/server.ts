@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { ApiError } from "../api/client";
 import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
@@ -92,9 +93,10 @@ export class ServerManager {
           const message = [
             "[pi-llama-cpp]",
             `Server at '${server.baseUrl}' requires a valid API key.`,
-            "Configure the key via `/login` or in `~/.pi/agent/auth.json`.",
+            `Configure the key via '/login' or in '${getAgentDir()}/auth.json'.`,
           ].join("\n");
           this.warnings.push(message);
+
           pi.registerProvider(server.providerId, {
             name: server.providerName,
             baseUrl: server.apiBaseUrl,

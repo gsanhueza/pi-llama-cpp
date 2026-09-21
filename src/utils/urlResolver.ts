@@ -14,7 +14,7 @@ export interface UrlResolverDeps {
 }
 
 /**
- * Multi-source llama-server URL resolution chain (see REFACTOR.md #4).
+ * Multi-source llama-server URL resolution chain
  *
  * Resolves URLs in priority order:
  *
