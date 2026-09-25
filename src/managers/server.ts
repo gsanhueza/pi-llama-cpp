@@ -93,7 +93,7 @@ export class ServerManager {
           const message = [
             "[pi-llama-cpp]",
             `Server at '${server.baseUrl}' requires a valid API key.`,
-            `Configure the key via '/login' or in '${getAgentDir()}/auth.json'.`,
+            `Configure the key via '/login ${server.providerId}' or in '${getAgentDir()}/auth.json'.`,
           ].join("\n");
           this.warnings.push(message);
 
