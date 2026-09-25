@@ -2,13 +2,13 @@ import type {
   ExtensionAPI,
   ProviderModelConfig,
 } from "@earendil-works/pi-coding-agent";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { ApiError } from "../api/client";
 import { API_TYPE, PROVIDER_NAME } from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import type { SortBy } from "../interfaces/sortBy";
 import { BaseModel } from "../models/baseModel";
 import { Server } from "../server";
+import { authRequiredMessage } from "../ui/strings";
 import type { LlamaSettingsManager } from "./settings";
 
 /** Model-list comparator: negative if a sorts first, positive if b does. */
@@ -148,13 +148,7 @@ export class ServerManager {
       if (err instanceof ApiError && err.type === "authentication") {
         // Don't add to `failedUrls` — the server IS reachable, auth just
         // isn't configured yet, so the health indicator should stay green.
-        const message = [
-          "[pi-llama-cpp]",
-          `Server at '${baseUrl}' requires a valid API key.`,
-          `Configure the key via '/login ${providerId}' or in '${getAgentDir()}/auth.json'.`,
-        ].join("\n");
-
-        this.warnings.push(message);
+        this.warnings.push(authRequiredMessage(baseUrl, providerId));
       } else {
         this.failedUrls.push(baseUrl);
         return;

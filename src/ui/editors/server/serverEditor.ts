@@ -4,7 +4,7 @@ import { SERVER_TIMEOUT } from "../../../constants";
 import type { LlamaServer } from "../../../interfaces/settings";
 import type { LlamaSettingsManager } from "../../../managers/settings";
 import { ServerIds } from "../../../utils/serverIds";
-import { TITLES } from "../../strings";
+import { TITLES, authRequiredMessage } from "../../strings";
 import type { ServerSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
@@ -67,6 +67,7 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
               ServerIds.resolve(server.url, server.id),
             );
           },
+          ui,
         }),
     );
   }
@@ -172,5 +173,25 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
     await this.persistSnapshot(next, () => {
       void this.rebuildList(next.length - 1);
     });
+
+    // Warn the user if the newly added server requires an API key
+    await this.warnIfAuthRequired(server);
+  }
+
+  /**
+   * Probes the server to check if it requires an API key. If so, notifies
+   * the user so they know to configure one via `/login` or `auth.json`.
+   */
+  private async warnIfAuthRequired(server: LlamaServer): Promise<void> {
+    const ui = this.options.ui;
+    if (!ui) return;
+
+    const serverTimeout = this.options.serverTimeout ?? SERVER_TIMEOUT;
+    const apiKey = (await this.options.authResolver?.(server)) ?? "";
+
+    if (await ServerDisplay.requiresApiKey(server.url, apiKey, serverTimeout)) {
+      const providerId = ServerIds.resolve(server.url, server.id);
+      ui.notify(authRequiredMessage(server.url, providerId), "warning");
+    }
   }
 }

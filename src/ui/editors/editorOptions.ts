@@ -1,4 +1,7 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionUIContext,
+  Theme,
+} from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../interfaces/settings";
 
@@ -34,6 +37,8 @@ export interface ServerSettingsListOptions extends SettingsListEditorOptions {
   serverTimeout?: number;
   /** Resolves the API key for a server (used for auth probing). */
   authResolver?: (server: LlamaServer) => Promise<string>;
+  /** UI context for notifications (used to warn about auth-required servers). */
+  ui?: ExtensionUIContext;
 }
 
 /**

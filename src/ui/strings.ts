@@ -1,3 +1,5 @@
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+
 import { LLAMA_SERVER_URL } from "../constants";
 
 /**
@@ -129,3 +131,18 @@ export const HINTS = {
   /** Row description for a server in the overrides editor */
   overrideServerRow: "Enter: edit this server's override entries",
 } as const;
+
+/**
+ * Generates a warning message for servers that require an API key.
+ * Centralized so both the runtime manager and the editor wizard use
+ * identical wording.
+ */
+export const authRequiredMessage = (
+  baseUrl: string,
+  providerId: string,
+): string =>
+  [
+    "[pi-llama-cpp]",
+    `Server at '${baseUrl}' requires a valid API key.`,
+    `Configure the key via '/login ${providerId}' or in '${getAgentDir()}/auth.json'.`,
+  ].join("\n");

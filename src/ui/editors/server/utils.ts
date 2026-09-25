@@ -39,6 +39,32 @@ export class ServerDisplay {
   }
 
   /**
+   * Checks if the server requires an API key by probing `/v1/models`.
+   *
+   * @param url - The server URL to check
+   * @param apiKey - The API key to send (may be a placeholder)
+   * @param timeout - Maximum time (ms) to wait for the request
+   * @returns `true` if the server responded with 401, `false` otherwise
+   */
+  static async requiresApiKey(
+    url: string,
+    apiKey: string,
+    timeout: number,
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(`${url}${ENDPOINT_PREFIX}/models`, {
+        signal: AbortSignal.timeout(timeout),
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      return response.status === 401;
+    } catch {
+      // Timeout or network error — the server is unreachable, so no auth
+      // indicator is needed (the health emoji will cover that).
+      return false;
+    }
+  }
+
+  /**
    * Probes the server's `/v1/models` endpoint to check if authentication
    * is required. Returns ⛔ when the server responds with 401, empty string
    * otherwise.
@@ -53,17 +79,9 @@ export class ServerDisplay {
     apiKey: string,
     timeout: number,
   ): Promise<string> {
-    try {
-      const response = await fetch(`${url}${ENDPOINT_PREFIX}/models`, {
-        signal: AbortSignal.timeout(timeout),
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      return response.status === 401 ? UNAUTHORIZED_EMOJI : "";
-    } catch {
-      // Timeout or network error — the server is unreachable, so no auth
-      // indicator is needed (the health emoji will cover that).
-      return "";
-    }
+    return (await this.requiresApiKey(url, apiKey, timeout))
+      ? UNAUTHORIZED_EMOJI
+      : "";
   }
 }
 
