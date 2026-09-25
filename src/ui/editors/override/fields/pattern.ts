@@ -4,8 +4,9 @@ import type { InputValidator } from "./base";
 import { OverrideField } from "./base";
 
 /**
- * The entry's pattern key. The rename itself is handled by the mutator
- * (`OverrideEntryMutator`); {@link apply} is a no-op.
+ * The entry's pattern key. Renames are handled by the editor
+ * (`OverrideEntryListEditor.applyFieldChange`), so {@link apply}
+ * inherits the base no-op.
  */
 export class PatternField extends OverrideField {
   readonly id = "pattern";
@@ -20,8 +21,4 @@ export class PatternField extends OverrideField {
     const trimmed = raw.trim();
     return trimmed.length > 0 ? trimmed : null;
   };
-
-  apply(): void {
-    // The pattern IS the map key — renames go through the mutator.
-  }
 }

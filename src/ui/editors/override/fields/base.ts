@@ -38,8 +38,10 @@ export abstract class OverrideField extends SettingField<OverrideEntry> {
   readonly options: readonly string[] | undefined = undefined;
 
   /** Applies a committed value to the override object. The pattern key
-   * rename is handled separately by the mutator. */
-  abstract apply(override: ModelOverride, value: string): void;
+   * rename is handled separately by the mutator (default: no-op). */
+  apply(_override: ModelOverride, _value: string): void {
+    // no-op — override in subclasses that need to mutate the override
+  }
 
   /** One `term: value` part of the entry-row summary (see
    * {@link OverrideSummary.of}), or `null` when the field shouldn't
