@@ -66,9 +66,6 @@ export abstract class ListEditor<
     | "emptyServers"
     | "emptyOverrideEntries";
 
-  /** Total item count (entries or servers) for selection clamping. */
-  protected abstract getCurrentCount(): number;
-
   /** Returns the id for a row at the given index. */
   protected abstract getRowId(index: number): string;
 
@@ -77,6 +74,12 @@ export abstract class ListEditor<
 
   /** Title for the delete confirmation dialog (e.g. "Delete server"). */
   protected abstract get deleteTitle(): string;
+
+  /** Returns the number of items in the current list. Override when the
+   * list items don't directly correspond to `options.servers`. */
+  protected getCount(): number {
+    return this.options.servers.length;
+  }
 
   // -- hooks -----------------------------------------------------------------
 
@@ -111,10 +114,7 @@ export abstract class ListEditor<
 
   handleInput(data: string): void {
     // Delegate to the open modal dialog, if any
-    if (this.activeDialog) {
-      this.activeDialog.handleInput(data);
-      return;
-    }
+    if (this.delegateToDialogInput(data)) return;
 
     // Delegate to settingsList if a submenu is open
     if (this.submenuOpen && this.settingsList) {
@@ -134,15 +134,11 @@ export abstract class ListEditor<
     }
     if (kb.matches(data, "tui.select.up")) {
       this.selectedIndex =
-        this.selectedIndex === 0
-          ? this.getCurrentCount() - 1
-          : this.selectedIndex - 1;
+        this.selectedIndex === 0 ? this.getCount() - 1 : this.selectedIndex - 1;
     }
     if (kb.matches(data, "tui.select.down")) {
       this.selectedIndex =
-        this.selectedIndex === this.getCurrentCount() - 1
-          ? 0
-          : this.selectedIndex + 1;
+        this.selectedIndex === this.getCount() - 1 ? 0 : this.selectedIndex + 1;
     }
     if (data === "a") {
       this.beginAdd();
@@ -164,7 +160,7 @@ export abstract class ListEditor<
     // Empty list hint
     if (!this.settingsList) return ["Loading..."];
     const lines = this.settingsList.render(width);
-    if (this.getCurrentCount() === 0) {
+    if (this.getCount() === 0) {
       lines[lines.length - 1] = getSettingsListTheme().hint(
         HINTS[this.emptyHintKey],
       );
@@ -175,15 +171,28 @@ export abstract class ListEditor<
   // -- helpers ---------------------------------------------------------------
 
   /**
+   * If a dialog is open, delegates input to it and returns true;
+   * otherwise returns false. Used to short-circuit handleInput.
+   */
+  private delegateToDialogInput(data: string): boolean {
+    if (this.activeDialog) {
+      this.activeDialog.handleInput(data);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Rebuilds the list and places the cursor on `targetIndex`.
    * Subclasses call this after add/delete/persist to refresh the UI.
    */
   protected async rebuildList(targetIndex: number): Promise<void> {
     const list = await this.buildSettingsList();
     this.settingsList = list;
-    const count = this.getCurrentCount();
+    const count = this.getCount();
     if (count === 0) {
       this.selectedIndex = 0;
+      this.options.tui.requestRender();
       return;
     }
     this.selectedIndex = Math.min(targetIndex, count - 1);

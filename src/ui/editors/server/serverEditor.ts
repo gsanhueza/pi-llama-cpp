@@ -153,10 +153,6 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
 
   protected readonly emptyHintKey = "emptyServers" as const;
 
-  protected getCurrentCount(): number {
-    return this.options.servers.length;
-  }
-
   protected getRowId(index: number): string {
     return `server-${index}`;
   }

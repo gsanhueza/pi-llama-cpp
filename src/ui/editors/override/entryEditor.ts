@@ -131,7 +131,7 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
 
   protected readonly emptyHintKey = "emptyOverrideEntries" as const;
 
-  protected getCurrentCount(): number {
+  protected getCount(): number {
     return this.entries().length;
   }
 
