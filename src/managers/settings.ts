@@ -262,6 +262,8 @@ export class LlamaSettingsManager {
 }
 
 /**
- * Shared singleton instance used across the extension.
+ * Creates a new LlamaSettingsManager instance.
  */
-export const settings = new LlamaSettingsManager();
+export function createSettingsManager(): LlamaSettingsManager {
+  return new LlamaSettingsManager();
+}

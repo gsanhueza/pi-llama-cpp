@@ -8,10 +8,15 @@ import {
   SERVER_TIMEOUT,
 } from "../../src/constants";
 import type { ModelOverride } from "../../src/interfaces/settings";
-import { settings } from "../../src/managers/settings";
+import {
+  createSettingsManager,
+  type LlamaSettingsManager,
+} from "../../src/managers/settings";
 import { Server } from "../../src/server";
 
-// Hoisted mock instances — survives vi.resetModules()
+let manager: LlamaSettingsManager;
+
+// Hoisted mock instances
 const mockReadStoredCredential = vi.hoisted(() => vi.fn());
 
 const mockSettingsManager = vi.hoisted(() => ({
@@ -54,7 +59,6 @@ describe("URL resolution fallback chain", () => {
 
   afterEach(() => {
     delete process.env.LLAMA_SERVER_URL;
-    vi.resetModules();
   });
 
   beforeEach(() => {
@@ -63,13 +67,14 @@ describe("URL resolution fallback chain", () => {
     // Default: no settings found
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should return default URL when no config is found", async () => {
     // Ensure env var is not set (and not inherited from environment)
     delete process.env.LLAMA_SERVER_URL;
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual([LLAMA_SERVER_URL]);
   });
@@ -80,7 +85,7 @@ describe("URL resolution fallback chain", () => {
     });
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://env-url:8080"]);
   });
@@ -88,7 +93,7 @@ describe("URL resolution fallback chain", () => {
   it("should use env variable when no other config exists", async () => {
     process.env.LLAMA_SERVER_URL = "http://env-url:8080";
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://env-url:8080"]);
   });
@@ -98,7 +103,7 @@ describe("URL resolution fallback chain", () => {
       llamaServerUrl: "http://project:9999",
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://project:9999"]);
   });
@@ -108,7 +113,7 @@ describe("URL resolution fallback chain", () => {
       llamaServerUrl: "http://global:8080",
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://global:8080"]);
   });
@@ -116,7 +121,7 @@ describe("URL resolution fallback chain", () => {
   it("should strip trailing slashes from resolved URL", async () => {
     process.env.LLAMA_SERVER_URL = "http://localhost:8080/";
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://localhost:8080"]);
   });
@@ -124,8 +129,8 @@ describe("URL resolution fallback chain", () => {
   it("should cache the resolved URL on subsequent calls", async () => {
     process.env.LLAMA_SERVER_URL = "http://first:8080";
 
-    const result1 = await settings.resolveUrls();
-    const result2 = await settings.resolveUrls();
+    const result1 = await manager.resolveUrls();
+    const result2 = await manager.resolveUrls();
 
     expect(result1).toEqual(["http://first:8080"]);
     expect(result2).toEqual(["http://first:8080"]);
@@ -134,7 +139,7 @@ describe("URL resolution fallback chain", () => {
   it("should handle multiple URLs separated by semicolons", async () => {
     process.env.LLAMA_SERVER_URL = "http://first:8080;http://second:9090/";
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://first:8080", "http://second:9090"]);
   });
@@ -142,13 +147,14 @@ describe("URL resolution fallback chain", () => {
   it("should drop env URLs without an http(s) scheme, warn, and fall through", async () => {
     process.env.LLAMA_SERVER_URL = "127.0.0.1:8080";
 
-    const result = await settings.resolveUrls();
+    const manager = createSettingsManager();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual([LLAMA_SERVER_URL]);
-    expect(settings.takeWarnings()).toEqual([
+    expect(manager.takeWarnings()).toEqual([
       "Ignoring invalid server URL '127.0.0.1:8080' (needs http(s)://)",
     ]);
-    expect(settings.takeWarnings()).toEqual([]); // drained
+    expect(manager.takeWarnings()).toEqual([]); // drained
   });
 
   it("should drop server entries without an http(s) scheme and warn", async () => {
@@ -158,13 +164,14 @@ describe("URL resolution fallback chain", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const manager = createSettingsManager();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://good:8080"]);
-    expect(settings.takeWarnings()).toEqual([
+    expect(manager.takeWarnings()).toEqual([
       "Ignoring invalid server URL '127.0.0.1:8080' (needs http(s)://)",
     ]);
-    expect(settings.takeWarnings()).toEqual([]); // drained
+    expect(manager.takeWarnings()).toEqual([]); // drained
   });
 });
 
@@ -179,7 +186,6 @@ describe("llamaSettings.servers resolution", () => {
 
   afterEach(() => {
     delete process.env.LLAMA_SERVER_URL;
-    vi.resetModules();
   });
 
   beforeEach(() => {
@@ -187,6 +193,7 @@ describe("llamaSettings.servers resolution", () => {
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should resolve URLs from llamaSettings.servers in project config", async () => {
@@ -199,7 +206,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual([
       "http://project-server:8080",
@@ -219,7 +226,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://project:8080"]);
   });
@@ -231,7 +238,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://global:8080"]);
   });
@@ -244,7 +251,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://env:8080"]);
   });
@@ -256,7 +263,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://server:9090"]);
   });
@@ -269,7 +276,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://server:9090"]);
   });
@@ -282,7 +289,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://legacy:8080"]);
   });
@@ -294,7 +301,7 @@ describe("llamaSettings.servers resolution", () => {
       },
     });
 
-    const result = await settings.resolveUrls();
+    const result = await manager.resolveUrls();
 
     expect(result).toEqual(["http://localhost:8080"]);
   });
@@ -303,20 +310,19 @@ describe("llamaSettings.servers resolution", () => {
 describe("API key resolution", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockReadStoredCredential.mockReturnValue(undefined);
+    manager = createSettingsManager();
   });
 
   it("should return placeholder when credential is not found", () => {
     mockReadStoredCredential.mockReturnValue(undefined);
 
-    const result = settings.resolveApiKey("llama-server=http://127.0.0.1:8080");
+    const result = manager.resolveApiKey("llama-server=http://127.0.0.1:8080");
 
     expect(result).toEqual(API_KEY_PLACEHOLDER);
   });
@@ -324,7 +330,7 @@ describe("API key resolution", () => {
   it("should return placeholder when apiKey is missing from credential", () => {
     mockReadStoredCredential.mockReturnValue({});
 
-    const result = settings.resolveApiKey("llama-server=http://127.0.0.1:8080");
+    const result = manager.resolveApiKey("llama-server=http://127.0.0.1:8080");
 
     expect(result).toEqual(API_KEY_PLACEHOLDER);
   });
@@ -332,7 +338,7 @@ describe("API key resolution", () => {
   it("should return the key when present in credential", () => {
     mockReadStoredCredential.mockReturnValue({ key: "test-api-key" });
 
-    const result = settings.resolveApiKey("llama-server=http://127.0.0.1:8080");
+    const result = manager.resolveApiKey("llama-server=http://127.0.0.1:8080");
 
     expect(result).toEqual("test-api-key");
   });
@@ -340,7 +346,7 @@ describe("API key resolution", () => {
   it("should call readStoredCredential with the provider ID", () => {
     mockReadStoredCredential.mockReturnValue({ key: "test-key" });
 
-    settings.resolveApiKey("llama-server=http://127.0.0.1:8080");
+    manager.resolveApiKey("llama-server=http://127.0.0.1:8080");
 
     expect(mockReadStoredCredential).toHaveBeenCalledWith(
       "llama-server=http://127.0.0.1:8080",
@@ -350,7 +356,7 @@ describe("API key resolution", () => {
 
 describe("Server with custom id", () => {
   it("should use custom id as providerId when provided", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       customId: "my-custom-id",
     });
@@ -359,7 +365,9 @@ describe("Server with custom id", () => {
   });
 
   it("should fall back to URL-based providerId when no custom id", () => {
-    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
+    const server = new Server(manager, {
+      baseUrl: "http://127.0.0.1:8080",
+    });
 
     expect(server.providerId).toEqual(
       `${PROVIDER_PREFIX}=http://127.0.0.1:8080`,
@@ -367,7 +375,7 @@ describe("Server with custom id", () => {
   });
 
   it("should try custom id first in getApiKey(), then fall back to URL-based", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       customId: "my-custom-id",
     });
@@ -393,7 +401,7 @@ describe("Server with custom id", () => {
   it("should return custom id key directly when found", () => {
     mockReadStoredCredential.mockReturnValue({ key: "custom-key" });
 
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       customId: "my-custom-id",
     });
@@ -407,7 +415,7 @@ describe("Server with custom id", () => {
 
 describe("Server with custom name", () => {
   it("should use custom name as suffix in providerName", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       customName: "Remote Server",
     });
@@ -416,13 +424,15 @@ describe("Server with custom name", () => {
   });
 
   it("should fall back to URL-based name when no custom name", () => {
-    const server = new Server(settings, { baseUrl: "http://127.0.0.1:8080" });
+    const server = new Server(manager, {
+      baseUrl: "http://127.0.0.1:8080",
+    });
 
     expect(server.providerName).toEqual(`Llama.cpp (http://127.0.0.1:8080)`);
   });
 
   it("should use custom name even with custom id", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       customId: "my-custom-id",
       customName: "Remote Server",
@@ -434,30 +444,22 @@ describe("Server with custom name", () => {
 });
 
 describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   it("should return true when reactToModelSelect is not set", async () => {
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveReactToModelSelect();
+    const result = await manager.resolveReactToModelSelect();
 
     expect(result).toBe(true);
   });
 
   it("should return false when autoloadOnMessage is not set", async () => {
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveAutoloadOnMessage();
+    const result = await manager.resolveAutoloadOnMessage();
 
     expect(result).toBe(false);
   });
 
   it("should return 'asc' when sortBy is not set", async () => {
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveSortBy();
+    const result = await manager.resolveSortBy();
 
     expect(result).toBe("asc");
   });
@@ -470,10 +472,10 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
       },
     });
 
-    const { settings } = await import("../../src/managers/settings");
+    const manager = createSettingsManager();
 
-    expect(await settings.resolveReactToModelSelect()).toBe(false);
-    expect(await settings.resolveAutoloadOnMessage()).toBe(true);
+    expect(await manager.resolveReactToModelSelect()).toBe(false);
+    expect(await manager.resolveAutoloadOnMessage()).toBe(true);
   });
 });
 
@@ -488,7 +490,6 @@ describe("resolveServers", () => {
 
   afterEach(() => {
     delete process.env.LLAMA_SERVER_URL;
-    vi.resetModules();
   });
 
   beforeEach(() => {
@@ -496,6 +497,7 @@ describe("resolveServers", () => {
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should use llamaSettings.servers when configured", async () => {
@@ -507,7 +509,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://custom:8080");
@@ -517,14 +519,14 @@ describe("resolveServers", () => {
   it("should fall back to resolveUrls when servers is empty", async () => {
     process.env.LLAMA_SERVER_URL = "http://env-server:9090";
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://env-server:9090");
   });
 
   it("should fall back to default URL when no config exists", async () => {
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe(LLAMA_SERVER_URL);
@@ -539,7 +541,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(1);
     expect(result[0].baseUrl).toBe("http://127.0.0.1:8080");
@@ -555,7 +557,7 @@ describe("resolveServers", () => {
     });
     process.env.LLAMA_SERVER_URL = "http://first:8080;http://second:9090";
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(2);
     expect(result[0].baseUrl).toBe("http://first:8080");
@@ -572,7 +574,7 @@ describe("resolveServers", () => {
       },
     });
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     // env variable takes precedence via resolveUrls
     expect(result).toHaveLength(1);
@@ -581,14 +583,10 @@ describe("resolveServers", () => {
 });
 
 describe("resolveTimeouts", () => {
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   it("should return default timeouts when not configured", async () => {
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveTimeouts();
+    const result = await manager.resolveTimeouts();
 
     expect(result).toEqual({
       pollingTimeout: POLLING_TIMEOUT,
@@ -603,9 +601,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveTimeouts();
+    const result = await manager.resolveTimeouts();
 
     expect(result.pollingTimeout).toBe(120000);
     expect(result.serverTimeout).toBe(SERVER_TIMEOUT);
@@ -618,9 +614,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveTimeouts();
+    const result = await manager.resolveTimeouts();
 
     expect(result.pollingTimeout).toBe(POLLING_TIMEOUT);
     expect(result.serverTimeout).toBe(3000);
@@ -634,9 +628,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../../src/managers/settings");
-
-    const result = await settings.resolveTimeouts();
+    const result = await manager.resolveTimeouts();
 
     expect(result).toEqual({
       pollingTimeout: 90000,
@@ -648,21 +640,20 @@ describe("resolveTimeouts", () => {
 describe("Thinking config resolution", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("medium");
     mockSettingsManager.getThinkingBudgets.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should return the default thinking level from SettingsManager", () => {
     mockSettingsManager.getDefaultThinkingLevel.mockReturnValue("low");
 
-    const result = settings.resolveThinkingLevel();
+    const result = manager.resolveThinkingLevel();
 
     expect(result).toEqual("low");
   });
@@ -672,7 +663,7 @@ describe("Thinking config resolution", () => {
       low: 4096,
     });
 
-    const result = settings.resolveThinkingBudgets();
+    const result = manager.resolveThinkingBudgets();
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -706,9 +697,7 @@ describe("setLlamaSetting", () => {
   const PROJECT_SETTINGS_PATH = "/fake/project/.pi/settings.json";
   const FAKE_CWD = "/fake/project";
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -720,14 +709,14 @@ describe("setLlamaSetting", () => {
     mockReadFile.mockResolvedValue("{}");
     mockWriteFile.mockResolvedValue(undefined);
     mockRename.mockResolvedValue(undefined);
+    manager = createSettingsManager();
   });
 
   it("should write to project settings when .pi/settings.json exists (auto scope)", async () => {
     mockAccess.mockResolvedValue(undefined);
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc");
+    await manager.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
       `${PROJECT_SETTINGS_PATH}.tmp`,
@@ -744,8 +733,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc");
+    await manager.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
       `${GLOBAL_SETTINGS_PATH}.tmp`,
@@ -762,8 +750,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockResolvedValue(undefined); // project exists but we override
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc", "global");
+    await manager.setLlamaSetting("sortBy", "desc", "global");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
       `${GLOBAL_SETTINGS_PATH}.tmp`,
@@ -776,8 +763,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT")); // project doesn't exist but we override
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc", "project");
+    await manager.setLlamaSetting("sortBy", "desc", "project");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
       `${PROJECT_SETTINGS_PATH}.tmp`,
@@ -796,8 +782,7 @@ describe("setLlamaSetting", () => {
       ),
     );
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc");
+    await manager.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
     const [tmpPath, written, encoding] = mockWriteFile.mock.calls[0];
@@ -815,9 +800,7 @@ describe("setLlamaSetting", () => {
     expect(mockReload).toHaveBeenCalledTimes(1);
   });
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   it("should reflect the new value in resolvers immediately after the write", async () => {
     mockSettingsManager.reload.mockImplementation(async () => {
@@ -826,18 +809,16 @@ describe("setLlamaSetting", () => {
       });
     });
 
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("sortBy", "desc");
+    await manager.setLlamaSetting("sortBy", "desc");
 
-    expect(await settings.resolveSortBy()).toBe("desc");
+    expect(await manager.resolveSortBy()).toBe("desc");
   });
 
   it("should reject and skip reload when the write fails", async () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockWriteFile.mockRejectedValue(new Error("ENOSPC: simulated"));
 
-    const { settings } = await import("../../src/managers/settings");
-    await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
+    await expect(manager.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       "ENOSPC",
     );
     expect(mockReload).not.toHaveBeenCalled();
@@ -847,8 +828,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockReadFile.mockResolvedValue("{ broken");
 
-    const { settings } = await import("../../src/managers/settings");
-    await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
+    await expect(manager.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       /Cannot parse/,
     );
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -857,15 +837,15 @@ describe("setLlamaSetting", () => {
 
   it("should persist booleans and numbers with type fidelity", async () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
-    const { settings } = await import("../../src/managers/settings");
-    await settings.setLlamaSetting("reactToModelSelect", false);
+
+    await manager.setLlamaSetting("reactToModelSelect", false);
 
     const [, firstWrite] = mockWriteFile.mock.calls[0];
     expect(JSON.parse(firstWrite as string)).toEqual({
       llamaSettings: { reactToModelSelect: false },
     });
 
-    await settings.setLlamaSetting("pollingTimeout", 120000);
+    await manager.setLlamaSetting("pollingTimeout", 120000);
 
     const [, secondWrite] = mockWriteFile.mock.calls[1];
     expect(JSON.parse(secondWrite as string)).toEqual({
@@ -890,15 +870,14 @@ describe("resolveServerOverrides", () => {
     mockSettingsManager.getGlobalSettings,
   );
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should return overrides for a server that has them configured", async () => {
@@ -923,7 +902,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -947,7 +926,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -961,7 +940,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -980,7 +959,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides("http://global:8080");
+    const result = await manager.resolveServerOverrides("http://global:8080");
 
     expect(result).toEqual({ "model-a": { cost: { input: 0.5 } } });
   });
@@ -1007,7 +986,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides("http://shared:8080");
+    const result = await manager.resolveServerOverrides("http://shared:8080");
 
     expect(result).toEqual({
       "model-b": { cost: { input: 0.1, output: 0.2 } },
@@ -1019,7 +998,7 @@ describe("resolveServerOverrides", () => {
       llamaSettings: { servers: [] },
     });
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -1029,7 +1008,7 @@ describe("resolveServerOverrides", () => {
   it("should return empty object when llamaSettings is missing", async () => {
     mockGetProjectSettings.mockReturnValue({});
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -1048,7 +1027,7 @@ describe("resolveServerOverrides", () => {
       },
     });
 
-    const result = await settings.resolveServerOverrides(
+    const result = await manager.resolveServerOverrides(
       "http://127.0.0.1:8080",
     );
 
@@ -1058,7 +1037,7 @@ describe("resolveServerOverrides", () => {
 
 describe("Server with overrides", () => {
   it("should store and expose resolved overrides", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
       overrides: {
         "model-a": { cost: { input: 0.2, output: 0.6 } },
@@ -1075,7 +1054,7 @@ describe("Server with overrides", () => {
   });
 
   it("should return undefined for findOverrideForModel when no overrides are provided", () => {
-    const server = new Server(settings, {
+    const server = new Server(manager, {
       baseUrl: "http://127.0.0.1:8080",
     });
 
@@ -1092,15 +1071,14 @@ describe("resolveServers passes overrides", () => {
     mockSettingsManager.getGlobalSettings,
   );
 
-  afterEach(() => {
-    vi.resetModules();
-  });
+  afterEach(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAgentDir.mockReturnValue("/fake/agent/dir");
     mockGetProjectSettings.mockReturnValue({});
     mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
   });
 
   it("should pass resolved overrides to Server instances", async () => {
@@ -1118,7 +1096,7 @@ describe("resolveServers passes overrides", () => {
       },
     });
 
-    const result = await settings.resolveServers();
+    const result = await manager.resolveServers();
 
     expect(result).toHaveLength(2);
     expect(result[0].findOverrideForModel("model-x")).toEqual({
@@ -1130,7 +1108,7 @@ describe("resolveServers passes overrides", () => {
 
 describe("Server.findOverrideForModel", () => {
   function createServer(overrides: Record<string, ModelOverride>): Server {
-    return new Server(settings as any, {
+    return new Server(createSettingsManager() as any, {
       baseUrl: "http://127.0.0.1:8080",
       overrides,
     });
