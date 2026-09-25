@@ -108,6 +108,11 @@ export class CommandManager {
       this.notifyNotFound(ctx, url);
     }
 
+    // Notify about other warnings (e.g. unauthorized servers)
+    for (const warning of this.serverManager.getWarnings()) {
+      ctx.ui.notify(warning, "warning");
+    }
+
     if (args === "unload") {
       const models = await this.serverManager.getAllModels();
       await Promise.all(models.map((model) => model.unload()));
