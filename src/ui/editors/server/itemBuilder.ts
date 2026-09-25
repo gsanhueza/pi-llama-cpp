@@ -18,11 +18,7 @@ export class ServerItemBuilder extends ItemBuilder<LlamaServer, ServerField> {
    * Adds the field-edit submenu: an `InputDialog` validating against the
    * field definition.
    */
-  protected decorate(
-    def: ServerField,
-    server: LlamaServer,
-    base: SettingItem,
-  ): SettingItem {
+  protected decorate(def: ServerField, base: SettingItem): SettingItem {
     return {
       ...base,
       submenu: this.dialogs.inputSubmenu(

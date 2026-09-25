@@ -30,7 +30,7 @@ export abstract class ItemBuilder<TEntry, TField extends SettingField<TEntry>> {
       description: def.description,
       currentValue: def.currentValue(entry),
     };
-    return this.decorate(def, entry, base);
+    return this.decorate(def, base);
   }
 
   /** Builds the `SettingItem` array for one entry's editable fields. */
@@ -39,9 +39,5 @@ export abstract class ItemBuilder<TEntry, TField extends SettingField<TEntry>> {
   }
 
   /** Adds field-type-specific columns (e.g. submenu or fixed values). */
-  protected abstract decorate(
-    def: TField,
-    entry: TEntry,
-    base: SettingItem,
-  ): SettingItem;
+  protected abstract decorate(def: TField, base: SettingItem): SettingItem;
 }

@@ -20,11 +20,7 @@ export class OverrideItemBuilder extends ItemBuilder<
    * an `InputDialog` submenu (validating against the field definition)
    * for "input" fields.
    */
-  protected decorate(
-    def: OverrideField,
-    entry: OverrideEntry,
-    base: SettingItem,
-  ): SettingItem {
+  protected decorate(def: OverrideField, base: SettingItem): SettingItem {
     if (def.type === "finite") {
       return { ...base, values: [...(def.options ?? [])] };
     }
