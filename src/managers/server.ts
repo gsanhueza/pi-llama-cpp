@@ -65,9 +65,9 @@ export class ServerManager {
     }
 
     // Unregister providers that disappeared (removed or edited away);
-    // no-op for providers that were never registered
+    // `seen` tracks all kept providerIds, so we skip those still present.
     for (const old of this.servers) {
-      if (fresh.some((f) => f.providerId === old.providerId)) continue;
+      if (seen.has(old.providerId)) continue;
       pi.unregisterProvider(old.providerId);
       // Optional chain is intentional despite the non-optional type: `sse`
       // is undefined until initialize() runs (async-constructor hack — see Server)
