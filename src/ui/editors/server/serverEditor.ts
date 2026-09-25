@@ -8,7 +8,7 @@ import { TITLES } from "../../strings";
 import type { ServerSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
-import { ServerEntryMutator } from "./handlers";
+import { ServerFields } from "./fields";
 import { ServerItemBuilder } from "./itemBuilder";
 import { ServerDisplay } from "./utils";
 import { ServerWizard } from "./wizard";
@@ -108,10 +108,13 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
   /** Handle a field commit from a server row's submenu. */
   private handleFieldChange(field: string, value: string): void {
     const idx = this.selectedIndex;
-    const next = new ServerEntryMutator(
-      this.options.servers,
-      idx,
-    ).applyFieldChange(field, value);
+    const server = this.options.servers[idx];
+    const updated = server
+      ? ServerFields.byId(field).apply(server, value)
+      : server;
+    const next = server
+      ? this.options.servers.map((s, i) => (i === idx ? updated : s))
+      : this.options.servers;
 
     this.commitFieldChange(next, idx, () => {
       // Refresh the row's suffix in place; the full rebuild (row labels
