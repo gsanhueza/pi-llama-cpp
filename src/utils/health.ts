@@ -1,4 +1,5 @@
 import { ServerStatus } from "../enums/serverStatus";
+import type { HealthEndpoint } from "../interfaces/endpoints/health";
 
 /**
  * Probes a llama-server's `/health` endpoint and classifies the outcome.
@@ -34,7 +35,7 @@ export const checkServerHealth = async (
       signal: AbortSignal.timeout(timeout),
       headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
     });
-    const data = (await response.json()) as { status?: string };
+    const data = (await response.json()) as HealthEndpoint;
     return data.status === "ok" ? ServerStatus.READY : ServerStatus.UNREACHABLE;
   } catch (error) {
     // `AbortSignal.timeout` rejects `fetch` with a `TimeoutError`
