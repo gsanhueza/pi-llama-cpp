@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { FALLBACK_CTX } from "../src/constants";
-import type { LlamaServer, ModelOverride } from "../src/interfaces/settings";
+import type { ModelOverride } from "../src/interfaces/settings";
 import { SingleModel } from "../src/models/singleModel";
 import { Server } from "../src/server";
 import { OverrideEntry } from "../src/ui/editors/override/entry";
@@ -8,7 +8,6 @@ import {
   OverrideFields,
   OverrideSummary,
 } from "../src/ui/editors/override/fields";
-import { OverrideEntryMutator } from "../src/ui/editors/override/handlers";
 import { createMockServer, mockRpc } from "./mocks";
 
 beforeEach(() => {
@@ -293,41 +292,9 @@ describe("OverrideSummary.of", () => {
   });
 });
 
-// ─── override entry list helpers (overrideEntryEditor) ────────────────────
+// ─── CostField tests ──────────────────────────────────────────────────────
 
-describe("override entry list helpers", () => {
-  const servers = [
-    { url: "http://a", overrides: { "a-1": { reasoning: false } } },
-    { url: "http://b" },
-  ] as LlamaServer[];
-
-  it("addEntry should append a pattern → override entry", () => {
-    const next = new OverrideEntryMutator(servers, 0).addEntry("a-2", {
-      contextSize: 4096,
-    });
-    expect(next[0].overrides).toEqual({
-      "a-1": { reasoning: false },
-      "a-2": { contextSize: 4096 },
-    });
-  });
-
-  it("pattern renames should replace in place without reordering", () => {
-    const mutator = new OverrideEntryMutator(servers, 0);
-    const result = mutator.applyFieldChange(0, "pattern", "a-renamed");
-    expect(result).not.toBeNull();
-    expect(Object.keys(result!.next[0].overrides!)).toEqual(["a-renamed"]);
-    expect(result!.next[0].overrides!["a-renamed"]).toEqual({
-      reasoning: false,
-    });
-    expect(result!.next[1]).toBe(servers[1]);
-  });
-
-  it("removeEntry should drop only the targeted entry", () => {
-    const withTwo = new OverrideEntryMutator(servers, 0).addEntry("a-2");
-    const next = new OverrideEntryMutator(withTwo, 0).removeEntry(0);
-    expect(Object.keys(next[0].overrides!)).toEqual(["a-2"]);
-  });
-
+describe("CostField validation and apply", () => {
   it("CostField.validate should accept blank, non-negative numbers; reject the rest", () => {
     const cost = OverrideFields.byId("cost.input");
     expect(cost.validate("")).toBe("0");

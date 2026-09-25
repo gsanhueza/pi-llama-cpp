@@ -1,11 +1,11 @@
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
+import type { LlamaServer, ModelOverride } from "../../../interfaces/settings";
 import { FIELDS, FieldMessages, HINTS, TITLES } from "../../strings";
 import type { OverrideSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
 import { OverrideEntry } from "./entry";
 import { OverrideFields, OverrideSummary } from "./fields";
-import { OverrideEntryMutator } from "./handlers";
 import { OverrideItemBuilder } from "./itemBuilder";
 
 /**
@@ -39,13 +39,13 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
 
   protected buildSettingsList(): SettingsList {
     const builder = new OverrideItemBuilder(this.dialogs);
-    const items: SettingItem[] = this.mutator.entries().map((entry, i) => ({
+    const items: SettingItem[] = this.entries().map((entry, i) => ({
       id: `entry-${i}`,
       label: entry.pattern,
       description: HINTS.overrideEntryRow,
       currentValue: OverrideSummary.of(entry.override),
       submenu: (_cv, done) => {
-        const current = this.mutator.entries()[i] ?? entry;
+        const current = this.entries()[i] ?? entry;
         const fieldItems = builder.buildFieldItems(current);
         const fieldList = SettingsListFactory.create(
           fieldItems,
@@ -75,7 +75,7 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
     field: string,
     value: string,
   ): void {
-    const result = this.mutator.applyFieldChange(entryIndex, field, value);
+    const result = this.applyFieldChange(entryIndex, field, value);
     if (!result) return;
 
     this.commitFieldChange(
@@ -121,7 +121,7 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
 
   protected deleteSelected(): void {
     const idx = this.selectedIndex;
-    const next = this.mutator.removeEntry(idx);
+    const next = this.removeEntry(idx);
     void this.persistSnapshot(next, () => {
       this.rebuildList(idx);
       this.options.onChanged?.();
@@ -132,7 +132,7 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
   protected readonly emptyHintKey = "emptyOverrideEntries" as const;
 
   protected getCurrentCount(): number {
-    return this.mutator.entries().length;
+    return this.entries().length;
   }
 
   protected getRowId(index: number): string {
@@ -140,7 +140,7 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
   }
 
   protected getRowLabel(index: number): string {
-    return this.mutator.entries()[index]?.pattern ?? "";
+    return this.entries()[index]?.pattern ?? "";
   }
 
   protected get deleteTitle(): string {
@@ -149,16 +149,98 @@ export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOpti
 
   // -- helpers ---------------------------------------------------------------
 
-  /** Fresh mutator over the current servers snapshot — `persistSnapshot`
-   * replaces `options.servers` in place, so instances can't be cached. */
-  private get mutator(): OverrideEntryMutator {
-    return new OverrideEntryMutator(this.options.servers, this.serverIndex);
+  /** The server's override entries, in map iteration order. */
+  private entries(): OverrideEntry[] {
+    return OverrideEntry.listFrom(this.options.servers[this.serverIndex]);
+  }
+
+  /** Handles a field commit from an override entry's submenu. Returns
+   * `null` when the entry doesn't exist (stale index — no-op). */
+  private applyFieldChange(
+    entryIndex: number,
+    field: string,
+    value: string,
+  ): { next: LlamaServer[]; updatedOverride: ModelOverride } | null {
+    const entry = this.entries()[entryIndex];
+    if (!entry) return null;
+
+    // Pattern field: rename the pattern key, keep the override object
+    if (field === "pattern") {
+      return {
+        next: this.updateEntry(entryIndex, value, entry.override),
+        updatedOverride: entry.override,
+      };
+    }
+
+    // Other fields: let the field definition apply itself
+    const updatedOverride: ModelOverride = { ...entry.override };
+    OverrideFields.byId(field).apply(updatedOverride, value);
+
+    return {
+      next: this.updateEntry(entryIndex, entry.pattern, updatedOverride),
+      updatedOverride,
+    };
+  }
+
+  /** Adds a new override entry with a uniquified pattern. */
+  private addEntry(pattern: string): LlamaServer[] {
+    const server = this.options.servers[this.serverIndex];
+    if (!server) return this.options.servers;
+
+    const existing = new Set(Object.keys(server.overrides ?? {}));
+    let uniquePattern = pattern;
+    let n = 2;
+    while (existing.has(uniquePattern)) {
+      uniquePattern = `${pattern}-${n++}`;
+    }
+
+    return this.withServer((s) => ({
+      ...s,
+      overrides: { ...s.overrides, [uniquePattern]: {} },
+    }));
+  }
+
+  /** Removes the entry at `entryIndex`. */
+  private removeEntry(entryIndex: number): LlamaServer[] {
+    return this.withServer((s) => ({
+      ...s,
+      overrides: Object.fromEntries(
+        Object.entries(s.overrides ?? {}).filter((_, j) => j !== entryIndex),
+      ),
+    }));
+  }
+
+  /** Returns the servers with the target server replaced by
+   * `fn(server)`. Immutable. */
+  private withServer(fn: (server: LlamaServer) => LlamaServer): LlamaServer[] {
+    return this.options.servers.map((server, i) =>
+      i === this.serverIndex ? fn(server) : server,
+    );
+  }
+
+  /** Replaces the entry at `entryIndex` with `pattern → override` in a
+   * single mutation — used both for renaming the pattern and for editing
+   * its fields. The entry keeps its position in the map's iteration
+   * order. Immutable. */
+  private updateEntry(
+    entryIndex: number,
+    pattern: string,
+    override: ModelOverride,
+  ): LlamaServer[] {
+    return this.withServer((s) => ({
+      ...s,
+      overrides: Object.fromEntries(
+        Object.entries(s.overrides ?? {}).map(([k, v], j) =>
+          j === entryIndex ? [pattern, override] : [k, v],
+        ),
+      ),
+    }));
   }
 
   private async saveAdd(pattern: string): Promise<void> {
-    const next = this.mutator.addEntry(pattern);
+    const next = this.addEntry(pattern);
     await this.persistSnapshot(next, () => {
-      this.rebuildList(this.mutator.entries().length - 1);
+      this.rebuildList(this.entries().length - 1);
       this.options.onChanged?.();
       this.options.tui.requestRender();
     });
