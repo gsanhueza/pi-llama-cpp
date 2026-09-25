@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { FALLBACK_CTX } from "../src/constants";
-import type { ModelOverride } from "../src/interfaces/settings";
-import { SingleModel } from "../src/models/singleModel";
-import { Server } from "../src/server";
-import { OverrideEntry } from "../src/ui/editors/override/entry";
+import { FALLBACK_CTX } from "../../src/constants";
+import type { ModelOverride } from "../../src/interfaces/settings";
+import { SingleModel } from "../../src/models/singleModel";
+import { Server } from "../../src/server";
+import { OverrideEntry } from "../../src/ui/editors/override/entry";
 import {
   OverrideFields,
   OverrideSummary,
-} from "../src/ui/editors/override/fields";
-import { createMockServer, mockRpc } from "./mocks";
+} from "../../src/ui/editors/override/fields";
+import { createMockServer, mockRpc } from "../mocks";
 
 beforeEach(() => {
   mockRpc.mockReset();

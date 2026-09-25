@@ -6,10 +6,10 @@ import {
   POLLING_TIMEOUT,
   PROVIDER_PREFIX,
   SERVER_TIMEOUT,
-} from "../src/constants";
-import type { ModelOverride } from "../src/interfaces/settings";
-import { settings } from "../src/managers/settings";
-import { Server } from "../src/server";
+} from "../../src/constants";
+import type { ModelOverride } from "../../src/interfaces/settings";
+import { settings } from "../../src/managers/settings";
+import { Server } from "../../src/server";
 
 // Hoisted mock instances — survives vi.resetModules()
 const mockReadStoredCredential = vi.hoisted(() => vi.fn());
@@ -439,7 +439,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   });
 
   it("should return true when reactToModelSelect is not set", async () => {
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveReactToModelSelect();
 
@@ -447,7 +447,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   });
 
   it("should return false when autoloadOnMessage is not set", async () => {
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveAutoloadOnMessage();
 
@@ -455,7 +455,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   });
 
   it("should return 'asc' when sortBy is not set", async () => {
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveSortBy();
 
@@ -470,7 +470,7 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
       },
     });
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     expect(await settings.resolveReactToModelSelect()).toBe(false);
     expect(await settings.resolveAutoloadOnMessage()).toBe(true);
@@ -586,7 +586,7 @@ describe("resolveTimeouts", () => {
   });
 
   it("should return default timeouts when not configured", async () => {
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveTimeouts();
 
@@ -603,7 +603,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveTimeouts();
 
@@ -618,7 +618,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveTimeouts();
 
@@ -634,7 +634,7 @@ describe("resolveTimeouts", () => {
       },
     });
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
 
     const result = await settings.resolveTimeouts();
 
@@ -726,7 +726,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockResolvedValue(undefined);
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
@@ -744,7 +744,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
@@ -762,7 +762,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockResolvedValue(undefined); // project exists but we override
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc", "global");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
@@ -776,7 +776,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT")); // project doesn't exist but we override
     mockReadFile.mockResolvedValue("{}");
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc", "project");
 
     expect(mockWriteFile).toHaveBeenCalledWith(
@@ -796,7 +796,7 @@ describe("setLlamaSetting", () => {
       ),
     );
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
@@ -826,7 +826,7 @@ describe("setLlamaSetting", () => {
       });
     });
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("sortBy", "desc");
 
     expect(await settings.resolveSortBy()).toBe("desc");
@@ -836,7 +836,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockWriteFile.mockRejectedValue(new Error("ENOSPC: simulated"));
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       "ENOSPC",
     );
@@ -847,7 +847,7 @@ describe("setLlamaSetting", () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
     mockReadFile.mockResolvedValue("{ broken");
 
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await expect(settings.setLlamaSetting("sortBy", "desc")).rejects.toThrow(
       /Cannot parse/,
     );
@@ -857,7 +857,7 @@ describe("setLlamaSetting", () => {
 
   it("should persist booleans and numbers with type fidelity", async () => {
     mockAccess.mockRejectedValue(new Error("ENOENT"));
-    const { settings } = await import("../src/managers/settings");
+    const { settings } = await import("../../src/managers/settings");
     await settings.setLlamaSetting("reactToModelSelect", false);
 
     const [, firstWrite] = mockWriteFile.mock.calls[0];
@@ -874,7 +874,8 @@ describe("setLlamaSetting", () => {
   });
 
   it("should still construct the manager without arguments", async () => {
-    const { LlamaSettingsManager } = await import("../src/managers/settings");
+    const { LlamaSettingsManager } =
+      await import("../../src/managers/settings");
 
     expect(() => new LlamaSettingsManager()).not.toThrow();
   });

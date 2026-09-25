@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ServerStatus } from "../src/enums/serverStatus";
-import { checkServerHealth } from "../src/utils/health";
+import { ServerStatus } from "../../src/enums/serverStatus";
+import { checkServerHealth } from "../../src/utils/health";
 
 /**
  * Stubs `global.fetch` for one test. The probe only reads the parsed body,

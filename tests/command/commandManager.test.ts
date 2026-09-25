@@ -2,17 +2,17 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { initTheme } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Action } from "../src/enums/action";
-import { CommandManager } from "../src/managers/command";
-import { ServerManager } from "../src/managers/server";
-import type { LlamaSettingsManager } from "../src/managers/settings";
-import { ServerSettingsList } from "../src/ui/editors/server/serverEditor";
-import { ServerDisplay } from "../src/ui/editors/server/utils";
+import { Action } from "../../src/enums/action";
+import { CommandManager } from "../../src/managers/command";
+import { ServerManager } from "../../src/managers/server";
+import type { LlamaSettingsManager } from "../../src/managers/settings";
+import { ServerSettingsList } from "../../src/ui/editors/server/serverEditor";
+import { ServerDisplay } from "../../src/ui/editors/server/utils";
 import {
   applySettingChange,
   buildSettingsItems,
   formatMs,
-} from "../src/ui/settings";
+} from "../../src/ui/settings";
 import {
   createMockCtx,
   createMockModel,
@@ -20,7 +20,7 @@ import {
   createMockServer,
   makeSettingsStub,
   mockRpc,
-} from "./mocks";
+} from "../mocks";
 
 beforeEach(() => {
   initTheme();

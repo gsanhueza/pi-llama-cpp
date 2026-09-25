@@ -5,10 +5,10 @@ import {
   type TUI,
 } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ConfirmDialog } from "../src/ui/dialog/confirm";
-import { InputDialog } from "../src/ui/dialog/input";
-import { OverrideSettingsList } from "../src/ui/editors/override/overrideList";
-import { ServerSettingsList } from "../src/ui/editors/server/serverEditor";
+import { ConfirmDialog } from "../../src/ui/dialog/confirm";
+import { InputDialog } from "../../src/ui/dialog/input";
+import { OverrideSettingsList } from "../../src/ui/editors/override/overrideList";
+import { ServerSettingsList } from "../../src/ui/editors/server/serverEditor";
 
 beforeEach(() => {
   initTheme();

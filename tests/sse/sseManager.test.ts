@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { SSEManager } from "../src/sse/manager";
-import { createMockServer } from "./mocks";
+import { SSEManager } from "../../src/sse/manager";
+import { createMockServer } from "../mocks";
 
 /**
  * Builds an SSEManager bound to a stub server, mirroring how

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { FALLBACK_CTX } from "../src/constants";
-import { Mode } from "../src/enums/mode";
-import { DataProperty } from "../src/interfaces/endpoints/models";
-import { LegacyModel } from "../src/models/legacyModel";
-import { createMockServer, mockRpc } from "./mocks";
+import { FALLBACK_CTX } from "../../src/constants";
+import { Mode } from "../../src/enums/mode";
+import { DataProperty } from "../../src/interfaces/endpoints/models";
+import { LegacyModel } from "../../src/models/legacyModel";
+import { createMockServer, mockRpc } from "../mocks";
 
 beforeEach(() => {
   mockRpc.mockReset();

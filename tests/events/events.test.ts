@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { THINKING_BUDGETS } from "../src/constants";
-import { Status } from "../src/enums/status";
-import { EventManager } from "../src/managers/events";
-import { ServerManager } from "../src/managers/server";
-import type { Server } from "../src/server";
-import { createMockModel, createMockServer, makeSettingsStub } from "./mocks";
+import { THINKING_BUDGETS } from "../../src/constants";
+import { Status } from "../../src/enums/status";
+import { EventManager } from "../../src/managers/events";
+import { ServerManager } from "../../src/managers/server";
+import type { Server } from "../../src/server";
+import { createMockModel, createMockServer, makeSettingsStub } from "../mocks";
 
 /**
  * Injected settings stub (EventManager and — in the live-list test — the

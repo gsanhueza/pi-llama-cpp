@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SettingsStore } from "../src/utils/settingsStore";
+import { SettingsStore } from "../../src/utils/settingsStore";
 
 const mockReadFile = vi.hoisted(() => vi.fn());
 const mockWriteFile = vi.hoisted(() => vi.fn());

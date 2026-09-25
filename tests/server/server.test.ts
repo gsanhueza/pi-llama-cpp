@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../src/constants";
-import { ServerStatus } from "../src/enums/serverStatus";
-import type { LlamaSettingsManager } from "../src/managers/settings";
-import { Server } from "../src/server";
-import { createMockServer, makeSettingsStub, mockRpc } from "./mocks";
+import { POLLING_TIMEOUT, SERVER_TIMEOUT } from "../../src/constants";
+import { ServerStatus } from "../../src/enums/serverStatus";
+import type { LlamaSettingsManager } from "../../src/managers/settings";
+import { Server } from "../../src/server";
+import { createMockServer, makeSettingsStub, mockRpc } from "../mocks";
 
 // Injected into every real Server below; fresh per test so per-case
 // overrides never leak. The Server constructor resolves the API key eagerly

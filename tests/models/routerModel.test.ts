@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { FALLBACK_CTX } from "../src/constants";
-import { Mode } from "../src/enums/mode";
-import { DataProperty } from "../src/interfaces/endpoints/models";
-import { RouterModel } from "../src/models/routerModel";
-import { createMockServer, mockRpc } from "./mocks";
+import { FALLBACK_CTX } from "../../src/constants";
+import { Mode } from "../../src/enums/mode";
+import { DataProperty } from "../../src/interfaces/endpoints/models";
+import { RouterModel } from "../../src/models/routerModel";
+import { createMockServer, mockRpc } from "../mocks";
 
 // Helper to create a mock DataProperty
 const createModel = (overrides: Partial<DataProperty> = {}): DataProperty => ({

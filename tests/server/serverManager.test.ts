@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ServerManager } from "../src/managers/server";
-import { BaseModel } from "../src/models/baseModel";
-import { Server } from "../src/server";
+import { ServerManager } from "../../src/managers/server";
+import { BaseModel } from "../../src/models/baseModel";
+import { Server } from "../../src/server";
 import {
   createMockModel,
   createMockServer,
   makeSettingsStub,
   mockRpc,
-} from "./mocks";
+} from "../mocks";
 
 // Injected settings stub — the single instance passed to ServerManager and
 // to every real `new Server(...)` construction below (Server's eager
