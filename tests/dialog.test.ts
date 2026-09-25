@@ -139,6 +139,7 @@ describe("ServerSettingsList add wizard", () => {
       persist,
       done,
       onError,
+      authResolver: () => Promise.resolve("sk-placeholder"),
     });
     return { editor, persist, done, onError };
   };

@@ -35,11 +35,12 @@ A [Pi Coding Agent](https://pi.dev/) extension that integrates with running [lla
 
 When browsing servers via `/models servers`, each server URL is prefixed with a health indicator:
 
-| Icon | Status      | Description                                   |
-| ---- | ----------- | --------------------------------------------- |
-| 🟢   | Healthy     | Server responded successfully to health check |
-| 🟡   | Timeout     | Server health check timed out                 |
-| 🔴   | Unreachable | Server could not be reached                   |
+| Icon | Status       | Description                                   |
+| ---- | ------------ | --------------------------------------------- |
+| 🟢   | Healthy      | Server responded successfully to health check |
+| 🟡   | Timeout      | Server health check timed out                 |
+| 🔴   | Unreachable  | Server could not be reached                   |
+| ⛔   | Unauthorized | Server requires an API key                    |
 
 ## Installation
 
@@ -137,11 +138,11 @@ Run `/models settings` to edit the scalar settings above without hand-editing JS
 #### Server list editor
 
 Run `/models servers` to add, edit or remove entries of `llamaSettings.servers`
-without hand-editing JSON. Each server URL is prefixed with a health indicator
-(🟢 healthy, 🟡 timeout, 🔴 unreachable) that reflects the result of a
-health check against the server. Each change is written immediately to the **project**
-`.pi/settings.json` if it exists, otherwise to **global**
-`~/.pi/agent/settings.json`.
+without hand-editing JSON. Each server URL is prefixed with a status indicator
+(🟢 healthy, 🟡 timeout, 🔴 unreachable, ⛔ unauthorized) that reflects the
+result of a health check and an auth probe against the server. Each change is
+written immediately to the **project** `.pi/settings.json` if it exists,
+otherwise to **global** `~/.pi/agent/settings.json`.
 
 Changes take effect immediately after closing the editor: new servers
 register their providers, removed ones leave pi's registry right away,

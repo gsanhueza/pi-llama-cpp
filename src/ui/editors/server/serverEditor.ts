@@ -3,6 +3,7 @@ import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
 import { SERVER_TIMEOUT } from "../../../constants";
 import type { LlamaServer } from "../../../interfaces/settings";
 import type { LlamaSettingsManager } from "../../../managers/settings";
+import { ServerIds } from "../../../utils/serverIds";
 import { TITLES } from "../../strings";
 import type { ServerSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
@@ -58,6 +59,14 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
           done: () => done(undefined),
           onError: (message) => ui.notify(message, "error"),
           serverTimeout,
+          authResolver: async (server) => {
+            // Mirror Server.getApiKey(): use ServerIds.resolve to get
+            // the provider ID (customId or llama-server=<url>), then
+            // resolve the key from the credential store.
+            return settings.resolveApiKey(
+              ServerIds.resolve(server.url, server.id),
+            );
+          },
         }),
     );
   }
@@ -67,17 +76,24 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
   protected async buildSettingsList(): Promise<SettingsList> {
     const builder = new ServerItemBuilder(this.dialogs);
     const serverTimeout = this.options.serverTimeout ?? SERVER_TIMEOUT;
-    const healthEmojis = await Promise.all(
-      this.options.servers.map((server) =>
-        ServerDisplay.healthEmoji(server.url, serverTimeout),
-      ),
+    // Run auth + health probes in parallel; ⛔ wins if auth fails,
+    // otherwise fall back to the health emoji.
+    const probes = await Promise.all(
+      this.options.servers.map(async (server) => {
+        const apiKey = (await this.options.authResolver?.(server)) ?? "";
+        const [authEmoji, healthEmoji] = await Promise.all([
+          ServerDisplay.authEmoji(server.url, apiKey, serverTimeout),
+          ServerDisplay.healthEmoji(server.url, serverTimeout),
+        ]);
+        return authEmoji || healthEmoji;
+      }),
     );
     const items: SettingItem[] = this.options.servers.map((server, i) =>
       builder.buildRow(
         server,
         i,
         (field, value) => this.handleFieldChange(field, value),
-        healthEmojis[i],
+        probes[i],
         // Opening delegates input to the submenu; closing flushes a
         // rebuild deferred by a field commit (see commitFieldChange)
         (open) => this.trackSubmenu(open),

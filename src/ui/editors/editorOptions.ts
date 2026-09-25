@@ -32,6 +32,8 @@ export interface SettingsListEditorOptions {
 export interface ServerSettingsListOptions extends SettingsListEditorOptions {
   /** Timeout (ms) for health checks. Defaults to 1000ms if not provided. */
   serverTimeout?: number;
+  /** Resolves the API key for a server (used for auth probing). */
+  authResolver?: (server: LlamaServer) => Promise<string>;
 }
 
 /**
