@@ -2,7 +2,8 @@ import type { SettingItem } from "@earendil-works/pi-tui";
 import { FieldMessages, TITLES } from "../../strings";
 import { ItemBuilder } from "../itemBuilder";
 import { OverrideEntry } from "./entry";
-import { OverrideFields, type OverrideField } from "./fields";
+import type { OverrideField } from "./fields/base";
+import { OverrideFields } from "./fields/index";
 
 /**
  * Builds `SettingItem` objects for override entry field submenus.

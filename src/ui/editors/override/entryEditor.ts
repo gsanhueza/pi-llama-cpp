@@ -5,7 +5,7 @@ import type { OverrideSettingsListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
 import { OverrideEntry } from "./entry";
-import { OverrideFields, OverrideSummary } from "./fields";
+import { OverrideFields, OverrideSummary } from "./fields/index";
 import { OverrideItemBuilder } from "./itemBuilder";
 
 /**
