@@ -26,6 +26,7 @@ export enum Options {
   SORT_BY = "sortBy",
   POLLING_TIMEOUT = "pollingTimeout",
   SERVER_TIMEOUT = "serverTimeout",
+  SHOW_SERVER_URLS = "showServerUrls",
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -110,6 +111,13 @@ export const buildSettingsItems = async (
       currentValue: formatMs(serverTimeout),
       values: SERVER_PRESETS.map(formatMs),
     },
+    {
+      id: Options.SHOW_SERVER_URLS,
+      label: "Show server URLs",
+      description: "Show [Server: <url>] in /models (next open)",
+      currentValue: (await settings.resolveShowServerUrls()) ? "on" : "off",
+      values: ["on", "off"],
+    },
   ];
 };
 
@@ -138,6 +146,9 @@ export const applySettingChange = async (
       return;
     case Options.SERVER_TIMEOUT:
       await settings.setLlamaSetting("serverTimeout", parseMs(newValue));
+      return;
+    case Options.SHOW_SERVER_URLS:
+      await settings.setLlamaSetting("showServerUrls", newValue === "on");
       return;
   }
 };

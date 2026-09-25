@@ -51,7 +51,7 @@ export class CommandManager {
     private readonly serverManager: ServerManager,
     private readonly settings: LlamaSettingsManager,
   ) {
-    this.modelsMenu = new ModelsMenu(serverManager);
+    this.modelsMenu = new ModelsMenu(serverManager, settings);
   }
 
   /**

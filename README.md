@@ -128,6 +128,7 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 | `sortBy`             | string  | `"asc"` | Sort order for models (see below)                             |
 | `pollingTimeout`     | number  | `60000` | Max time (ms) to wait for model loading before giving up      |
 | `serverTimeout`      | number  | `1000`  | Timeout (ms) for server health checks and SSE probes          |
+| `showServerUrls`     | boolean | `true`  | Show `[Server: <url>]` suffix in the /models model list       |
 
 > **Note:** `serverTimeout` controls individual HTTP request timeouts (health checks, SSE probe). `pollingTimeout` controls the total wait time for a model to finish loading. Increase `serverTimeout` for slow/high-latency servers, and `pollingTimeout` for large models or slow hardware.
 

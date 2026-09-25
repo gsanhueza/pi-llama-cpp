@@ -164,6 +164,7 @@ describe("CommandManager", () => {
         "sortBy",
         "pollingTimeout",
         "serverTimeout",
+        "showServerUrls",
       ]);
       // Booleans are displayed as on/off
       expect(items[0].values).toEqual(["on", "off"]);
@@ -203,6 +204,18 @@ describe("CommandManager", () => {
       expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
         "serverTimeout",
         500,
+      );
+
+      await applySettingChange("showServerUrls", "on", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "showServerUrls",
+        true,
+      );
+
+      await applySettingChange("showServerUrls", "off", settingsStub);
+      expect(settingsStub.setLlamaSetting).toHaveBeenCalledWith(
+        "showServerUrls",
+        false,
       );
     });
   });
@@ -564,6 +577,63 @@ describe("CommandManager", () => {
       choices = vi.mocked(ctx.ui.select).mock.calls[1][1] as string[];
       expect(choices).toHaveLength(2);
       expect(choices[1]).toContain("model-b");
+    });
+
+    it("should omit server URLs when showServerUrls is false", async () => {
+      const models = [createMockModel("model-a")];
+      const mockPi = createMockPi();
+      const servers = models.map((model) =>
+        createMockServer({
+          baseUrl: model.serverUrl,
+          models: [model],
+        }),
+      );
+      const settingsStub = makeSettingsStub({
+        resolveServers: vi.fn(async () => servers),
+        resolveShowServerUrls: vi.fn(async () => false),
+      });
+      const serverManager = new ServerManager(settingsStub);
+      const commandManager = new CommandManager(serverManager, settingsStub);
+
+      const ctx = createMockCtx((prompt, options) => {
+        if (prompt.includes("models")) return options[0];
+        return Action.INFO;
+      });
+
+      await commandManager.handleCommand("", ctx as any, mockPi as any);
+
+      const choices = vi.mocked(ctx.ui.select).mock.calls[0][1] as string[];
+      expect(choices).toHaveLength(1);
+      expect(choices[0]).toBe("model-a  ");
+      expect(choices[0]).not.toContain("[Server:");
+    });
+
+    it("should include server URLs when showServerUrls is true", async () => {
+      const models = [createMockModel("model-a")];
+      const mockPi = createMockPi();
+      const servers = models.map((model) =>
+        createMockServer({
+          baseUrl: model.serverUrl,
+          models: [model],
+        }),
+      );
+      const settingsStub = makeSettingsStub({
+        resolveServers: vi.fn(async () => servers),
+        resolveShowServerUrls: vi.fn(async () => true),
+      });
+      const serverManager = new ServerManager(settingsStub);
+      const commandManager = new CommandManager(serverManager, settingsStub);
+
+      const ctx = createMockCtx((prompt, options) => {
+        if (prompt.includes("models")) return options[0];
+        return Action.INFO;
+      });
+
+      await commandManager.handleCommand("", ctx as any, mockPi as any);
+
+      const choices = vi.mocked(ctx.ui.select).mock.calls[0][1] as string[];
+      expect(choices).toHaveLength(1);
+      expect(choices[0]).toContain("[Server: http://127.0.0.1:8080]");
     });
   });
 });

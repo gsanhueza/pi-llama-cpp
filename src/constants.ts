@@ -77,6 +77,11 @@ export const AUTOLOAD_ON_MESSAGE = false;
 export const SORT_BY = "asc";
 
 /**
+ * Default for showServerUrls — show server URLs in /models by default.
+ */
+export const SHOW_SERVER_URLS = true;
+
+/**
  * Thinking budgets to send to the server, depending on user-selected level in Pi.
  */
 export const THINKING_BUDGETS = {

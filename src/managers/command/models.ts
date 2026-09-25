@@ -10,6 +10,7 @@ import { BaseModel } from "../../models/baseModel";
 import { errorMessage } from "../../utils/errors";
 import { EventManager } from "../events";
 import type { ServerManager } from "../server";
+import type { LlamaSettingsManager } from "../settings";
 
 /**
  * Interactive model selection/action flow for the `/models` command.
@@ -24,7 +25,10 @@ import type { ServerManager } from "../server";
  * server registry without coupling the menu to command routing.
  */
 export class ModelsMenu {
-  constructor(private readonly serverManager: ServerManager) {}
+  constructor(
+    private readonly serverManager: ServerManager,
+    private readonly settings: LlamaSettingsManager,
+  ) {}
 
   /**
    * Runs the interactive model selection menu.
@@ -173,6 +177,8 @@ export class ModelsMenu {
     ctx: ExtensionCommandContext,
     models: BaseModel[],
   ): Promise<BaseModel | null> {
+    const showServerUrls = await this.settings.resolveShowServerUrls();
+
     const labels = await Promise.all(
       models.map(async (model) => ({
         label: (await model.getLabel()).trim(),
@@ -191,7 +197,8 @@ export class ModelsMenu {
     const choices = labels.map(({ label, serverUrl }) => {
       const extraPadding = 2;
       const padLen = maxLength - graphemeLength(label) + extraPadding;
-      return `${label}${" ".repeat(padLen)} [Server: ${serverUrl}]`;
+      const serverSuffix = showServerUrls ? ` [Server: ${serverUrl}]` : "";
+      return `${label}${" ".repeat(padLen)}${serverSuffix}`;
     });
 
     const choice = await ctx.ui.select(`${PROVIDER_NAME} models:`, choices);

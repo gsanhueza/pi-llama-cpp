@@ -7,6 +7,7 @@ import {
   POLLING_TIMEOUT,
   REACT_TO_MODEL_SELECT,
   SERVER_TIMEOUT,
+  SHOW_SERVER_URLS,
   SORT_BY,
   THINKING_BUDGETS,
 } from "../src/constants";
@@ -40,6 +41,7 @@ export const makeSettingsStub = (
     })),
     resolveServers: vi.fn(async () => []),
     resolveSortBy: vi.fn(async () => SORT_BY),
+    resolveShowServerUrls: vi.fn(async () => SHOW_SERVER_URLS),
     resolveApiKey: vi.fn(() => API_KEY_PLACEHOLDER),
     resolveReactToModelSelect: vi.fn(async () => REACT_TO_MODEL_SELECT),
     resolveAutoloadOnMessage: vi.fn(async () => AUTOLOAD_ON_MESSAGE),

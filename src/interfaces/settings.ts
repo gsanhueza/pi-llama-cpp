@@ -132,4 +132,10 @@ export interface LlamaSettings {
    * @default "asc"
    */
   sortBy?: SortBy;
+  /**
+   * Whether to show the `[Server: <url>]` suffix in the /models model list.
+   * When `false`, only model names are shown without server annotations.
+   * @default true
+   */
+  showServerUrls?: boolean;
 }

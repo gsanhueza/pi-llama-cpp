@@ -479,6 +479,68 @@ describe("reactToModelSelect and autoloadOnMessage fallbacks", () => {
   });
 });
 
+describe("resolveShowServerUrls", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+  const mockGetProjectSettings = vi.mocked(
+    mockSettingsManager.getProjectSettings,
+  );
+  const mockGetGlobalSettings = vi.mocked(
+    mockSettingsManager.getGlobalSettings,
+  );
+
+  afterEach(() => {});
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockGetProjectSettings.mockReturnValue({});
+    mockGetGlobalSettings.mockReturnValue({});
+    manager = createSettingsManager();
+  });
+
+  it("should return true (default) when showServerUrls is not set", async () => {
+    const result = await manager.resolveShowServerUrls();
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false when explicitly set to false", async () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        showServerUrls: false,
+      },
+    });
+
+    const manager = createSettingsManager();
+
+    expect(await manager.resolveShowServerUrls()).toBe(false);
+  });
+
+  it("should return true when explicitly set to true", async () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        showServerUrls: true,
+      },
+    });
+
+    const manager = createSettingsManager();
+
+    expect(await manager.resolveShowServerUrls()).toBe(true);
+  });
+
+  it("should use global settings when no project config exists", async () => {
+    mockGetGlobalSettings.mockReturnValue({
+      llamaSettings: {
+        showServerUrls: false,
+      },
+    });
+
+    const manager = createSettingsManager();
+
+    expect(await manager.resolveShowServerUrls()).toBe(false);
+  });
+});
+
 describe("resolveServers", () => {
   const mockGetAgentDir = vi.mocked(getAgentDir);
   const mockGetProjectSettings = vi.mocked(
