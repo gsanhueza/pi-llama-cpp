@@ -136,7 +136,8 @@ export class ServerManager {
    * @param pi The Pi API
    */
   private async registerProvider(server: Server, pi: ExtensionAPI) {
-    const { apiBaseUrl, models, providerId, providerName } = server;
+    const { apiBaseUrl, apiKey, baseUrl, models, providerId, providerName } =
+      server;
     let modelConfigs: ProviderModelConfig[] = [];
 
     try {
@@ -148,24 +149,22 @@ export class ServerManager {
         // isn't configured yet, so the health indicator should stay green.
         const message = [
           "[pi-llama-cpp]",
-          `Server at '${server.baseUrl}' requires a valid API key.`,
-          `Configure the key via '/login ${server.providerId}' or in '${getAgentDir()}/auth.json'.`,
+          `Server at '${baseUrl}' requires a valid API key.`,
+          `Configure the key via '/login ${providerId}' or in '${getAgentDir()}/auth.json'.`,
         ].join("\n");
 
         this.warnings.push(message);
       } else {
-        this.failedUrls.push(server.baseUrl);
+        this.failedUrls.push(baseUrl);
         return;
       }
     }
-
-    const apiKey = server.getApiKey();
 
     pi.registerProvider(providerId, {
       name: providerName,
       baseUrl: apiBaseUrl,
       api: API_TYPE,
-      apiKey: apiKey,
+      apiKey,
       models: modelConfigs,
     });
   }

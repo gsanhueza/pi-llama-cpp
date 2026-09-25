@@ -52,8 +52,8 @@ export class Server {
     // in ServerManager), so no lazy fallback is needed. initialize()
     // rebuilds the client to re-resolve the API key.
     this.apiClient =
-      deps.createApiClient?.(this.getApiKey()) ??
-      new ApiClient(options.baseUrl, this.getApiKey());
+      deps.createApiClient?.(this.apiKey) ??
+      new ApiClient(options.baseUrl, this.apiKey);
   }
 
   /** Base URL of this server endpoint. */
@@ -119,10 +119,8 @@ export class Server {
   /**
    * Retrieves the API key from the config resolver.
    * Tries custom ID first, then falls back to URL-based ID.
-   *
-   * @returns The API key
    */
-  getApiKey(): string {
+  get apiKey(): string {
     // Try custom ID first
     if (this.options.customId) {
       const key = this.settings.resolveApiKey(this.options.customId);
@@ -137,10 +135,9 @@ export class Server {
    * Clears the cache first so we always fetch fresh data.
    */
   async initialize() {
-    const apiKey = this.getApiKey();
     this.apiClient =
-      this.deps.createApiClient?.(apiKey) ??
-      new ApiClient(this.baseUrl, apiKey);
+      this.deps.createApiClient?.(this.apiKey) ??
+      new ApiClient(this.baseUrl, this.apiKey);
     this.sse = this.deps.createSSEManager?.(this) ?? new SSEManager(this);
     const { data } = await this.fetchModels();
     const mode = await this.detectServerMode(data);
@@ -185,7 +182,7 @@ export class Server {
    * @returns The server status
    */
   async isReady(timeout: number): Promise<ServerStatus> {
-    return checkServerHealth(this.baseUrl, timeout, this.getApiKey());
+    return checkServerHealth(this.baseUrl, timeout, this.apiKey);
   }
 
   /**

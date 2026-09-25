@@ -46,7 +46,7 @@ export class SSEManager {
     try {
       const response = await fetch(this.sseEndpoint, {
         method: "GET",
-        headers: buildAuthHeaders(this.server.getApiKey()),
+        headers: buildAuthHeaders(this.server.apiKey),
         signal: AbortSignal.timeout(await this.server.getServerTimeout()),
       });
       this.sseSupported =
@@ -78,7 +78,7 @@ export class SSEManager {
     this.modelCallbacks.set(modelId, callbacks);
 
     // Create SSE client if not already created
-    this.sseClient ??= new SSEClient(this.sseEndpoint, this.server.getApiKey());
+    this.sseClient ??= new SSEClient(this.sseEndpoint, this.server.apiKey);
 
     // Subscribe a single dispatching callback to the SSE client
     if (!this.sseSubscribers.has(modelId)) {

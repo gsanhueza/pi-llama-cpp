@@ -388,7 +388,7 @@ describe("Server with custom id", () => {
       .mockReturnValueOnce(API_KEY_PLACEHOLDER)
       .mockReturnValueOnce({ key: "fallback-key" });
 
-    const result = server.getApiKey();
+    const result = server.apiKey;
 
     expect(result).toEqual("fallback-key");
     expect(mockReadStoredCredential).toHaveBeenNthCalledWith(1, "my-custom-id");
@@ -406,7 +406,7 @@ describe("Server with custom id", () => {
       customId: "my-custom-id",
     });
 
-    const result = server.getApiKey();
+    const result = server.apiKey;
 
     expect(result).toEqual("custom-key");
     expect(mockReadStoredCredential).toHaveBeenCalledWith("my-custom-id");
