@@ -79,6 +79,36 @@ export class ApiClient {
   ) {}
 
   /**
+   * Opens a raw GET at the given endpoint with auth headers.
+   * Returns the full Response so callers can inspect headers
+   * (probe) or consume the body (SSE stream).
+   *
+   * @param endpoint Path relative to the base URL
+   * @param signal Optional abort signal
+   * @returns the Response object
+   * @throws if the response is not OK
+   */
+  async stream(endpoint: string, signal?: AbortSignal): Promise<Response> {
+    // Accept full URLs so callers (SSEClient, probe) don't need to know
+    // the base — just pass whatever URL they already have.
+    const url = endpoint.startsWith("http")
+      ? endpoint
+      : `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+    const response = await this.fetchFn(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.getApiKey()}` },
+      signal,
+    });
+
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      throw new Error(`Stream failed: HTTP ${response.status}`);
+    }
+
+    return response;
+  }
+
+  /**
    * Makes a GET request with the given policy.
    *
    * Defaults to {@link RequestPolicy.Cached} (JSON parse + cache + dedup).

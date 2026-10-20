@@ -119,7 +119,7 @@ export abstract class Server {
    */
   async initialize(): Promise<void> {
     this.sse?.disconnect();
-    this.sse = new SSEManager(this, this.resolver);
+    this.sse = new SSEManager(this, this.resolver, this.apiClient);
 
     const { data } = await this.fetchModels();
     const props = await this.fetchServerProps().catch(

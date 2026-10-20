@@ -1,7 +1,7 @@
 // layering trade-off: sse client depends on settings/items to get the shared
 // polling interval default — avoids duplicating the value across modules.
+import { ApiClient } from "../api/client";
 import { PollingIntervalSettingsItem } from "../settings/items/pollingInterval";
-import { openSSEStream } from "./fetch";
 import type { SSECallback, SSECleanup, SSEEvent } from "./types";
 
 /**
@@ -28,13 +28,11 @@ export class SSEClient {
 
   /**
    * @param sseEndpoint - The full SSE endpoint URL (e.g., "http://127.0.0.1:9931/models/sse")
-   * @param getApiKey - Resolves the API key at request time (for lazy resolution)
-   * @param fetchFn - Optional custom fetch implementation (for testing)
+   * @param client - ApiClient providing the auth key and fetch implementation
    */
   constructor(
     private readonly sseEndpoint: string,
-    private readonly getApiKey: () => string | undefined,
-    private readonly fetchFn: typeof globalThis.fetch = fetch,
+    private readonly client: ApiClient,
   ) {}
 
   /**
@@ -69,12 +67,11 @@ export class SSEClient {
 
       let body: ReadableStream<Uint8Array>;
       try {
-        body = await openSSEStream(
+        const response = await this.client.stream(
           this.sseEndpoint,
-          this.getApiKey(),
           abortController.signal,
-          this.fetchFn,
         );
+        body = response.body!;
       } catch {
         if (this.disposed || abortController.signal.aborted) return false;
         this.notifyConnectFailed();

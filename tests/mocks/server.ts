@@ -93,14 +93,9 @@ export const createMockServer = (
     apiClient,
   );
   if (models) server.models.push(...models);
-  // Create an SSEManager so `server.sseManager` is available for tests
+  // Create an SSEManager so `server.sse` is available for tests
   // that call `probeSSE()` etc. — initialize() would do this in real code.
-  const sseManager = new SSEManager(
-    server,
-    effectiveResolver,
-    undefined,
-    fetchFn ?? guardFetch(),
-  );
+  const sseManager = new SSEManager(server, effectiveResolver, apiClient);
   if (sse) {
     sseManager.disconnect = sse.disconnect;
   }

@@ -1,7 +1,7 @@
 import type { ServerSettingsResolver } from "../interfaces/server";
 import type { Server } from "../servers/server";
+import { ApiClient } from "../api/client";
 import { SSEClient } from "./client";
-import { buildAuthHeaders } from "./fetch";
 import {
   DownloadProgressData,
   ProgressData,
@@ -29,8 +29,8 @@ export class SSEManager {
   constructor(
     private readonly server: Server,
     private readonly resolver: ServerSettingsResolver,
+    private readonly apiClient: ApiClient,
     sseClient?: SSEClient,
-    private readonly fetchFn: typeof globalThis.fetch = fetch,
   ) {
     this.sseClient = sseClient ?? null;
   }
@@ -54,11 +54,10 @@ export class SSEManager {
     if (this.sseSupported !== null) return this.sseSupported;
 
     try {
-      const response = await this.fetchFn(this.sseEndpoint, {
-        method: "GET",
-        headers: buildAuthHeaders(this.server.apiKey),
-        signal: AbortSignal.timeout(await this.resolver.resolveServerTimeout()),
-      });
+      const response = await this.apiClient.stream(
+        this.sseEndpoint,
+        AbortSignal.timeout(await this.resolver.resolveServerTimeout()),
+      );
       this.sseSupported =
         response.ok &&
         !!response.headers.get("content-type")?.includes("text/event-stream");
@@ -88,11 +87,7 @@ export class SSEManager {
     this.modelCallbacks.set(modelId, callbacks);
 
     // Create SSE client if not already created
-    this.sseClient ??= new SSEClient(
-      this.sseEndpoint,
-      () => this.server.apiKey,
-      this.fetchFn,
-    );
+    this.sseClient ??= new SSEClient(this.sseEndpoint, this.apiClient);
 
     // Subscribe a single dispatching callback to the SSE client
     if (!this.sseSubscribers.has(modelId)) {

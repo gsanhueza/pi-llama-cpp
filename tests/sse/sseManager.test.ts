@@ -1,11 +1,13 @@
 import type { SSEClient } from "../../src/sse/client";
 import { SSEEventType } from "../../src/sse/types";
 import { describe, expect, it, vi } from "vitest";
+import { ApiClient } from "../../src/api/client";
 import { SSEManager } from "../../src/sse/manager";
 import { createMockServer } from "../mocks/server";
 import { mockResolver } from "../mocks/server";
 import { createMockSSEClient, dispatchToMockClient } from "../mocks/sseClient";
 import { makeResolverStub } from "../mocks/settings";
+import { createMockApiClient } from "../mocks/apiClient";
 
 /**
  * Builds an SSEManager bound to a stub server, mirroring how
@@ -17,19 +19,29 @@ const createManager = (
   serverTimeout = 1000,
   sseClient?: SSEClient,
   fetchFn?: typeof globalThis.fetch,
-): SSEManager =>
-  new SSEManager(
-    createMockServer({
-      resolver: mockResolver,
-      options: { baseUrl: "http://127.0.0.1:9931" },
-    }),
+): SSEManager => {
+  const server = createMockServer({
+    resolver: mockResolver,
+    options: { baseUrl: "http://127.0.0.1:9931" },
+  });
+  const apiClient = fetchFn
+    ? new ApiClient(
+        "http://127.0.0.1:9931",
+        () => "",
+        async () => 500,
+        fetchFn,
+      )
+    : createMockApiClient("http://127.0.0.1:9931");
+  return new SSEManager(
+    server,
     makeResolverStub({
       resolvePollingTimeout: vi.fn(async () => pollingTimeout),
       resolveServerTimeout: vi.fn(async () => serverTimeout),
     }),
+    apiClient,
     sseClient,
-    fetchFn,
   );
+};
 
 describe("SSEManager subscribeToStatus", () => {
   it("should reject after the server's pollingTimeout, not the constant", async () => {
@@ -208,12 +220,14 @@ describe("SSEManager probeSSE", () => {
       resolvePollingTimeout: vi.fn(async () => 60000),
       resolveServerTimeout: vi.fn(async () => 1000),
     });
+    const server = createMockServer({
+      resolver: mockResolver,
+      options: { baseUrl: "http://127.0.0.1:9931" },
+    });
     const manager = new SSEManager(
-      createMockServer({
-        resolver: mockResolver,
-        options: { baseUrl: "http://127.0.0.1:9931" },
-      }),
+      server,
       resolver,
+      createMockApiClient("http://127.0.0.1:9931"),
     );
 
     expect(await manager.probeSSE()).toBe(false);
@@ -222,6 +236,11 @@ describe("SSEManager probeSSE", () => {
   it("should return true when server responds with SSE content-type", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
       headers: {
         get: (key: string) =>
           key === "content-type" ? "text/event-stream" : null,
@@ -236,6 +255,11 @@ describe("SSEManager probeSSE", () => {
   it("should return false when server responds with non-SSE content-type", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
       headers: { get: () => "application/json" },
     }) as typeof globalThis.fetch;
 
@@ -248,6 +272,7 @@ describe("SSEManager probeSSE", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 503,
+      body: null,
       headers: { get: () => null },
     }) as typeof globalThis.fetch;
 
@@ -259,6 +284,11 @@ describe("SSEManager probeSSE", () => {
   it("should cache the probe result", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
       headers: {
         get: (key: string) =>
           key === "content-type" ? "text/event-stream" : null,
