@@ -3,6 +3,7 @@ import { FALLBACK_CTX } from "../../src/constants";
 import { SingleServer } from "../../src/servers/singleServer";
 import { createRpcFetch } from "../mocks/rpc";
 import { createMockRpc } from "../mocks/mockRpc";
+import { createMockApiClient } from "../mocks/apiClient";
 
 /** Per-file isolated mock RPC. */
 const mockRpc = createMockRpc();
@@ -13,8 +14,9 @@ beforeEach(() => {
   mockRpc.mockReset();
 });
 
-const createServer = (overrides = {}) =>
-  Object.assign(
+const createServer = (overrides = {}) => {
+  const apiClient = createMockApiClient("http://127.0.0.1:9931", mockFetch);
+  return Object.assign(
     new SingleServer(
       {
         resolveServerTimeout: vi.fn(async () => 5000),
@@ -24,11 +26,11 @@ const createServer = (overrides = {}) =>
         resolveEnableSSE: vi.fn(async () => true),
       },
       { baseUrl: "http://127.0.0.1:9931", ...overrides },
-      undefined,
-      mockFetch,
+      apiClient,
     ),
     overrides,
   );
+};
 
 describe("SingleServer", () => {
   describe("getContextSize", () => {

@@ -112,7 +112,7 @@ export class ServerFactory {
         [Mode.LLAMASWAP]: LlamaSwapServer,
       }[mode] ?? SingleServer;
 
-    const server = new Ctor(resolver, options, apiClient, fetchFn);
+    const server = new Ctor(resolver, options, apiClient);
     server.status = ServerStatus.READY;
 
     return { server, status: ServerStatus.READY };

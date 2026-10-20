@@ -18,6 +18,7 @@ import { SettingsWriter } from "../../src/settings/writer";
 import { CredentialResolver } from "../../src/utils/credentialResolver";
 import { SettingsStore } from "../../src/settings/store";
 import { SingleServer } from "../../src/servers/singleServer";
+import { createMockApiClient } from "../mocks/apiClient";
 
 let manager: SettingsService;
 
@@ -163,27 +164,31 @@ describe("API key resolution", () => {
 
 describe("Server with custom id", () => {
   it("should use custom id as providerId when provided", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      customId: "my-custom-id",
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl(), customId: "my-custom-id" },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.providerId).toEqual("my-custom-id");
   });
 
   it("should fall back to URL-based providerId when no custom id", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl() },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.providerId).toEqual(`${PROVIDER_PREFIX}=${defaultBaseUrl()}`);
   });
 
   it("should try custom id first in getApiKey(), then fall back to URL-based", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      customId: "my-custom-id",
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl(), customId: "my-custom-id" },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     // Server construction resolves the key eagerly (ApiClient built there);
     // clear so the assertions below observe only the explicit getApiKey() call
@@ -206,10 +211,11 @@ describe("Server with custom id", () => {
   it("should return custom id key directly when found", () => {
     mockReadStoredCredential.mockReturnValue({ key: "custom-key" });
 
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      customId: "my-custom-id",
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl(), customId: "my-custom-id" },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     const result = server.apiKey;
 
@@ -220,28 +226,35 @@ describe("Server with custom id", () => {
 
 describe("Server with custom name", () => {
   it("should use custom name as suffix in providerName", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      customName: "Remote Server",
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl(), customName: "Remote Server" },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);
   });
 
   it("should fall back to URL-based name when no custom name", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl() },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.providerName).toEqual(`Llama.cpp (${defaultBaseUrl()})`);
   });
 
   it("should use custom name even with custom id", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      customId: "my-custom-id",
-      customName: "Remote Server",
-    });
+    const server = new SingleServer(
+      manager,
+      {
+        baseUrl: defaultBaseUrl(),
+        customId: "my-custom-id",
+        customName: "Remote Server",
+      },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.providerId).toEqual("my-custom-id");
     expect(server.providerName).toEqual(`Llama.cpp (Remote Server)`);
@@ -873,13 +886,17 @@ describe("resolveServerOverrides", () => {
 
 describe("Server with overrides", () => {
   it("should store and expose resolved overrides", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-      overrides: {
-        "model-a": { cost: { input: 0.2, output: 0.6 } },
-        "model-b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+    const server = new SingleServer(
+      manager,
+      {
+        baseUrl: defaultBaseUrl(),
+        overrides: {
+          "model-a": { cost: { input: 0.2, output: 0.6 } },
+          "model-b": { cost: { input: 0.1, output: 0.3, cacheRead: 0.01 } },
+        },
       },
-    });
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.findOverrideForModel("model-a")).toEqual({
       cost: { input: 0.2, output: 0.6 },
@@ -890,9 +907,11 @@ describe("Server with overrides", () => {
   });
 
   it("should return undefined for findOverrideForModel when no overrides are provided", () => {
-    const server = new SingleServer(manager, {
-      baseUrl: defaultBaseUrl(),
-    });
+    const server = new SingleServer(
+      manager,
+      { baseUrl: defaultBaseUrl() },
+      createMockApiClient(defaultBaseUrl()),
+    );
 
     expect(server.findOverrideForModel("any-model")).toBeUndefined();
   });
@@ -946,10 +965,11 @@ describe("Server.findOverrideForModel", () => {
   function createServer(
     overrides: Record<string, ModelOverride>,
   ): SingleServer {
-    return new SingleServer(SettingsService.create(), {
-      baseUrl: "http://127.0.0.1:9931",
-      overrides,
-    });
+    return new SingleServer(
+      SettingsService.create(),
+      { baseUrl: "http://127.0.0.1:9931", overrides },
+      createMockApiClient("http://127.0.0.1:9931"),
+    );
   }
 
   it("should return undefined when overrides is empty", () => {

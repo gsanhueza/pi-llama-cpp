@@ -5,6 +5,7 @@ import { RouterServer } from "../../src/servers/routerServer";
 import { SSEManager } from "../../src/sse/manager";
 import { createRpcFetch } from "../mocks/rpc";
 import { createMockRpc } from "../mocks/mockRpc";
+import { createMockApiClient } from "../mocks/apiClient";
 
 /** Per-file isolated mock RPC. */
 const mockRpc = createMockRpc();
@@ -16,6 +17,7 @@ beforeEach(() => {
 });
 
 const createServer = (overrides = {}) => {
+  const apiClient = createMockApiClient("http://127.0.0.1:9931", mockFetch);
   const server = new RouterServer(
     {
       resolveServerTimeout: vi.fn(async () => 5000),
@@ -25,8 +27,7 @@ const createServer = (overrides = {}) => {
       resolveEnableSSE: vi.fn(async () => true),
     },
     { baseUrl: "http://127.0.0.1:9931", ...overrides },
-    undefined,
-    mockFetch,
+    apiClient,
   );
   // Create an SSEManager so `server.sse` is available for tests that need it
   server.sse = new SSEManager(server, server.resolver, undefined, mockFetch);

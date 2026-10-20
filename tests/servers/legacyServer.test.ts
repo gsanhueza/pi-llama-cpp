@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FALLBACK_CTX } from "../../src/constants";
 import { LegacyServer } from "../../src/servers/legacyServer";
 import { createRpcFetch } from "../mocks/rpc";
 import { createMockRpc } from "../mocks/mockRpc";
-import { vi } from "vitest";
+import { createMockApiClient } from "../mocks/apiClient";
 
 /** Per-file isolated mock RPC. */
 const mockRpc = createMockRpc();
@@ -14,8 +14,9 @@ beforeEach(() => {
   mockRpc.mockReset();
 });
 
-const createServer = (overrides = {}) =>
-  Object.assign(
+const createServer = (overrides = {}) => {
+  const apiClient = createMockApiClient("http://127.0.0.1:9931", mockFetch);
+  return Object.assign(
     new LegacyServer(
       {
         resolveServerTimeout: vi.fn(async () => 5000),
@@ -25,11 +26,11 @@ const createServer = (overrides = {}) =>
         resolveEnableSSE: vi.fn(async () => true),
       },
       { baseUrl: "http://127.0.0.1:9931", ...overrides },
-      undefined,
-      mockFetch,
+      apiClient,
     ),
     overrides,
   );
+};
 
 describe("LegacyServer", () => {
   describe("getCapabilities", () => {

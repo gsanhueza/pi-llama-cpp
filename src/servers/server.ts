@@ -32,27 +32,13 @@ export abstract class Server {
   readonly models: Model[] = [];
   /** Creation status set by the {@link ServerFactory}. */
   status!: ServerStatus;
-  protected readonly apiClient: ApiClient;
   sse?: SSEManager;
 
   constructor(
     readonly resolver: ServerSettingsResolver,
     private readonly options: ServerOptions,
-    apiClient?: ApiClient,
-    private readonly fetchFn: typeof globalThis.fetch = fetch,
-  ) {
-    // Eager client: `isReady` may run before `initialize()` (health probing
-    // in ServerManager), so no lazy fallback is needed. The key is resolved
-    // per request, so the client never needs rebuilding when it changes.
-    this.apiClient =
-      apiClient ??
-      new ApiClient(
-        options.baseUrl,
-        () => this.apiKey,
-        () => this.resolver.resolvePollingInterval(),
-        this.fetchFn,
-      );
-  }
+    protected readonly apiClient: ApiClient,
+  ) {}
 
   /** The detected mode of this server. */
   abstract mode: Mode;

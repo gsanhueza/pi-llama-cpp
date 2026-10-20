@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { API_KEY_PLACEHOLDER } from "../../src/constants";
 import { defaultBaseUrl } from "../constants";
 import { ApiClient } from "../../src/api/client";
+import { ServerIds } from "../../src/utils/serverIds";
 import { PollingTimeoutSettingsItem } from "../../src/settings/items/pollingTimeout";
 import { ServerTimeoutSettingsItem } from "../../src/settings/items/serverTimeout";
 import type { ServerSettingsResolver } from "../../src/interfaces/server";
@@ -50,8 +51,7 @@ export interface CreateMockServerOptions {
   models?: Model[];
   overrides?: Partial<SingleServer>;
   sse?: { disconnect: () => void };
-  apiClient?: ApiClient;
-  /** Injectable fetch — routed into the Server's ApiClient and SSEManager. */
+  /** Injectable fetch — used to build the server's ApiClient. */
   fetchFn?: typeof globalThis.fetch;
 }
 
@@ -64,9 +64,23 @@ export interface CreateMockServerOptions {
 export const createMockServer = (
   opts: CreateMockServerOptions = {},
 ): SingleServer => {
-  const { resolver, options, models, overrides, sse, apiClient, fetchFn } =
-    opts;
+  const { resolver, options, models, overrides, sse, fetchFn } = opts;
   const effectiveResolver = resolver ?? defaultResolver;
+
+  const effectiveFetch = fetchFn ?? guardFetch();
+  const apiClient = new ApiClient(
+    options?.baseUrl ?? defaultBaseUrl(),
+    () =>
+      effectiveResolver.resolveApiKey(
+        options?.customId ??
+          ServerIds.resolve(
+            options?.baseUrl ?? defaultBaseUrl(),
+            options?.customId,
+          ),
+      ),
+    () => effectiveResolver.resolvePollingInterval(),
+    effectiveFetch,
+  );
 
   const server = new SingleServer(
     effectiveResolver,
@@ -77,7 +91,6 @@ export const createMockServer = (
       overrides: options?.overrides,
     },
     apiClient,
-    fetchFn ?? guardFetch(),
   );
   if (models) server.models.push(...models);
   // Create an SSEManager so `server.sseManager` is available for tests

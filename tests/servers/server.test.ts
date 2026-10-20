@@ -1,25 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_KEY_PLACEHOLDER } from "../../src/constants";
-import type { SettingsService } from "../../src/settings/settings";
 import { Server } from "../../src/servers/server";
-import { SingleServer } from "../../src/servers/singleServer";
 import { createMockServer } from "../mocks/server";
 import { mockResolver, mockServerOptions } from "../mocks/server";
 import type { CreateMockServerOptions } from "../mocks/server";
 import { createRpcFetch } from "../mocks/rpc";
 import { createMockRpc } from "../mocks/mockRpc";
 import { Status } from "../../src/enums/status";
-import { makeSettingsStub, makeResolverStub } from "../mocks/settings";
+import { makeResolverStub } from "../mocks/settings";
 
 /** Per-file isolated mock RPC. */
 const mockRpc = createMockRpc();
 /** fetch implementation backed by mockRpc — injected into every Server. */
 const mockFetch = createRpcFetch(mockRpc);
-
-// Injected into every real Server below; fresh per test so per-case
-// overrides never leak. The Server constructor resolves the API key eagerly
-// (ApiClient built there) — the stub's placeholder key is never consumed.
-let settings: SettingsService;
 
 /** Helper: build a real Server wired to this file's mock RPC. */
 const createRpcServer = (opts: CreateMockServerOptions = {}): Server =>
@@ -27,31 +20,29 @@ const createRpcServer = (opts: CreateMockServerOptions = {}): Server =>
 
 beforeEach(() => {
   mockRpc.mockClear();
-  settings = makeSettingsStub();
 });
 
 describe("Server providerId", () => {
   it("should use customId when set", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
-      customId: "my-server",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931", customId: "my-server" },
     });
     expect(server.providerId).toBe("my-server");
   });
 
   it("should generate a unique provider ID from baseUrl", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
     });
     expect(server.providerId).toBe("llama-server=http://127.0.0.1:9931");
   });
 
   it("should generate different IDs for different baseUrls", () => {
-    const server1 = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
+    const server1 = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
     });
-    const server2 = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:8081",
+    const server2 = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:8081" },
     });
     expect(server1.providerId).not.toBe(server2.providerId);
   });
@@ -59,16 +50,15 @@ describe("Server providerId", () => {
 
 describe("Server providerName", () => {
   it("should generate a human-readable provider name", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
     });
     expect(server.providerName).toBe("Llama.cpp (http://127.0.0.1:9931)");
   });
 
   it("should include customName when set", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
-      customName: "my-server",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931", customName: "my-server" },
     });
     expect(server.providerName).toBe("Llama.cpp (my-server)");
   });
@@ -81,9 +71,9 @@ describe("Server apiKey", () => {
         id === "my-server" ? "custom-key" : API_KEY_PLACEHOLDER,
       ),
     });
-    const server = new SingleServer(customResolver, {
-      baseUrl: "http://127.0.0.1:9931",
-      customId: "my-server",
+    const server = createMockServer({
+      resolver: customResolver,
+      options: { baseUrl: "http://127.0.0.1:9931", customId: "my-server" },
     });
     expect(server.apiKey).toBe("custom-key");
   });
@@ -91,22 +81,22 @@ describe("Server apiKey", () => {
 
 describe("Server apiBaseUrl", () => {
   it("should append the ENDPOINT_PREFIX to baseUrl", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
     });
     expect(server.apiBaseUrl).toBe("http://127.0.0.1:9931/v1");
   });
 
   it("should not double the prefix when baseUrl already ends with it", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931/v1",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931/v1" },
     });
     expect(server.apiBaseUrl).toBe("http://127.0.0.1:9931/v1");
   });
 
   it("should keep baseUrl untouched for provider identity", () => {
-    const server = new SingleServer(settings, {
-      baseUrl: "http://127.0.0.1:9931",
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
     });
     expect(server.baseUrl).toBe("http://127.0.0.1:9931");
     expect(server.providerId).toBe("llama-server=http://127.0.0.1:9931");
