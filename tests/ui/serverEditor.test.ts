@@ -31,6 +31,7 @@ const makeOptions = (
   done: vi.fn(),
   onError: vi.fn(),
   serverTimeout: 1000,
+  resolvePollingInterval: vi.fn().mockResolvedValue(500),
   ...overrides,
 });
 

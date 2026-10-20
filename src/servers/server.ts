@@ -145,19 +145,14 @@ export abstract class Server {
    * - Health 200 + auth fails → `TIMEOUT` / `UNREACHABLE`
    * - Both OK                 → `READY`
    *
-   * @param url The bare origin of the llama-server
+   * @param client ApiClient configured with the server URL and auth key
    * @param timeout Maximum time (ms) for both probes
-   * @param apiKey Optional API key, sent as a Bearer token
-   * @param fetchFn Optional custom fetch implementation
    * @returns The classified server status
    */
   static async check(
-    url: string,
+    client: ApiClient,
     timeout: number,
-    apiKey?: string,
-    fetchFn?: typeof globalThis.fetch,
   ): Promise<ServerStatus> {
-    const client = new ApiClient(url, () => apiKey ?? "", undefined, fetchFn);
     const [health, auth] = await Promise.allSettled([
       client.get<number>("/health", timeout, RequestPolicy.Status),
       client.get(`${ENDPOINT_PREFIX}/models`, timeout),

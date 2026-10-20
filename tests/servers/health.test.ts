@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ApiClient } from "../../src/api/client";
 import { ServerStatus } from "../../src/enums/serverStatus";
 import { Server } from "../../src/servers/server";
 
@@ -15,6 +16,21 @@ const okResponse = () => ({ ok: true, status: 200, json: async () => ({}) });
 
 const URL_ = "http://127.0.0.1:9931";
 
+/**
+ * Build an ApiClient wired to the given fetch mock.
+ * The key resolver always returns the provided key (or "" when omitted).
+ */
+const makeClient = (
+  fetchMock: ReturnType<typeof stubFetch>,
+  key: string = "",
+): ApiClient =>
+  new ApiClient(
+    URL_,
+    () => key,
+    async () => 500,
+    fetchMock,
+  );
+
 describe("Server.check", () => {
   it("should return READY when health and auth succeed", async () => {
     const fetchMock = stubFetch(async (url: string) => {
@@ -22,7 +38,7 @@ describe("Server.check", () => {
       return okResponse();
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.READY,
     );
   });
@@ -33,7 +49,7 @@ describe("Server.check", () => {
       return { ok: false, status: 401, json: async () => ({}) };
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.UNAUTHORIZED,
     );
   });
@@ -46,7 +62,7 @@ describe("Server.check", () => {
       json: async () => ({}),
     }));
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.UNREACHABLE,
     );
   });
@@ -56,7 +72,7 @@ describe("Server.check", () => {
       throw new Error("connection refused");
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.UNREACHABLE,
     );
   });
@@ -66,7 +82,7 @@ describe("Server.check", () => {
       throw new DOMException("The operation timed out.", "TimeoutError");
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.TIMEOUT,
     );
   });
@@ -77,7 +93,7 @@ describe("Server.check", () => {
       throw new DOMException("The user aborted a request.", "AbortError");
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.TIMEOUT,
     );
   });
@@ -88,7 +104,7 @@ describe("Server.check", () => {
       throw new Error("connection refused");
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.UNREACHABLE,
     );
   });
@@ -99,7 +115,7 @@ describe("Server.check", () => {
       throw new DOMException("The operation timed out.", "TimeoutError");
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.TIMEOUT,
     );
   });
@@ -110,7 +126,7 @@ describe("Server.check", () => {
       return { ok: false, status: 500, json: async () => ({}) };
     });
 
-    expect(await Server.check(URL_, 1000, undefined, fetchMock)).toBe(
+    expect(await Server.check(makeClient(fetchMock), 1000)).toBe(
       ServerStatus.READY,
     );
   });
@@ -118,7 +134,7 @@ describe("Server.check", () => {
   it("should hit <url>/health with a Bearer token", async () => {
     const fetchMock = stubFetch(async () => okResponse());
 
-    await Server.check(URL_, 1000, "secret-key", fetchMock);
+    await Server.check(makeClient(fetchMock, "secret-key"), 1000);
 
     expect(fetchMock).toHaveBeenCalledWith(`${URL_}/health`, {
       signal: expect.any(AbortSignal),
@@ -133,7 +149,7 @@ describe("Server.check", () => {
       return okResponse();
     });
 
-    await Server.check(URL_, 1000, "secret-key", fetchMock);
+    await Server.check(makeClient(fetchMock, "secret-key"), 1000);
 
     expect(fetchMock).toHaveBeenCalledWith(`${URL_}/v1/models`, {
       signal: expect.any(AbortSignal),
@@ -145,7 +161,7 @@ describe("Server.check", () => {
   it("should send an empty Bearer token when no key is given", async () => {
     const fetchMock = stubFetch(async () => okResponse());
 
-    await Server.check(URL_, 1000, undefined, fetchMock);
+    await Server.check(makeClient(fetchMock), 1000);
 
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({
       Authorization: "Bearer ",

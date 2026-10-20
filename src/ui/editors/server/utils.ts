@@ -1,3 +1,4 @@
+import { ApiClient } from "../../../api/client";
 import { Server } from "../../../servers/server";
 import { ServerStatus } from "../../../enums/serverStatus";
 import type { LlamaServer } from "../../../interfaces/settings";
@@ -26,17 +27,15 @@ export class ServerDisplay {
    * Delegates the probe/classification to `Server.check` — this wrapper
    * only maps the status to its icon.
    *
-   * @param url - The server URL to check
+   * @param client ApiClient configured with the server URL and auth key
    * @param timeout - Maximum time (ms) for the health check
-   * @param apiKey - Optional API key for auth probe
    * @returns The emoji indicator for the server status
    */
   static async healthEmoji(
-    url: string,
+    client: ApiClient,
     timeout: number,
-    apiKey?: string,
   ): Promise<string> {
-    return SERVER_STATUS_ICONS[await Server.check(url, timeout, apiKey)];
+    return SERVER_STATUS_ICONS[await Server.check(client, timeout)];
   }
 }
 

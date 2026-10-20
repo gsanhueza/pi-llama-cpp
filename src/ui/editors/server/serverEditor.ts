@@ -1,5 +1,7 @@
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
+import { ApiClient } from "../../../api/client";
+import { API_KEY_PLACEHOLDER } from "../../../constants";
 import { ServerTimeoutSettingsItem } from "../../../settings/items/serverTimeout";
 import { ServerStatus } from "../../../enums/serverStatus";
 import type { LlamaServer } from "../../../interfaces/settings";
@@ -76,6 +78,7 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
               ServerIds.resolve(server.url, server.id),
             );
           },
+          resolvePollingInterval: () => settings.resolvePollingInterval(),
           ui,
         }),
     );
@@ -89,8 +92,15 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
       this.options.serverTimeout ?? ServerTimeoutSettingsItem.defaultValue;
     const probes = await Promise.all(
       this.options.servers.map(async (server) => {
-        const apiKey = (await this.options.authResolver?.(server)) ?? "";
-        return ServerDisplay.healthEmoji(server.url, serverTimeout, apiKey);
+        const resolver = this.options.authResolver;
+        const apiKey = resolver ? await resolver(server) : API_KEY_PLACEHOLDER;
+        const client = new ApiClient(
+          server.url,
+          () => apiKey,
+          this.options.resolvePollingInterval ??
+            (() => Promise.resolve(ServerTimeoutSettingsItem.defaultValue)),
+        );
+        return ServerDisplay.healthEmoji(client, serverTimeout);
       }),
     );
     const items: SettingItem[] = this.options.servers.map((server, i) =>
@@ -192,11 +202,17 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
 
     const serverTimeout =
       this.options.serverTimeout ?? ServerTimeoutSettingsItem.defaultValue;
-    const apiKey = (await this.options.authResolver?.(server)) ?? "";
+    const resolver = this.options.authResolver;
+    const apiKey = resolver ? await resolver(server) : API_KEY_PLACEHOLDER;
+    const client = new ApiClient(
+      server.url,
+      () => apiKey,
+      this.options.resolvePollingInterval ??
+        (() => Promise.resolve(ServerTimeoutSettingsItem.defaultValue)),
+    );
 
     if (
-      (await Server.check(server.url, serverTimeout, apiKey)) ===
-      ServerStatus.UNAUTHORIZED
+      (await Server.check(client, serverTimeout)) === ServerStatus.UNAUTHORIZED
     ) {
       const providerId = ServerIds.resolve(server.url, server.id);
       ui.notify(authRequiredMessage(server.url, providerId), "warning");
