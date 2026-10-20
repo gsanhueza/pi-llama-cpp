@@ -16,11 +16,39 @@ export class ApiError extends Error {
 }
 
 /**
- * HTTP client for llama-server with GET caching and request deduplication.
+ * Policy that controls caching, deduplication, and parsing for a request.
  *
- * GETs are cached (TTL: half the live polling interval) and concurrent
- * duplicates share one in-flight promise. POSTs are deduplicated but never
- * cached. Raw/probe methods bypass both.
+ * - **Cached**: JSON parse + cache (TTL: ratio × polling interval) + dedup.
+ *   Default for `get` and `post`.
+ * - **Status**: HTTP status code + cache + dedup. Used by health/auth probes.
+ * - **Raw**: no parse, no cache, no dedup. For raw text/stream responses.
+ */
+export enum RequestPolicy {
+  /** JSON parse + cache + dedup */
+  Cached = "cached",
+  /** HTTP status code + cache + dedup */
+  Status = "status",
+  /** No parse, no cache, no dedup */
+  Raw = "raw",
+}
+
+/**
+ * Internal options passed to {@link ApiClient.execute}.
+ */
+interface ExecuteOptions {
+  endpoint: string;
+  method: "GET" | "POST";
+  body?: Record<string, unknown>;
+  timeout?: number;
+  policy: RequestPolicy;
+}
+
+/**
+ * HTTP client for llama-server with caching and request deduplication.
+ *
+ * GETs and POSTs are cached (TTL: ratio × polling interval) and
+ * concurrent duplicates share one in-flight promise. Raw requests bypass
+ * both. Probes return the HTTP status code and are also cached/deduped.
  */
 export class ApiClient {
   private cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -35,8 +63,11 @@ export class ApiClient {
    * @param baseUrl The base URL of the llama-server
    * @param getApiKey Resolves the API key for authentication at request time
    * @param getPollingInterval Resolves the current polling interval, which
-   *   the cache TTL is derived from (half of it) at each GET request
+   *   the cache TTL is derived from (ratio × interval) at each request
    * @param fetchFn Optional custom fetch implementation (for testing)
+   * @param ttlRatio Fraction of the polling interval used as cache TTL
+   *   (default: 0.8). A higher value keeps cache longer; a lower value
+   *   refreshes more aggressively.
    */
   constructor(
     private readonly baseUrl: string,
@@ -44,79 +75,47 @@ export class ApiClient {
     private readonly getPollingInterval: () => Promise<number> = async () =>
       PollingIntervalSettingsItem.defaultValue,
     private readonly fetchFn: typeof globalThis.fetch = fetch,
+    private readonly ttlRatio: number = 0.8,
   ) {}
 
   /**
-   * Makes a cached, deduplicated GET request to the llama-server.
+   * Makes a GET request with the given policy.
    *
-   * @param endpoint The endpoint path to fetch (e.g. "/health")
+   * Defaults to {@link RequestPolicy.Cached} (JSON parse + cache + dedup).
+   * Override with {@link RequestPolicy.Status} or {@link RequestPolicy.Raw}.
+   *
+   * @param endpoint The endpoint path to fetch (e.g. "/v1/models")
    * @param timeout Maximum time (ms) to wait for the response
+   * @param policy Request policy (default: Cached)
    * @returns The parsed JSON response from the server
    */
-  async get<T>(endpoint: string, timeout?: number): Promise<T> {
-    const cached = this.cacheGet<T>(endpoint);
-    if (cached !== undefined) return cached;
-
-    return this.dedupe(endpoint, async () => {
-      const ttl = (await this.getPollingInterval()) / 2;
-      const data = await this.do_get<T>(endpoint, timeout);
-      this.cacheSet(endpoint, data, ttl);
-      return data;
-    });
+  async get<T>(
+    endpoint: string,
+    timeout?: number,
+    policy: RequestPolicy = RequestPolicy.Cached,
+  ): Promise<T> {
+    return this.execute<T>({ endpoint, method: "GET", timeout, policy });
   }
 
   /**
-   * Makes a deduplicated POST request to the llama-server.
+   * Makes a POST request with the given policy.
+   *
+   * Defaults to {@link RequestPolicy.Cached} (JSON parse + cache + dedup).
+   * Override with {@link RequestPolicy.Status} or {@link RequestPolicy.Raw}.
    *
    * @param endpoint The endpoint path to post to
    * @param body The optional request body
+   * @param timeout Maximum time (ms) to wait for the response
+   * @param policy Request policy (default: Cached)
    * @returns The parsed JSON response from the server
    */
-  async post<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
-    return this.dedupe(this.cacheKey(endpoint, body), async () =>
-      this.do_post<T>(endpoint, body),
-    );
-  }
-
-  /**
-   * Makes a raw GET request that does not parse JSON.
-   *
-   * @param endpoint The endpoint path to fetch
-   */
-  async rawGet(endpoint: string): Promise<void> {
-    return this.do_request<void>(endpoint, "GET", undefined, false);
-  }
-
-  /**
-   * Makes a raw POST request that does not parse JSON.
-   *
-   * @param endpoint The endpoint path to post to
-   * @param body The optional request body
-   */
-  async rawPost(
+  async post<T>(
     endpoint: string,
     body?: Record<string, unknown>,
-  ): Promise<void> {
-    return this.do_request<void>(endpoint, "POST", body, false);
-  }
-
-  /**
-   * Makes a GET request that returns only the HTTP status code, without
-   * parsing the body. Used by health probes, which classify on status and
-   * error identity rather than payload.
-   *
-   * @param endpoint The endpoint path to probe (e.g. "/health")
-   * @param timeout Maximum time (ms) to wait for the response
-   * @returns The HTTP status code
-   * @throws ApiError with status 401 on authentication rejection (kept for
-   *   symmetry with `do_request`, so auth classification needs no special case)
-   */
-  async probeStatus(endpoint: string, timeout?: number): Promise<number> {
-    const res = await this.fetchResponse(endpoint, "GET", undefined, timeout);
-    if (res.status === 401) {
-      throw new ApiError("authentication", res.status);
-    }
-    return res.status;
+    timeout?: number,
+    policy: RequestPolicy = RequestPolicy.Cached,
+  ): Promise<T> {
+    return this.execute<T>({ endpoint, method: "POST", body, timeout, policy });
   }
 
   /**
@@ -124,6 +123,107 @@ export class ApiClient {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * Executes a request with the given policy, routing to the appropriate
+   * cache/dedup/parse strategy.
+   *
+   * @param opts Request options including endpoint, method, body, timeout, and policy
+   * @returns The parsed response
+   */
+  private async execute<T>(opts: ExecuteOptions): Promise<T> {
+    const { endpoint, method, body, timeout, policy } = opts;
+
+    switch (policy) {
+      case RequestPolicy.Cached:
+        return this.cachedDeduped<T>(
+          body ? `${endpoint}:${JSON.stringify(body)}` : endpoint,
+          async () => this.parseJson<T>(method, endpoint, body, timeout),
+        );
+
+      case RequestPolicy.Status:
+        return this.cachedDeduped<number>(endpoint, async () =>
+          this.parseStatus(method, endpoint, body, timeout),
+        ) as T;
+
+      case RequestPolicy.Raw:
+        await this.fetchResponse(method, endpoint, body, timeout);
+        return undefined as unknown as T;
+    }
+  }
+
+  // --- Cache + dedup ---
+
+  /**
+   * Checks cache first, then deduplicates in-flight requests,
+   * and stores the result back in the cache with TTL.
+   *
+   * @param key The cache/dedup key
+   * @param fn The async function to execute if cache miss
+   * @returns The cached or freshly fetched value
+   */
+  private async cachedDeduped<T>(
+    key: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const cached = this.cacheGet<T>(key);
+    if (cached !== undefined) return cached;
+
+    return this.dedupe(key, async () => {
+      const ttl = (await this.getPollingInterval()) * this.ttlRatio;
+      const data = await fn();
+      this.cacheSet(key, data, ttl);
+      return data;
+    });
+  }
+
+  // --- Fetch + parse ---
+
+  /**
+   * Fetches JSON from the server and parses it.
+   * Throws {@link ApiError} with type "authentication" on 401.
+   *
+   * @param method The HTTP method
+   * @param endpoint The endpoint path
+   * @param body The optional request body
+   * @param timeout Maximum time (ms) to wait for the response
+   * @returns The parsed JSON response
+   */
+  private async parseJson<T>(
+    method: "GET" | "POST",
+    endpoint: string,
+    body?: Record<string, unknown>,
+    timeout?: number,
+  ): Promise<T> {
+    const res = await this.fetchResponse(method, endpoint, body, timeout);
+    if (res.status === 401) {
+      throw new ApiError("authentication", res.status);
+    }
+    return (await res.json()) as T;
+  }
+
+  /**
+   * Fetches the HTTP status code from the server.
+   * Throws {@link ApiError} with type "authentication" on 401.
+   *
+   * @param method The HTTP method
+   * @param endpoint The endpoint path
+   * @param body The optional request body
+   * @param timeout Maximum time (ms) to wait for the response
+   * @returns The HTTP status code
+   */
+  private async parseStatus(
+    method: "GET" | "POST",
+    endpoint: string,
+    body?: Record<string, unknown>,
+    timeout?: number,
+  ): Promise<number> {
+    const res = await this.fetchResponse(method, endpoint, body, timeout);
+    if (res.status === 401) {
+      throw new ApiError("authentication", res.status);
+    }
+    return res.status;
   }
 
   /**
@@ -145,10 +245,10 @@ export class ApiClient {
   }
 
   /**
-   * Gets a cached GET response.
+   * Gets a cached response, or `undefined` if missing or expired.
    *
    * @param key The cache key
-   * @returns The cached data, or `undefined` if missing or expired
+   * @returns The cached data, or `undefined`
    */
   private cacheGet<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
@@ -161,7 +261,7 @@ export class ApiClient {
   }
 
   /**
-   * Stores a GET response in the cache with a per-entry expiry.
+   * Stores a response in the cache with a per-entry expiry.
    *
    * @param key The cache key
    * @param data The response data
@@ -172,28 +272,17 @@ export class ApiClient {
   }
 
   /**
-   * Builds the dedup key for a POST request.
+   * Performs the raw HTTP fetch for a request.
    *
-   * @param endpoint The endpoint path to post to
-   * @param body The optional request body
-   * @returns The dedup key
-   */
-  private cacheKey(endpoint: string, body?: Record<string, unknown>): string {
-    return body ? `${endpoint}:${JSON.stringify(body)}` : endpoint;
-  }
-
-  /**
-   * Performs the raw fetch for a request (cache/dedup live in the callers).
-   *
-   * @param endpoint The endpoint path
    * @param method The HTTP method
+   * @param endpoint The endpoint path
    * @param body The optional request body
    * @param timeout Maximum time (ms) to wait for the response
-   * @returns The raw response
+   * @returns The raw HTTP response
    */
   private fetchResponse(
-    endpoint: string,
     method: "GET" | "POST",
+    endpoint: string,
     body?: Record<string, unknown>,
     timeout?: number,
   ): Promise<Response> {
@@ -211,56 +300,5 @@ export class ApiClient {
       },
       ...(body ? { body: JSON.stringify(body) } : undefined),
     });
-  }
-
-  /**
-   * Makes a raw request to the llama-server (no cache, no dedup).
-   *
-   * @param endpoint The endpoint path
-   * @param method The HTTP method
-   * @param body The optional request body
-   * @param parseJson Whether to parse the response as JSON (default: true)
-   * @param timeout Maximum time (ms) to wait for the response
-   * @returns The parsed JSON response, or void if parseJson is false
-   * @throws ApiError with status 401 when the server rejects the request
-   *   due to authentication (invalid/missing API key).
-   */
-  private async do_request<T>(
-    endpoint: string,
-    method: "GET" | "POST",
-    body?: Record<string, unknown>,
-    parseJson = true,
-    timeout?: number,
-  ): Promise<T | void> {
-    const res = await this.fetchResponse(endpoint, method, body, timeout);
-
-    if (res.status === 401) {
-      throw new ApiError("authentication", res.status);
-    }
-
-    return parseJson ? ((await res.json()) as T) : (undefined as T);
-  }
-
-  /**
-   * Raw GET variant of {@link do_request}.
-   */
-  private async do_get<T>(endpoint: string, timeout?: number): Promise<T> {
-    return this.do_request<T>(
-      endpoint,
-      "GET",
-      undefined,
-      true,
-      timeout,
-    ) as Promise<T>;
-  }
-
-  /**
-   * Raw POST variant of {@link do_request}.
-   */
-  private async do_post<T>(
-    endpoint: string,
-    body?: Record<string, unknown>,
-  ): Promise<T> {
-    return this.do_request<T>(endpoint, "POST", body) as Promise<T>;
   }
 }

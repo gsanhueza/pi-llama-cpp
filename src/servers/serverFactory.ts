@@ -3,7 +3,7 @@ import type {
   ServerOptions,
   ServerSettingsResolver,
 } from "../interfaces/server";
-import { ApiClient, ApiError } from "../api/client";
+import { ApiClient, ApiError, RequestPolicy } from "../api/client";
 import { ServerIds } from "../utils/serverIds";
 import { ServerStatus } from "../enums/serverStatus";
 import { LegacyServer } from "../servers/legacyServer";
@@ -69,7 +69,7 @@ export class ServerFactory {
     );
 
     const [health, auth, props] = await Promise.allSettled([
-      apiClient.probeStatus("/health", timeout),
+      apiClient.get<number>("/health", timeout, RequestPolicy.Status),
       apiClient.get<ModelsEndpoint>("/v1/models", timeout),
       apiClient.get<PropsEndpoint>("/props?autoload=false", timeout),
     ]);

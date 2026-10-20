@@ -1,5 +1,6 @@
 import { FALLBACK_CTX } from "../constants";
 import { Mode } from "../enums/mode";
+import { RequestPolicy } from "../api/client";
 import { Status } from "../enums/status";
 import { Server } from "./server";
 
@@ -74,7 +75,11 @@ export class LlamaSwapServer extends Server {
    */
   override async loadModel(modelId: string): Promise<void> {
     try {
-      await this.apiClient.rawGet(`/upstream/${modelId}`);
+      await this.apiClient.get<void>(
+        `/upstream/${modelId}`,
+        undefined,
+        RequestPolicy.Raw,
+      );
     } catch {
       throw new Error(`Model loading failed: ${modelId}`);
     }
@@ -87,7 +92,12 @@ export class LlamaSwapServer extends Server {
    * @param modelId — The model ID to unload.
    */
   override async unloadModel(modelId: string): Promise<void> {
-    await this.apiClient.rawPost(`/api/models/unload/${modelId}`);
+    await this.apiClient.post<void>(
+      `/api/models/unload/${modelId}`,
+      undefined,
+      undefined,
+      RequestPolicy.Raw,
+    );
     await this.pollModelStatus(modelId, Status.UNLOADED);
   }
 

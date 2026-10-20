@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiClient, ApiError } from "../../src/api/client";
+import { ApiClient, ApiError, RequestPolicy } from "../../src/api/client";
 import { makeMockFetch } from "../mocks/rpc";
 
 /** Helper: build an ApiClient with a mock fetchFn and default polling interval */
@@ -82,14 +82,14 @@ describe("ApiClient", () => {
       const fetchMock = makeMockFetch({
         "/v1/models": { data: [{ id: "m1" }] },
       });
-      // Polling interval = 100ms → TTL = 50ms
+      // Polling interval = 100ms → TTL = 80ms (default 0.8 ratio)
       const client = makeClientWithPolling(fetchMock, 100);
 
       vi.useFakeTimers(); // fake timers also mock Date.now, driving the TTL
 
       await client.get<{ data: unknown[] }>("/v1/models");
       // Advance the (mocked) clock past the TTL
-      await vi.advanceTimersByTimeAsync(60);
+      await vi.advanceTimersByTimeAsync(90);
       await client.get<{ data: unknown[] }>("/v1/models");
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -98,7 +98,7 @@ describe("ApiClient", () => {
     });
   });
 
-  describe("POST deduplication", () => {
+  describe("POST caching", () => {
     it("shares one fetch for concurrent POSTs with same body", async () => {
       const fetchMock = makeMockFetch({
         "/models/unload": { data: [] },
@@ -115,7 +115,7 @@ describe("ApiClient", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it("does not cache POST responses", async () => {
+    it("caches POST responses", async () => {
       const fetchMock = makeMockFetch({
         "/models/unload": { data: [] },
       });
@@ -124,7 +124,7 @@ describe("ApiClient", () => {
       await client.post<{ data: unknown[] }>("/models/unload", { model: "m1" });
       await client.post<{ data: unknown[] }>("/models/unload", { model: "m1" });
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("uses different keys for different bodies", async () => {
@@ -140,7 +140,7 @@ describe("ApiClient", () => {
     });
   });
 
-  describe("POST no caching (idempotent with GET)", () => {
+  describe("POST no collision with GET cache", () => {
     it("POST response is not served from GET cache", async () => {
       const fetchMock = makeMockFetch({
         "/v1/models": { data: [{ id: "m1" }] },
@@ -186,12 +186,12 @@ describe("ApiClient", () => {
     });
   });
 
-  describe("Raw methods", () => {
-    it("rawGet calls fetch with no JSON parsing", async () => {
+  describe("Raw requests", () => {
+    it("raw GET calls fetch with no JSON parsing", async () => {
       const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
       const client = makeClient(fetchMock);
 
-      await client.rawGet("/health");
+      await client.get<void>("/health", undefined, RequestPolicy.Raw);
 
       expect(fetchMock).toHaveBeenCalledWith(
         "http://127.0.0.1:9931/health",
@@ -199,11 +199,16 @@ describe("ApiClient", () => {
       );
     });
 
-    it("rawPost calls fetch with JSON body", async () => {
+    it("raw POST calls fetch with JSON body", async () => {
       const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
       const client = makeClient(fetchMock);
 
-      await client.rawPost("/models/unload", { model: "m1" });
+      await client.post<void>(
+        "/models/unload",
+        { model: "m1" },
+        undefined,
+        RequestPolicy.Raw,
+      );
 
       expect(fetchMock).toHaveBeenCalledWith(
         "http://127.0.0.1:9931/models/unload",
@@ -213,27 +218,45 @@ describe("ApiClient", () => {
         }),
       );
     });
+  });
 
-    it("probeStatus returns status code", async () => {
+  describe("Status probe", () => {
+    it("returns status code", async () => {
       const fetchMock = vi.fn(
         async () => new Response(JSON.stringify({}), { status: 200 }),
       );
       const client = makeClient(fetchMock);
 
-      const status = await client.probeStatus("/health", 1000);
+      const status = await client.get<number>(
+        "/health",
+        1000,
+        RequestPolicy.Status,
+      );
 
       expect(status).toBe(200);
     });
 
-    it("probeStatus throws ApiError on 401", async () => {
+    it("throws ApiError on 401", async () => {
       const fetchMock = vi.fn(
         async () => new Response(JSON.stringify({}), { status: 401 }),
       );
       const client = makeClient(fetchMock);
 
-      await expect(client.probeStatus("/health", 1000)).rejects.toThrow(
-        ApiError,
+      await expect(
+        client.get<number>("/health", 1000, RequestPolicy.Status),
+      ).rejects.toThrow(ApiError);
+    });
+
+    it("caches results", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({}), { status: 200 }),
       );
+      const client = makeClient(fetchMock);
+
+      await client.get<number>("/health", 1000, RequestPolicy.Status);
+      await client.get<number>("/health", 1000, RequestPolicy.Status);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 

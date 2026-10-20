@@ -1,4 +1,4 @@
-import { ApiClient, ApiError } from "../api/client";
+import { ApiClient, ApiError, RequestPolicy } from "../api/client";
 import {
   API_KEY_PLACEHOLDER,
   ENDPOINT_PREFIX,
@@ -173,7 +173,7 @@ export abstract class Server {
   ): Promise<ServerStatus> {
     const client = new ApiClient(url, () => apiKey ?? "", undefined, fetchFn);
     const [health, auth] = await Promise.allSettled([
-      client.probeStatus("/health", timeout),
+      client.get<number>("/health", timeout, RequestPolicy.Status),
       client.get(`${ENDPOINT_PREFIX}/models`, timeout),
     ]);
 
