@@ -18,21 +18,22 @@ beforeEach(() => {
 
 const createServer = (overrides = {}) => {
   const apiClient = createMockApiClient("http://127.0.0.1:9931", mockFetch);
+  const resolver = {
+    resolveServerTimeout: vi.fn(async () => 5000),
+    resolvePollingInterval: vi.fn(async () => 500),
+    resolvePollingTimeout: vi.fn(async () => 30000),
+    resolveApiKey: vi.fn(() => "test-key"),
+    resolveEnableSSE: vi.fn(async () => true),
+  };
   const server = new RouterServer(
-    {
-      resolveServerTimeout: vi.fn(async () => 5000),
-      resolvePollingInterval: vi.fn(async () => 500),
-      resolvePollingTimeout: vi.fn(async () => 30000),
-      resolveApiKey: vi.fn(() => "test-key"),
-      resolveEnableSSE: vi.fn(async () => true),
-    },
+    resolver,
     { baseUrl: "http://127.0.0.1:9931", ...overrides },
     apiClient,
   );
   // Create an SSEManager so `server.sse` is available for tests that need it
-  server.sse = new SSEManager(server, server.resolver, apiClient);
+  server.sse = new SSEManager(server, resolver, apiClient);
   server.sse.probeSSE = vi.fn(async () => true);
-  return Object.assign(server, overrides);
+  return { server: Object.assign(server, overrides), resolver };
 };
 
 describe("RouterServer", () => {
@@ -40,7 +41,7 @@ describe("RouterServer", () => {
     it("should detect image capability when modalities.vision is true", async () => {
       mockRpc.mockResolvedValueOnce({ modalities: { vision: true } });
 
-      const server = createServer();
+      const { server } = createServer();
       const caps = await server.getCapabilities("test-model");
 
       expect(caps).toEqual(["text", "image"]);
@@ -49,7 +50,7 @@ describe("RouterServer", () => {
     it("should detect text-only when modalities.vision is false", async () => {
       mockRpc.mockResolvedValueOnce({ modalities: { vision: false } });
 
-      const server = createServer();
+      const { server } = createServer();
       const caps = await server.getCapabilities("test-model");
 
       expect(caps).toEqual(["text"]);
@@ -67,7 +68,7 @@ describe("RouterServer", () => {
           ],
         });
 
-      const server = createServer();
+      const { server } = createServer();
       const caps = await server.getCapabilities("test-model");
 
       expect(caps).toEqual(["text", "image"]);
@@ -78,7 +79,7 @@ describe("RouterServer", () => {
         .mockRejectedValueOnce(new Error("props error"))
         .mockResolvedValueOnce({ data: [] });
 
-      const server = createServer();
+      const { server } = createServer();
       const caps = await server.getCapabilities("test-model");
 
       expect(caps).toEqual(["text"]);
@@ -91,14 +92,14 @@ describe("RouterServer", () => {
           data: [{ id: "test-model", architecture: {} }],
         });
 
-      const server = createServer();
+      const { server } = createServer();
       const caps = await server.getCapabilities("test-model");
 
       expect(caps).toEqual(["text"]);
     });
 
     it("should use override when set", async () => {
-      const server = createServer({
+      const { server } = createServer({
         overrides: { "test-model": { capabilities: ["text", "image"] } },
       });
       expect(await server.getCapabilities("test-model")).toEqual([
@@ -110,7 +111,7 @@ describe("RouterServer", () => {
 
   describe("getContextSize", () => {
     it("should extract --ctx-size when unloaded", async () => {
-      const server = createServer();
+      const { server } = createServer();
       // Stub getModelStatus to return UNLOADED so it reads args
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
@@ -130,7 +131,7 @@ describe("RouterServer", () => {
     });
 
     it("should fall back to --fit-ctx when --ctx-size is not present", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -149,7 +150,7 @@ describe("RouterServer", () => {
     });
 
     it("should prefer --ctx-size over --fit-ctx", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -175,7 +176,7 @@ describe("RouterServer", () => {
     });
 
     it("should fall back to FALLBACK_CTX when no size argument is present", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -194,7 +195,7 @@ describe("RouterServer", () => {
     });
 
     it("should return n_ctx from meta when loaded", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -211,7 +212,7 @@ describe("RouterServer", () => {
     });
 
     it("should return FALLBACK_CTX when n_ctx is null in meta", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
       mockRpc.mockResolvedValueOnce({
         data: [{ id: "test-model", meta: { n_ctx: null } }],
@@ -223,7 +224,7 @@ describe("RouterServer", () => {
     });
 
     it("should return FALLBACK_CTX when fetchModels throws while loaded", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
       mockRpc.mockRejectedValueOnce(new Error("network"));
 
@@ -233,7 +234,7 @@ describe("RouterServer", () => {
     });
 
     it("should use override when set (loaded path)", async () => {
-      const server = createServer({
+      const { server } = createServer({
         overrides: { "test-model": { contextSize: 65536 } },
       });
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
@@ -244,7 +245,7 @@ describe("RouterServer", () => {
     });
 
     it("should override in resolveStandardContextSize when loaded", async () => {
-      const server = createServer({
+      const { server } = createServer({
         overrides: { "test-model": { contextSize: 65536 } },
       });
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
@@ -255,7 +256,7 @@ describe("RouterServer", () => {
     });
 
     it("should return FALLBACK_CTX when model has no args", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [{ id: "test-model", status: {} }],
@@ -267,7 +268,7 @@ describe("RouterServer", () => {
     });
 
     it("should skip --ctx-size when value is NaN", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -284,7 +285,7 @@ describe("RouterServer", () => {
     });
 
     it("should fall back to --fit-ctx when --ctx-size is NaN", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -310,7 +311,7 @@ describe("RouterServer", () => {
     });
 
     it("should return FALLBACK_CTX when both ctx-size and fit-ctx are NaN", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       mockRpc.mockResolvedValueOnce({
         data: [
@@ -340,7 +341,7 @@ describe("RouterServer", () => {
 
   describe("loadModel", () => {
     it("should return early when model is already LOADED", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
       server.postRequest = vi.fn();
       await server.loadModel("m");
@@ -348,7 +349,7 @@ describe("RouterServer", () => {
     });
 
     it("should return early when model is SLEEPING", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.SLEEPING);
       server.postRequest = vi.fn();
       await server.loadModel("m");
@@ -356,19 +357,19 @@ describe("RouterServer", () => {
     });
 
     it("should call POST /models/load then use SSE to wait for loaded", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       server.sse!.subscribeToStatus = vi.fn().mockResolvedValue({
         status: "loaded",
       });
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await server.loadModel("m");
       expect(server.postRequest).toHaveBeenCalledWith("load", "m");
     });
 
     it("should throw when SSE reports failed", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       server.sse!.subscribeToStatus = vi.fn().mockResolvedValue({
         status: "failed",
@@ -381,7 +382,7 @@ describe("RouterServer", () => {
     });
 
     it("should throw when SSE reports unloaded with non-zero exit", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       server.sse!.subscribeToStatus = vi.fn().mockResolvedValue({
         status: "unloaded",
@@ -395,7 +396,7 @@ describe("RouterServer", () => {
     });
 
     it("should fall back to polling when SSE throws", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.UNLOADED)
@@ -404,19 +405,19 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       server.loadModel = RouterServer.prototype.loadModel;
       await server.loadModel("m");
     });
 
     it("should throw when SSE throws and polling fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
       server.sse!.subscribeToStatus = vi
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       server.loadModel = RouterServer.prototype.loadModel;
       await expect(server.loadModel("m")).rejects.toThrow(
         "Model loading failed: m",
@@ -424,7 +425,7 @@ describe("RouterServer", () => {
     });
 
     it("should throw when SSE throws and polling fallback also fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.UNLOADED)
@@ -433,14 +434,14 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await expect(server.loadModel("m")).rejects.toThrow(
         "Model loading failed: m",
       );
     });
 
     it("should throw when SSE throws, polling succeeds, but final status fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.UNLOADED)
@@ -450,21 +451,21 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await expect(server.loadModel("m")).rejects.toThrow(
         "Model loading failed: m",
       );
     });
 
     it("should use polling when SSE is unavailable", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.sse = undefined;
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.UNLOADED)
         .mockResolvedValue(Status.LOADED);
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await server.loadModel("m");
       expect(server.postRequest).toHaveBeenCalledWith("load", "m");
     });
@@ -475,7 +476,7 @@ describe("RouterServer", () => {
   describe("unloadModel", () => {
     it("should short-circuit when the model is not loaded or sleeping", async () => {
       for (const status of [Status.UNLOADED, Status.LOADING, Status.FAILED]) {
-        const server = createServer();
+        const { server } = createServer();
         server.getModelStatus = vi.fn().mockResolvedValue(status);
         const subscribe = vi.fn();
         server.sse!.subscribeToStatus = subscribe as never;
@@ -487,7 +488,7 @@ describe("RouterServer", () => {
     });
 
     it("should subscribe to SSE before issuing the unload POST", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED) // pre-check
@@ -501,13 +502,13 @@ describe("RouterServer", () => {
         callOrder.push("post");
         return Promise.resolve({});
       });
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await server.unloadModel("m");
       expect(callOrder).toEqual(["subscribe", "post"]);
     });
 
     it("should call POST /models/unload then use SSE to wait for unloaded", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED) // pre-check
@@ -516,13 +517,13 @@ describe("RouterServer", () => {
         status: "unloaded",
       });
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await server.unloadModel("m");
       expect(server.postRequest).toHaveBeenCalledWith("unload", "m");
     });
 
     it("should throw when SSE reports non-unloaded status", async () => {
-      const server = createServer();
+      const { server } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED) // pre-check
@@ -538,7 +539,7 @@ describe("RouterServer", () => {
     });
 
     it("should fall back to polling when SSE throws", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED)
@@ -547,20 +548,20 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       server.unloadModel = RouterServer.prototype.unloadModel;
       await server.unloadModel("m");
     });
 
     it("should throw when SSE throws and polling fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
       server.sse!.subscribeToStatus = vi
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
-      server.resolver.resolvePollingTimeout = vi.fn(async () => 100);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingTimeout = vi.fn(async () => 100);
       server.unloadModel = RouterServer.prototype.unloadModel;
       await expect(server.unloadModel("m")).rejects.toThrow(
         "Model unload failed: m",
@@ -568,7 +569,7 @@ describe("RouterServer", () => {
     });
 
     it("should throw when SSE throws and polling fallback also fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED)
@@ -577,28 +578,28 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
-      server.resolver.resolvePollingTimeout = vi.fn(async () => 100);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingTimeout = vi.fn(async () => 100);
       await expect(server.unloadModel("m")).rejects.toThrow(
         "Model unload failed: m",
       );
     });
 
     it("should use polling when SSE is unavailable", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.sse = undefined;
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED)
         .mockResolvedValue(Status.UNLOADED);
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
       await server.unloadModel("m");
       expect(server.postRequest).toHaveBeenCalledWith("unload", "m");
     });
 
     it("should throw when SSE throws and polling exits but final status fails", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.getModelStatus = vi
         .fn()
         .mockResolvedValueOnce(Status.LOADED) // inside pollModelStatus loop
@@ -608,8 +609,8 @@ describe("RouterServer", () => {
         .fn()
         .mockRejectedValue(new Error("sse error"));
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
-      server.resolver.resolvePollingTimeout = vi.fn(async () => 100);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingTimeout = vi.fn(async () => 100);
       server.unloadModel = RouterServer.prototype.unloadModel;
       await expect(server.unloadModel("m")).rejects.toThrow(
         "Model unload failed: m",
@@ -617,7 +618,7 @@ describe("RouterServer", () => {
     });
 
     it("should throw when polling exits but final status fails (no SSE)", async () => {
-      const server = createServer();
+      const { server, resolver } = createServer();
       server.sse = undefined;
       server.getModelStatus = vi
         .fn()
@@ -625,8 +626,8 @@ describe("RouterServer", () => {
         .mockResolvedValueOnce(Status.UNLOADED) // pollModelStatus exits
         .mockResolvedValue(Status.LOADED); // final check
       server.postRequest = vi.fn();
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
-      server.resolver.resolvePollingTimeout = vi.fn(async () => 100);
+      resolver.resolvePollingInterval = vi.fn(async () => 0);
+      resolver.resolvePollingTimeout = vi.fn(async () => 100);
       server.unloadModel = RouterServer.prototype.unloadModel;
       await expect(server.unloadModel("m")).rejects.toThrow(
         "Model unload failed: m",

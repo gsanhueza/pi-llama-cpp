@@ -630,7 +630,6 @@ describe("EventManager with a live ServerManager", () => {
               ? [createMockModel("model-b", { serverUrl: options.baseUrl })]
               : [createMockModel("model-a", { serverUrl: options.baseUrl })],
         });
-        server.status = ServerStatus.READY;
         return { server, status: ServerStatus.READY };
       },
     });

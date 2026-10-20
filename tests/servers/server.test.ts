@@ -446,10 +446,16 @@ describe("Server initialize", () => {
 
 describe("Server pollModelStatus timeout", () => {
   it("should throw when polling exceeds timeout", async () => {
-    const server = createRpcServer();
+    const server = createRpcServer({
+      resolver: {
+        resolveServerTimeout: vi.fn(async () => 5000),
+        resolvePollingInterval: vi.fn(async () => 5),
+        resolvePollingTimeout: vi.fn(async () => 10),
+        resolveApiKey: vi.fn(() => "test-key"),
+        resolveEnableSSE: vi.fn(async () => true),
+      },
+    });
     server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADING); // never matches
-    server.resolver.resolvePollingTimeout = vi.fn().mockResolvedValue(10);
-    server.resolver.resolvePollingInterval = vi.fn().mockResolvedValue(5);
     let tick = 0;
     (server as unknown as { now: ReturnType<typeof vi.fn> }).now = vi
       .fn()

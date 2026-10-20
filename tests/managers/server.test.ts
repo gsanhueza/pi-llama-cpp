@@ -306,10 +306,8 @@ describe("ServerManager", () => {
             if (timeout !== undefined) {
               return { server: null, status: ServerStatus.TIMEOUT };
             }
-            server1.status = ServerStatus.READY;
             return { server: server1, status: ServerStatus.READY };
           }
-          server2.status = ServerStatus.READY;
           return { server: server2, status: ServerStatus.READY };
         },
       });
@@ -357,10 +355,8 @@ describe("ServerManager", () => {
             if (timeout !== undefined) {
               return { server: null, status: ServerStatus.UNREACHABLE };
             }
-            server1.status = ServerStatus.READY;
             return { server: server1, status: ServerStatus.READY };
           }
-          server2.status = ServerStatus.READY;
           return { server: server2, status: ServerStatus.READY };
         },
       });
@@ -406,7 +402,6 @@ describe("ServerManager", () => {
 
       const manager = new ServerManager(settingsStub, {
         create: async () => {
-          server.status = ServerStatus.READY;
           return { server, status: ServerStatus.READY };
         },
       });
@@ -431,7 +426,6 @@ describe("ServerManager", () => {
 
       const manager = new ServerManager(settingsStub, {
         create: async () => {
-          server.status = ServerStatus.READY;
           return { server, status: ServerStatus.READY };
         },
       });

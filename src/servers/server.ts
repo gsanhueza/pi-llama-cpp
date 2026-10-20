@@ -30,13 +30,11 @@ import { ServerIds } from "../utils/serverIds";
  */
 export abstract class Server {
   readonly models: Model[] = [];
-  /** Creation status set by the {@link ServerFactory}. */
-  status!: ServerStatus;
   sse?: SSEManager;
 
   constructor(
-    readonly resolver: ServerSettingsResolver,
-    private readonly options: ServerOptions,
+    protected readonly resolver: ServerSettingsResolver,
+    protected readonly options: ServerOptions,
     protected readonly apiClient: ApiClient,
   ) {}
 

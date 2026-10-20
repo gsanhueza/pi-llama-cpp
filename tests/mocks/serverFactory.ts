@@ -36,7 +36,6 @@ export const createSeededServerFactory = (
       serverOpts.sse = { disconnect: disconnects[options.baseUrl] };
     }
     const server = createMockServer(serverOpts);
-    server.status = ServerStatus.READY;
     return { server, status: ServerStatus.READY };
   },
 });

@@ -116,7 +116,6 @@ describe("CommandManager", () => {
             options: mockServerOptions,
             models: [...server.models],
           });
-          mockServer.status = ServerStatus.READY;
           return { server: mockServer, status: ServerStatus.READY };
         },
       });
@@ -162,7 +161,6 @@ describe("CommandManager", () => {
             options: mockServerOptions,
             models: [...server.models],
           });
-          mockServer.status = ServerStatus.READY;
           return { server: mockServer, status: ServerStatus.READY };
         },
       });
@@ -653,7 +651,6 @@ describe("CommandManager", () => {
             options: { baseUrl: options.baseUrl },
             models: seededModels.filter((m) => m.serverUrl === options.baseUrl),
           });
-          mockServer.status = ServerStatus.READY;
           return { server: mockServer, status: ServerStatus.READY };
         },
       });
@@ -802,7 +799,6 @@ describe("CommandManager", () => {
             options: { baseUrl: options.baseUrl },
             models: models.filter((m) => m.serverUrl === options.baseUrl),
           });
-          mockServer.status = ServerStatus.READY;
           return { server: mockServer, status: ServerStatus.READY };
         },
       });
@@ -844,7 +840,6 @@ describe("CommandManager", () => {
             options: { baseUrl: options.baseUrl },
             models: models.filter((m) => m.serverUrl === options.baseUrl),
           });
-          mockServer.status = ServerStatus.READY;
           return { server: mockServer, status: ServerStatus.READY };
         },
       });

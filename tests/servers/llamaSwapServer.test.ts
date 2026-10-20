@@ -21,7 +21,7 @@ const createServer = (overrides = {}) => {
     new LlamaSwapServer(
       {
         resolveServerTimeout: vi.fn(async () => 5000),
-        resolvePollingInterval: vi.fn(async () => 500),
+        resolvePollingInterval: vi.fn(async () => 0),
         resolvePollingTimeout: vi.fn(async () => 30000),
         resolveApiKey: vi.fn(() => "test-key"),
         resolveEnableSSE: vi.fn(async () => true),
@@ -251,7 +251,6 @@ describe("LlamaSwapServer", () => {
       const server = createServer();
       mockRpc.mockResolvedValueOnce({});
       server.getModelStatus = vi.fn().mockResolvedValue(Status.LOADED);
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
       server.loadModel = LlamaSwapServer.prototype.loadModel;
       await server.loadModel("test-model");
       expect(mockRpc).toHaveBeenCalledWith("/upstream/test-model");
@@ -272,7 +271,6 @@ describe("LlamaSwapServer", () => {
       const server = createServer();
       mockRpc.mockResolvedValueOnce({});
       server.getModelStatus = vi.fn().mockResolvedValue(Status.UNLOADED);
-      server.resolver.resolvePollingInterval = vi.fn(async () => 0);
       server.unloadModel = LlamaSwapServer.prototype.unloadModel;
       await server.unloadModel("test-model");
       expect(mockRpc).toHaveBeenCalledWith("/api/models/unload/test-model");
