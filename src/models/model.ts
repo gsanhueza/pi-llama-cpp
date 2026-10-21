@@ -71,6 +71,7 @@ export class Model {
   async getInfo(): Promise<string> {
     const messages = [
       `Server       : ${this.serverUrl}`,
+      `Mode         : ${this.server.mode}`,
       `ID           : ${this.id}`,
       `Model        : ${this.name}`,
       `Reasoning    : ${this.reasoning}`,
