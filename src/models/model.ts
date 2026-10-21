@@ -1,7 +1,7 @@
-import type { ModelCost } from "@earendil-works/pi-ai";
+import type { Model as PiModel, ModelCost } from "@earendil-works/pi-ai";
+import { API_TYPE } from "../constants";
 import { Status } from "../enums/status";
 import { DataProperty } from "../interfaces/endpoints/models";
-import type { ChatModelConfig } from "../interfaces/chatModelConfig";
 import type { Server } from "../servers/server";
 
 /**
@@ -94,10 +94,10 @@ export class Model {
   }
 
   /**
-   * Converts the model into a configuration object used by Pi.
-   * @returns A Pi configuration object
+   * Converts the model into a Provider model shape.
+   * @returns A Provider model object for openai-completions API
    */
-  async toProviderConfig(): Promise<ChatModelConfig> {
+  async toProviderConfig(): Promise<PiModel<typeof API_TYPE>> {
     const override = this.server.findOverrideForModel(this.id) ?? {};
 
     const userCost = override.cost ?? {};
@@ -115,9 +115,12 @@ export class Model {
         : await this.getContextSize();
     const maxTokens = this.getMaxTokens(contextWindow);
 
-    const response: ChatModelConfig = {
+    const response: PiModel<typeof API_TYPE> = {
       id: this.id,
       name: this.name,
+      api: API_TYPE,
+      provider: this.server.providerId,
+      baseUrl: this.server.apiBaseUrl,
       reasoning: this.reasoning,
       thinkingLevelMap: {
         minimal: "minimal",

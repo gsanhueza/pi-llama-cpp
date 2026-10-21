@@ -1,8 +1,14 @@
-import type {
-  ExtensionAPI,
-  ProviderModelConfig,
-} from "@earendil-works/pi-coding-agent";
-import { ENDPOINT_PREFIX, API_TYPE, PROVIDER_NAME } from "../constants";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createProvider } from "@earendil-works/pi-ai";
+import {
+  stream,
+  streamSimple,
+} from "@earendil-works/pi-ai/api/openai-completions";
+import {
+  API_KEY_PLACEHOLDER,
+  ENDPOINT_PREFIX,
+  PROVIDER_NAME,
+} from "../constants";
 import { ServerStatus } from "../enums/serverStatus";
 import type { ServerOptions } from "../interfaces/server";
 import type { SortBy } from "../interfaces/sortBy";
@@ -12,6 +18,7 @@ import {
   timeoutMessage,
   unreachableMessage,
 } from "../ui/strings";
+import { createLoginPrompt, resolveApiKey } from "../utils/authBuilder";
 import { ServerFactory } from "../servers/serverFactory";
 import type { SettingsService } from "../settings/settings";
 import type { Server } from "../servers/server";
@@ -146,6 +153,29 @@ export class ServerManager {
   }
 
   /**
+   * Registers the corresponding Pi provider.
+   *
+   * @param server The server
+   * @param pi The Pi API
+   */
+  private async registerProvider(server: Server, pi: ExtensionAPI) {
+    const models = await Promise.all(
+      server.models.map((m) => m.toProviderConfig()),
+    );
+
+    const provider = createProvider({
+      id: server.providerId,
+      name: server.providerName,
+      baseUrl: server.apiBaseUrl,
+      auth: server.toProviderAuth(),
+      models,
+      api: { stream, streamSimple },
+    });
+
+    pi.registerProvider(provider);
+  }
+
+  /**
    * Registers an empty provider for an unauthorized server so the user
    * can authenticate via `/login`. The next scan will pick up models
    * once the key is set.
@@ -160,35 +190,28 @@ export class ServerManager {
     pi: ExtensionAPI,
   ): void {
     const providerId = ServerIds.resolve(baseUrl, options.customId);
+    const name = options.customName
+      ? `${PROVIDER_NAME} (${options.customName})`
+      : `${PROVIDER_NAME} (${baseUrl})`;
+    const rawKey = this.settings.resolveApiKey(providerId);
+    const settingsKey = rawKey !== API_KEY_PLACEHOLDER ? rawKey : undefined;
 
-    pi.registerProvider(providerId, {
-      name: options.customName
-        ? `${PROVIDER_NAME} (${options.customName})`
-        : `${PROVIDER_NAME} (${baseUrl})`,
+    const emptyProvider = createProvider({
+      id: providerId,
+      name,
       baseUrl: `${baseUrl}${ENDPOINT_PREFIX}`,
-      api: API_TYPE,
-      apiKey: this.settings.resolveApiKey(providerId),
+      auth: {
+        apiKey: {
+          name: `${PROVIDER_NAME} API key`,
+          login: createLoginPrompt(),
+          resolve: async (input) => resolveApiKey({ ...input, settingsKey }),
+        },
+      },
       models: [],
+      api: { stream, streamSimple },
     });
-  }
 
-  /**
-   * Initializes the server and registers the corresponding Pi provider.
-   *
-   * @param server The server
-   * @param pi The Pi API
-   */
-  private async registerProvider(server: Server, pi: ExtensionAPI) {
-    const modelConfigs: ProviderModelConfig[] = await Promise.all(
-      server.models.map((m) => m.toProviderConfig()),
-    );
-    pi.registerProvider(server.providerId, {
-      name: server.providerName,
-      baseUrl: server.apiBaseUrl,
-      api: API_TYPE,
-      apiKey: server.apiKey,
-      models: modelConfigs,
-    });
+    pi.registerProvider(emptyProvider);
   }
 
   /**
