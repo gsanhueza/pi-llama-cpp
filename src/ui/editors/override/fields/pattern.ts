@@ -1,23 +1,22 @@
 import { FIELDS } from "../../../strings";
 import { OverrideEntry } from "../entry";
 import type { InputValidator } from "./base";
-import { OverrideField } from "./base";
+import { StringField } from "../../fields/stringField";
 
 /**
  * The entry's pattern key. Renames are handled by the editor
  * (`OverrideEntryListEditor.applyFieldChange`), so {@link apply}
  * inherits the base no-op.
  */
-export class PatternField extends OverrideField {
+export class PatternField extends StringField {
   readonly id = "pattern";
-  readonly type = "input";
   readonly field = FIELDS.pattern;
 
   displayValue(entry: OverrideEntry): string {
     return entry.pattern;
   }
 
-  readonly validate: InputValidator = (raw) => {
+  override readonly validate: InputValidator = (raw) => {
     const trimmed = raw.trim();
     return trimmed.length > 0 ? trimmed : null;
   };

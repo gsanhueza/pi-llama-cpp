@@ -1,8 +1,8 @@
 import type { SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../../interfaces/settings";
 import { FieldMessages, HINTS, TITLES } from "../../strings";
-import { ItemBuilder } from "../shared/itemBuilder";
-import { SettingsListFactory } from "../shared/settingsListFactory";
+import { ItemBuilder } from "../itemBuilder";
+import { SettingsListFactory } from "../settingsListFactory";
 import { ServerFields, type ServerField } from "./fields";
 import { ServerDisplay } from "./utils";
 

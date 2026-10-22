@@ -1,7 +1,7 @@
 import type { LlamaServer } from "../../../interfaces/settings";
 import { ServerUrl } from "../../../utils/urls";
 import { FIELDS, type Field } from "../../strings";
-import { SettingField } from "../shared/settingField";
+import { SettingField } from "../fields/settingField";
 import { LlamaServerBuilder } from "./serverBuilder";
 
 /**

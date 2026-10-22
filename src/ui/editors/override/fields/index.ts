@@ -4,9 +4,9 @@ import { FIELDS } from "../../../strings";
 import { OverrideField } from "./base";
 import { CapabilitiesField } from "./capabilities";
 import { CostField } from "./cost";
-import { NumericField } from "./numeric";
 import { PatternField } from "./pattern";
 import { ReasoningField } from "./reasoning";
+import { IntField } from "../../fields/intField";
 
 /** Cost field specs: [ModelCostRates key, FIELDS entry, summary term] */
 const COST_FIELDS: [
@@ -39,8 +39,8 @@ export class OverrideFields {
     ),
     new CapabilitiesField(),
     new ReasoningField(),
-    new NumericField("contextSize", FIELDS.contextSize),
-    new NumericField("maxTokens", FIELDS.maxTokens),
+    new IntField("contextSize", FIELDS.contextSize),
+    new IntField("maxTokens", FIELDS.maxTokens),
   ];
 
   static byId(id: string): OverrideField {

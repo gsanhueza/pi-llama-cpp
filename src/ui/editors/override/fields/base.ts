@@ -1,5 +1,5 @@
 import type { ModelOverride } from "../../../../interfaces/settings";
-import { SettingField } from "../../shared/settingField";
+import { SettingField } from "../../fields/settingField";
 import { OverrideEntry } from "../entry";
 
 /** Type of a field: "input" for free-text, "finite" for fixed options */
@@ -7,6 +7,13 @@ export type FieldType = "input" | "finite";
 
 /** Validation function for input fields */
 export type InputValidator = (raw: string) => string | null;
+
+/** Parses a non-negative number; blank input means zero (unset fields
+ * default to zero at read time). Returns `null` when invalid. */
+export function parseNonNegative(raw: string): number | null {
+  const n = Number(raw.trim());
+  return isFinite(n) && n >= 0 ? n : null;
+}
 
 /**
  * Abstract base class for one editable field of a model override entry

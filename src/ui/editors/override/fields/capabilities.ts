@@ -2,12 +2,11 @@ import type { ModelOverride } from "../../../../interfaces/settings";
 import { FIELDS } from "../../../strings";
 import { OverrideEntry } from "../entry";
 import type { InputValidator } from "./base";
-import { OverrideField } from "./base";
+import { EnumField } from "../../fields/enumField";
 
 /** The override's `capabilities` list (finite: fixed label options). */
-export class CapabilitiesField extends OverrideField {
+export class CapabilitiesField extends EnumField {
   readonly id = "capabilities";
-  readonly type = "finite";
   readonly field = FIELDS.capabilities;
   override readonly options = ["text", "text | image"];
 

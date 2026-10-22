@@ -3,7 +3,7 @@ import type { SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaSettings } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 import { SETTINGS_ITEMS } from "../../settings/defaults";
-import { SettingsListFactory } from "../editors/shared/settingsListFactory";
+import { SettingsListFactory } from "../editors/settingsListFactory";
 import { BaseTUIList } from "./baseList";
 import { SettingsTUIListOptions } from "./listOptions";
 

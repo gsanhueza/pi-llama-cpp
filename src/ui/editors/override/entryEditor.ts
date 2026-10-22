@@ -2,8 +2,8 @@ import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaServer, ModelOverride } from "../../../interfaces/settings";
 import { FIELDS, FieldMessages, HINTS, TITLES } from "../../strings";
 import type { OverridesTUIListOptions } from "../../lists/listOptions";
-import { ListEditor } from "../shared/listEditor";
-import { SettingsListFactory } from "../shared/settingsListFactory";
+import { ListEditor } from "../listEditor";
+import { SettingsListFactory } from "../settingsListFactory";
 import { OverrideEntry } from "./entry";
 import { OverrideFields, OverrideSummary } from "./fields/index";
 import { OverrideItemBuilder } from "./itemBuilder";
@@ -138,7 +138,7 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
         message: FieldMessages.of(FIELDS.pattern),
         placeholder: FIELDS.pattern.placeholder,
         validate: OverrideFields.byId("pattern").validate,
-        onSubmit: (value) => {
+        onSubmit: (value: string) => {
           this.closeDialog();
           void this.saveAdd(value);
         },

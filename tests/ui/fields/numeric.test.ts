@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { FIELDS } from "../../../src/ui/strings";
 import type { ModelOverride } from "../../../src/interfaces/settings";
-import {
-  NumericField,
-  parseNonNegative,
-} from "../../../src/ui/editors/override/fields/numeric";
+import { IntField } from "../../../src/ui/editors/fields/intField";
+import { parseNonNegative } from "../../../src/ui/editors/override/fields/base";
 import { OverrideEntry } from "../../../src/ui/editors/override/entry";
 
 describe("parseNonNegative", () => {
@@ -32,9 +30,9 @@ describe("parseNonNegative", () => {
   });
 });
 
-describe("NumericField", () => {
+describe("IntField", () => {
   describe("contextSize", () => {
-    const field = new NumericField("contextSize", FIELDS.contextSize);
+    const field = new IntField("contextSize", FIELDS.contextSize);
 
     it("defaults to 0 when contextSize is undefined", () => {
       const entry = new OverrideEntry("gpt-*", {});
@@ -46,14 +44,8 @@ describe("NumericField", () => {
       expect(field.displayValue(entry)).toBe("8192");
     });
 
-    it("accepts valid non-negative numbers", () => {
-      expect(field.validate("0")).toBe("0");
-      expect(field.validate("4096")).toBe("4096");
-      expect(field.validate("  128  ")).toBe("128");
-    });
-
-    it("rejects negative numbers", () => {
-      expect(field.validate("-1")).toBeNull();
+    it("passes validate through (no built-in validation)", () => {
+      expect(field.validate("  128  ")).toBe("  128  ");
     });
 
     it("applies positive values", () => {
@@ -62,10 +54,10 @@ describe("NumericField", () => {
       expect(override.contextSize).toBe(32768);
     });
 
-    it("removes the key on zero", () => {
+    it("applies zero as a value (no delete-on-zero)", () => {
       const override: ModelOverride = { contextSize: 8192 };
       field.apply(override, "0");
-      expect(override.contextSize).toBeUndefined();
+      expect(override.contextSize).toBe(0);
     });
 
     it("removes the key and returns true when present", () => {
@@ -93,7 +85,7 @@ describe("NumericField", () => {
   });
 
   describe("maxTokens", () => {
-    const field = new NumericField("maxTokens", FIELDS.maxTokens);
+    const field = new IntField("maxTokens", FIELDS.maxTokens);
 
     it("defaults to 0 when maxTokens is undefined", () => {
       const entry = new OverrideEntry("gpt-*", {});
@@ -106,10 +98,10 @@ describe("NumericField", () => {
       expect(override.maxTokens).toBe(4096);
     });
 
-    it("removes the key on non-positive values", () => {
+    it("applies zero as a value (no delete-on-zero)", () => {
       const override: ModelOverride = { maxTokens: 4096 };
       field.apply(override, "0");
-      expect(override.maxTokens).toBeUndefined();
+      expect(override.maxTokens).toBe(0);
     });
   });
 });

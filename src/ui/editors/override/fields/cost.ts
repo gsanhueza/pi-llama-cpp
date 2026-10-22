@@ -3,27 +3,27 @@ import type { ModelOverride } from "../../../../interfaces/settings";
 import type { Field } from "../../../strings";
 import { OverrideEntry } from "../entry";
 import type { InputValidator } from "./base";
-import { OverrideField } from "./base";
-import { parseNonNegative } from "./numeric";
+import { FloatField } from "../../fields/floatField";
+import { parseNonNegative } from "./base";
 
 /**
- * One `ModelCostRates` key of the override's `cost` object (absorbs the
- * former `CostFieldDefFactory` and the standalone `parseCostValue` /
- * `applyCostFieldValue` helpers): owns the cost parse and immutable
- * apply in the same place as its display format.
+ * One `ModelCostRates` key of the override's `cost` object: extends
+ * `FloatField` and overrides `apply` / `remove` / `summaryPart` to
+ * handle the nested `cost` object instead of a flat property.
  */
-export class CostField extends OverrideField {
-  readonly type = "input";
+export class CostField extends FloatField {
+  readonly id: string;
   override readonly field: Field;
 
   constructor(
-    readonly id: string,
+    id: string,
     private readonly key: keyof ModelCostRates,
     field: Field,
     /** Short term used in the entry-row summary (e.g. `cache read`). */
     private readonly summaryTerm: string,
   ) {
-    super();
+    super("cost", key, field);
+    this.id = id;
     this.field = field;
   }
 
@@ -31,12 +31,13 @@ export class CostField extends OverrideField {
     return String(entry.override.cost?.[this.key] ?? 0);
   }
 
-  readonly validate: InputValidator = (raw) => {
+  override readonly validate: InputValidator = (raw) => {
     const parsed = parseNonNegative(raw);
     return parsed === null ? null : String(parsed);
   };
 
-  apply(override: ModelOverride, value: string): void {
+  /** Mutates the nested `cost` object instead of a flat property. */
+  override apply(override: ModelOverride, value: string): void {
     const nextCost = this.applyCost(override.cost, Number(value));
     if (nextCost) override.cost = nextCost;
     else delete override.cost;

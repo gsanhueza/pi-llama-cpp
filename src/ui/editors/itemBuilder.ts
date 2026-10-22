@@ -1,6 +1,6 @@
 import type { SettingItem } from "@earendil-works/pi-tui";
-import type { DialogFactory } from "../../dialog/factory";
-import type { SettingField } from "./settingField";
+import { DialogFactory } from "../dialog/factory";
+import { SettingField } from "./fields/settingField";
 
 /**
  * Base class for building `SettingItem` arrays from a declarative field

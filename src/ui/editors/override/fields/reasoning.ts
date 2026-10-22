@@ -2,21 +2,23 @@ import type { ModelOverride } from "../../../../interfaces/settings";
 import { FIELDS } from "../../../strings";
 import { OverrideEntry } from "../entry";
 import type { InputValidator } from "./base";
-import { OverrideField } from "./base";
+import { BooleanField } from "../../fields/booleanField";
 
 /** The override's `reasoning` flag (finite: true/false, default true). */
-export class ReasoningField extends OverrideField {
-  readonly id = "reasoning";
-  readonly type = "finite";
-  readonly field = FIELDS.reasoning;
-  override readonly options = ["true", "false"];
+export class ReasoningField extends BooleanField {
+  constructor() {
+    super("reasoning", FIELDS.reasoning);
+  }
 
-  displayValue(entry: OverrideEntry): string {
+  /** Shows "false" only when explicitly false; defaults to "true". */
+  override displayValue(entry: OverrideEntry): string {
     return entry.override.reasoning === false ? "false" : "true";
   }
 
-  readonly validate: InputValidator = (raw) =>
-    this.options?.includes(raw) ? raw : null;
+  readonly validate: InputValidator = (raw) => {
+    const ok = raw === "true" || raw === "false";
+    return ok ? raw : null;
+  };
 
   apply(override: ModelOverride, value: string): void {
     if (value === "true") override.reasoning = true;
