@@ -1,4 +1,9 @@
-import type { ModelCost, OpenAICompletionsCompat } from "@earendil-works/pi-ai";
+import type {
+  ModelCost,
+  OpenAICompletionsCompat,
+  SamplingParams,
+  SamplingParamsByThinkingLevel,
+} from "@earendil-works/pi-ai";
 import type { SortBy } from "./sortBy";
 
 /**
@@ -36,6 +41,15 @@ export interface ModelOverride {
    * provider-level compat when the model is registered with Pi.
    */
   compat?: Partial<OpenAICompletionsCompat>;
+  /**
+   * Sampling parameters always sent with requests to this model.
+   */
+  samplingParams?: SamplingParams;
+  /**
+   * Sampling parameters keyed by thinking level; merged with
+   * `samplingParams` when a level is selected.
+   */
+  samplingParamsByThinkingLevel?: SamplingParamsByThinkingLevel;
 }
 
 /**

@@ -7,6 +7,7 @@ import { CostField } from "./cost";
 import { PatternField } from "./pattern";
 import { ReasoningField } from "./reasoning";
 import { IntField } from "../../fields/intField";
+import { SamplingParamsGroupField } from "./samplingParams/group";
 
 /** Cost field specs: [ModelCostRates key, FIELDS entry, summary term] */
 const COST_FIELDS: [
@@ -41,6 +42,7 @@ export class OverrideFields {
     new ReasoningField(),
     new IntField(null, "contextSize", FIELDS.contextSize),
     new IntField(null, "maxTokens", FIELDS.maxTokens),
+    new SamplingParamsGroupField(),
   ];
 
   static byId(id: string): OverrideField {

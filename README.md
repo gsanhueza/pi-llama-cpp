@@ -406,6 +406,32 @@ Add overrides to your server configuration:
 
 Every field of an override is optional — absent fields fall back to what the extension detects (`capabilities`) or to its defaults (`reasoning: true`, zeroed cost).
 
+#### Prefix matching
+
+Override keys are treated as **prefix filters** — a model ID matches if it starts with the key. When multiple patterns match, the **longest (most specific) match wins**. This lets you define broad patterns at the top of your overrides and override them with more specific ones below.
+
+Example:
+
+```json
+{
+  "llama": { "cost": { "input": 0.01, "output": 0.02 } },
+  "llama-3": { "reasoning": false },
+  "llama-3-8b": { "cost": { "input": 0.2, "output": 0.6 } }
+}
+```
+
+| Model ID      | Matching keys                    | Winner (longest) | Effective override                                     |
+| ------------- | -------------------------------- | ---------------- | ------------------------------------------------------ |
+| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ cost: { input: 0.2, output: 0.6 } }`                |
+| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ reasoning: false }`                                 |
+| `mistral-7b`  | `llama` (no)                     | none             | defaults (zero cost, detected caps, `reasoning: true`) |
+
+> **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Empty keys are silently ignored.
+
+Model matching uses this prefix system — the model ID must start with the override key for a match.
+
+> **Note:** Overrides are resolved through the same settings merge logic (project overrides global), so they follow the same precedence chain as other server settings. If the same URL appears multiple times with different `overrides`, only the first one's overrides will be used (consistent with existing dedup behavior).
+
 #### Override editor
 
 Run `/models overrides` to edit a server's override entries without hand-editing
@@ -434,13 +460,15 @@ In the override editor, entering `0` (or leaving a field empty) removes the fiel
 
 #### Other Fields
 
-| Field          | Type             | Description                                                                                    |
-| -------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
-| `capabilities` | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities. |
-| `reasoning`    | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                        |
-| `contextSize`  | number           | Override the model's context size in tokens. Falls back to autodetection when absent or `0`.   |
-| `maxTokens`    | number           | Override max generation tokens. Falls back to context size when absent or `0`.                 |
-| `compat`       | object           | OpenAI-compatible provider compatibility settings (see below).                                 |
+| Field                           | Type             | Description                                                                                      |
+| ------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
+| `capabilities`                  | array of strings | Pi capabilities for the model (`"text"`, `"image"`). Fully replaces the detected capabilities.   |
+| `reasoning`                     | boolean          | Whether the model is a reasoning model. Defaults to `true` when absent.                          |
+| `contextSize`                   | number           | Override the model's context size in tokens. Falls back to autodetection when absent or `0`.     |
+| `maxTokens`                     | number           | Override max generation tokens. Falls back to context size when absent or `0`.                   |
+| `compat`                        | object           | OpenAI-compatible provider compatibility settings (see below).                                   |
+| `samplingParams`                | object           | Sampling parameters sent with every request (see below).                                         |
+| `samplingParamsByThinkingLevel` | object           | Sampling parameters keyed by thinking level; merged with `samplingParams` per level (see below). |
 
 #### Compatibility (`compat`)
 
@@ -469,31 +497,76 @@ Example:
 }
 ```
 
-### Prefix matching
+#### Sampling Parameters (`samplingParams`)
 
-Override keys are treated as **prefix filters** — a model ID matches if it starts with the key. When multiple patterns match, the **longest (most specific) match wins**. This lets you define broad patterns at the top of your overrides and override them with more specific ones below.
+Sampling parameters control text generation behavior (for more information, see [Pi docs: Configure sampling by thinking level](https://pi.dev/docs/latest/models#configure-sampling-by-thinking-level)).
 
-Example:
+Set them via the TUI: `/models overrides` → select an entry → **samplingParams** → edit individual parameters.
+
+| Parameter           | Type  | Description                                                                                                |
+| ------------------- | ----- | ---------------------------------------------------------------------------------------------------------- |
+| `temperature`       | float | Adjust the randomness of the generated text                                                                |
+| `top_k`             | int   | Limit the next token selection to the K most probable tokens                                               |
+| `top_p`             | float | Limit the next token selection to a subset of tokens with cumulative probability above threshold P         |
+| `min_p`             | float | The minimum probability for a token to be considered, relative to the probability of the most likely token |
+| `repeat_penalty`    | float | Control the repetition of token sequences in the generated text                                            |
+| `presence_penalty`  | float | Repeat alpha presence penalty                                                                              |
+| `frequency_penalty` | float | Repeat alpha frequency penalty                                                                             |
+| `seed`              | int   | Random seed for reproducible sampling                                                                      |
+
+The TUI exposes the parameters above. For more llama.cpp params not listed here (e.g. `mirostat`, `typical_p`, `xtc_probability`, `dry_multiplier`, `n_probs`, `grammar_lazy`, etc), add them directly in `samplingParams` in your `settings.json` — [llama.cpp](<(https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-completion-given-a-prompt-it-returns-the-predicted-completion)>) accepts them as-is.
+
+To set them manually in JSON, add a `samplingParams` object inside the override:
 
 ```json
 {
-  "llama": { "cost": { "input": 0.01, "output": 0.02 } },
-  "llama-3": { "reasoning": false },
-  "llama-3-8b": { "cost": { "input": 0.2, "output": 0.6 } }
+  "llamaSettings": {
+    "servers": [
+      {
+        "url": "http://127.0.0.1:9931",
+        "overrides": {
+          "llama-3": {
+            "samplingParams": {
+              "temperature": 0.7,
+              "top_p": 0.9,
+              "repeat_penalty": 1.1
+            }
+          }
+        }
+      }
+    ]
+  }
 }
 ```
 
-| Model ID      | Matching keys                    | Winner (longest) | Effective override                                     |
-| ------------- | -------------------------------- | ---------------- | ------------------------------------------------------ |
-| `llama-3-8b`  | `llama`, `llama-3`, `llama-3-8b` | `llama-3-8b`     | `{ cost: { input: 0.2, output: 0.6 } }`                |
-| `llama-3-70b` | `llama`, `llama-3`               | `llama-3`        | `{ reasoning: false }`                                 |
-| `mistral-7b`  | `llama` (no)                     | none             | defaults (zero cost, detected caps, `reasoning: true`) |
+##### Sampling Parameters by Thinking Level
 
-> **Note:** Exact model IDs still work — they are simply the longest possible prefix for themselves. Empty keys are silently ignored.
+The extension merges the base `samplingParams`, the effective level's override, and request-level params — later values win per key. Supported thinking levels: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`.
 
-Model matching uses this prefix system — the model ID must start with the override key for a match.
-
-> **Note:** Overrides are resolved through the same settings merge logic (project overrides global), so they follow the same precedence chain as other server settings. If the same URL appears multiple times with different `overrides`, only the first one's overrides will be used (consistent with existing dedup behavior).
+> **Note:** `samplingParamsByThinkingLevel` is not exposed in the TUI override editor. Edit it manually in `settings.json`:
+>
+> ```json
+> {
+>   "llamaSettings": {
+>     "servers": [
+>       {
+>         "url": "http://127.0.0.1:9931",
+>         "overrides": {
+>           "llama-3": {
+>             "samplingParams": {
+>               "temperature": 0.7
+>             },
+>             "samplingParamsByThinkingLevel": {
+>               "minimal": { "temperature": 0.9 },
+>               "high": { "temperature": 0.3 }
+>             }
+>           }
+>         }
+>       }
+>     ]
+>   }
+> }
+> ```
 
 ### Model Selection Event
 

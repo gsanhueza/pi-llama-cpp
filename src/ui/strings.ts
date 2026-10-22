@@ -93,6 +93,50 @@ export const FIELDS = {
     description: "Override max generation tokens (0 = autodetect)",
     placeholder: "4096",
   },
+  samplingParams: {
+    label: "Sampling params",
+    description: "Temperature, top_k, top_p, min_p, penalties, seed",
+  },
+  samplingParamsTemperature: {
+    label: "Temperature",
+    description: "Sampling temperature",
+    placeholder: "—",
+  },
+  samplingParamsTopK: {
+    label: "Top-k",
+    description: "Top-k sampling (integer)",
+    placeholder: "—",
+  },
+  samplingParamsTopP: {
+    label: "Top-p",
+    description: "Top-p sampling",
+    placeholder: "—",
+  },
+  samplingParamsMinP: {
+    label: "Min-p",
+    description: "Min-p sampling",
+    placeholder: "—",
+  },
+  samplingParamsRepeatPenalty: {
+    label: "Repeat penalty",
+    description: "Repeat penalty",
+    placeholder: "—",
+  },
+  samplingParamsPresencePenalty: {
+    label: "Presence penalty",
+    description: "Presence penalty",
+    placeholder: "—",
+  },
+  samplingParamsFrequencyPenalty: {
+    label: "Frequency penalty",
+    description: "Frequency penalty",
+    placeholder: "—",
+  },
+  samplingParamsSeed: {
+    label: "Seed",
+    description: "Random seed for reproducible sampling (-1 = random)",
+    placeholder: "—",
+  },
 } as const satisfies Record<string, Field>;
 
 /** Dialog prompt for a field: the `label` plus its parenthetical `note`

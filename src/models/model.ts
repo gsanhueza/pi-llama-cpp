@@ -139,6 +139,13 @@ export class Model {
     if (override.compat) {
       response.compat = override.compat;
     }
+    if (override.samplingParams) {
+      response.samplingParams = override.samplingParams;
+    }
+    if (override.samplingParamsByThinkingLevel) {
+      response.samplingParamsByThinkingLevel =
+        override.samplingParamsByThinkingLevel;
+    }
 
     return response;
   }

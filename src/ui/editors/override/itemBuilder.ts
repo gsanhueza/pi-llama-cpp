@@ -4,6 +4,7 @@ import { ItemBuilder } from "../itemBuilder";
 import { OverrideEntry } from "./entry";
 import type { OverrideField } from "./fields/base";
 import { OverrideFields } from "./fields/index";
+import { SAMPLING_PARAM_FIELDS } from "./fields/samplingParams/index";
 
 /**
  * Builds `SettingItem` objects for override entry field submenus.
@@ -38,5 +39,35 @@ export class OverrideItemBuilder extends ItemBuilder<
         def.validate,
       ),
     };
+  }
+
+  /**
+   * Builds `SettingItem` objects for the sampling params nested list.
+   * Each item uses the field's id prefixed with "samplingParams." so
+   * the parent can route commits back via the leaf field's apply/remove.
+   */
+  buildSamplingParamsItems(entry: OverrideEntry): SettingItem[] {
+    return SAMPLING_PARAM_FIELDS.map((def) => {
+      const base: SettingItem = {
+        id: `samplingParams.${def.id}`,
+        label: def.label,
+        description: def.description,
+        currentValue: def.displayValue(entry),
+      };
+
+      if (def.type === "finite") {
+        return { ...base, values: [...(def.options ?? [])] };
+      }
+
+      return {
+        ...base,
+        submenu: this.dialogs.inputSubmenu(
+          TITLES.edit(def.label),
+          FieldMessages.of(def.field),
+          def.placeholder,
+          def.validate,
+        ),
+      };
+    });
   }
 }

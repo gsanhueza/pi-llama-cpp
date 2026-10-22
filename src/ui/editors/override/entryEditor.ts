@@ -6,6 +6,7 @@ import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
 import { OverrideEntry } from "./entry";
 import { OverrideFields, OverrideSummary } from "./fields/index";
+import { SAMPLING_PARAM_FIELDS } from "./fields/samplingParams/index";
 import { OverrideItemBuilder } from "./itemBuilder";
 
 /**
@@ -47,6 +48,48 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
       submenu: (_cv, done) => {
         const current = this.entries()[i] ?? entry;
         const fieldItems = builder.buildFieldItems(current);
+
+        // Override the sampling params group field to open a nested list
+        const groupIndex = fieldItems.findIndex(
+          (item) => item.id === "samplingParams",
+        );
+        if (groupIndex !== -1) {
+          fieldItems[groupIndex].submenu = (_groupCv, groupDone) => {
+            // Re-read the entry: the field list stays open across nested
+            // visits, so the captured `current` is stale after a commit
+            const nestedItems = builder.buildSamplingParamsItems(
+              this.entries()[i] ?? current,
+            );
+            const nestedList = SettingsListFactory.createResettable(
+              nestedItems,
+              () => {
+                // Restore the field list reference clobbered when the
+                // nested submenu opened, so later edits here refresh
+                // their rows again
+                this.fieldList = fieldList;
+                // Refresh the group row in the field list so the
+                // "N params set" hint is up to date
+                const fresh = this.entries()[i] ?? current;
+                fieldList.updateValue(
+                  "samplingParams",
+                  OverrideFields.byId("samplingParams").displayValue(
+                    new OverrideEntry(fresh.pattern, fresh.override),
+                  ),
+                );
+                groupDone();
+                this.trackSubmenu(false);
+              },
+              (nestedField, nestedValue) =>
+                void this.handleFieldChange(i, nestedField, nestedValue),
+              (nestedField) => this.handleFieldReset(i, nestedField),
+              this.options.tui,
+            );
+            this.fieldList = nestedList;
+            this.trackSubmenu(true);
+            return nestedList;
+          };
+        }
+
         const fieldList = SettingsListFactory.createResettable(
           fieldItems,
           () => {
@@ -71,7 +114,9 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
     });
   }
 
-  /** Handle a field commit from a row's submenu. */
+  /** Handle a field commit from a row's submenu.
+   * Nested field ids (e.g. "samplingParams.temperature") are routed
+   * to the leaf field's apply/remove via the override object. */
   private handleFieldChange(
     entryIndex: number,
     field: string,
@@ -95,12 +140,26 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
         // Refresh the committed row in the open field submenu. Passing
         // `value` as the pattern makes the pattern field display the new
         // pattern; other fields only read the override.
-        this.fieldList?.updateValue(
-          field,
-          OverrideFields.byId(field).displayValue(
-            new OverrideEntry(value, result.updatedOverride),
-          ),
-        );
+        if (field.startsWith("samplingParams.")) {
+          const leafField = SAMPLING_PARAM_FIELDS.find(
+            (f) => f.id === field.slice("samplingParams.".length),
+          );
+          if (leafField) {
+            this.fieldList?.updateValue(
+              field,
+              leafField.displayValue(
+                new OverrideEntry(value, result.updatedOverride),
+              ),
+            );
+          }
+        } else {
+          this.fieldList?.updateValue(
+            field,
+            OverrideFields.byId(field).displayValue(
+              new OverrideEntry(value, result.updatedOverride),
+            ),
+          );
+        }
       },
     );
   }
@@ -108,10 +167,35 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
   /** Handle an `r` reset from a row's field submenu: removes the field's
    * key(s) from the override (falling back to the resolved default) and
    * persists. No-op when the field wasn't set (nothing to remove) —
-   * `pattern` never removes anything, so it is inert there by design. */
+   * `pattern` never removes anything, so it is inert there by design.
+   * Nested field ids ("samplingParams.<leaf>") are routed to the leaf
+   * field's remove via the override object. */
   private handleFieldReset(entryIndex: number, field: string): void {
     const entry = this.entries()[entryIndex];
     if (!entry) return;
+
+    // Nested sampling params field: strip prefix, route to leaf field
+    if (field.startsWith("samplingParams.")) {
+      const leafId = field.slice("samplingParams.".length);
+      const fieldDef = SAMPLING_PARAM_FIELDS.find((f) => f.id === leafId);
+      if (!fieldDef) return;
+      const nextOverride: ModelOverride = { ...entry.override };
+      if (!fieldDef.remove(nextOverride)) return;
+
+      const next = this.updateEntry(entryIndex, entry.pattern, nextOverride);
+      this.commitFieldChange(next, null, () => {
+        this.settingsList?.updateValue(
+          `entry-${entryIndex}`,
+          OverrideSummary.of(nextOverride),
+        );
+        this.fieldList?.updateValue(
+          field,
+          fieldDef.displayValue(new OverrideEntry(entry.pattern, nextOverride)),
+        );
+      });
+      return;
+    }
+
     const fieldDef = OverrideFields.byId(field);
     const nextOverride: ModelOverride = { ...entry.override };
     if (!fieldDef.remove(nextOverride)) return;
@@ -183,7 +267,9 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
   }
 
   /** Handles a field commit from an override entry's submenu. Returns
-   * `null` when the entry doesn't exist (stale index — no-op). */
+   * `null` when the entry doesn't exist (stale index — no-op).
+   * Nested field ids ("samplingParams.<leaf>") are routed to the leaf
+   * field's apply/remove via the override object. */
   private applyFieldChange(
     entryIndex: number,
     field: string,
@@ -197,6 +283,19 @@ export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions>
       return {
         next: this.updateEntry(entryIndex, value, entry.override),
         updatedOverride: entry.override,
+      };
+    }
+
+    // Nested sampling params field: strip prefix, route to leaf field
+    if (field.startsWith("samplingParams.")) {
+      const leafId = field.slice("samplingParams.".length);
+      const leafField = SAMPLING_PARAM_FIELDS.find((f) => f.id === leafId);
+      if (!leafField) return null;
+      const updatedOverride: ModelOverride = { ...entry.override };
+      leafField.apply(updatedOverride, value);
+      return {
+        next: this.updateEntry(entryIndex, entry.pattern, updatedOverride),
+        updatedOverride,
       };
     }
 

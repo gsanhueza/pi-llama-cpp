@@ -277,6 +277,7 @@ describe("OverrideSummary.of", () => {
       reasoning: false,
       contextSize: 32768,
       maxTokens: 4096,
+      samplingParams: { temperature: 0.7, top_k: 20 },
     });
 
     expect(rendered).toContain("input: $0.2");
@@ -286,6 +287,7 @@ describe("OverrideSummary.of", () => {
     expect(rendered).toContain("reasoning: false");
     expect(rendered).toContain("contextSize: 32768");
     expect(rendered).toContain("maxTokens: 4096");
+    expect(rendered).toContain("samplingParams: 2 params");
   });
 
   it("should omit zero, undefined and empty fields", () => {

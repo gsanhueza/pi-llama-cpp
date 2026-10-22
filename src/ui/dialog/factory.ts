@@ -95,11 +95,14 @@ export class DialogFactory {
     validate?: (raw: string) => string | null,
   ): SettingItem["submenu"] {
     return (currentValue, done) => {
+      // Unset fields show "—" as display — pass empty string so the
+      // input dialog starts blank (pressing Enter triggers reset).
+      const initial = currentValue === "\u2014" ? "" : currentValue;
       const dialog = this.input({
         title,
         message,
         placeholder,
-        initialValue: currentValue,
+        initialValue: initial,
         validate,
         onSubmit: (value) => done(value),
         onCancel: () => done(undefined),

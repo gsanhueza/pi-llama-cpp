@@ -133,4 +133,98 @@ describe("Model (facade)", () => {
       expect(model.server.unloadModel).toHaveBeenCalledWith("test-model");
     });
   });
+
+  describe("samplingParams passthrough (via toProviderConfig)", () => {
+    it("should pass samplingParams through to the provider config", async () => {
+      const server = createMockServer({
+        overrides: {
+          findOverrideForModel: () => ({
+            samplingParams: { temperature: 0.7, mirostat: 1 },
+          }),
+          getCapabilities: vi
+            .fn()
+            .mockResolvedValue(["text"] as ("text" | "image")[]),
+          getContextSize: vi.fn().mockResolvedValue(4096),
+          getModelStatus: vi.fn().mockResolvedValue(Status.LOADED),
+          getMaxTokens: vi.fn().mockReturnValue(4096),
+        },
+      });
+      const model = new Model(
+        {
+          id: "test-model",
+          aliases: ["test-alias"],
+          tags: [],
+          object: "model",
+          owned_by: "test",
+          created: Date.now(),
+        },
+        server,
+      );
+      const config = await model.toProviderConfig();
+      expect(config.samplingParams).toEqual({ temperature: 0.7, mirostat: 1 });
+    });
+
+    it("should pass samplingParamsByThinkingLevel through to the provider config", async () => {
+      const server = createMockServer({
+        overrides: {
+          findOverrideForModel: () => ({
+            samplingParamsByThinkingLevel: {
+              off: { temperature: 0.3 },
+              high: { temperature: 0.7 },
+            },
+          }),
+          getCapabilities: vi
+            .fn()
+            .mockResolvedValue(["text"] as ("text" | "image")[]),
+          getContextSize: vi.fn().mockResolvedValue(4096),
+          getModelStatus: vi.fn().mockResolvedValue(Status.LOADED),
+          getMaxTokens: vi.fn().mockReturnValue(4096),
+        },
+      });
+      const model = new Model(
+        {
+          id: "test-model",
+          aliases: ["test-alias"],
+          tags: [],
+          object: "model",
+          owned_by: "test",
+          created: Date.now(),
+        },
+        server,
+      );
+      const config = await model.toProviderConfig();
+      expect(config.samplingParamsByThinkingLevel).toEqual({
+        off: { temperature: 0.3 },
+        high: { temperature: 0.7 },
+      });
+    });
+
+    it("should leave both undefined when no override is set", async () => {
+      const server = createMockServer({
+        overrides: {
+          findOverrideForModel: () => undefined,
+          getCapabilities: vi
+            .fn()
+            .mockResolvedValue(["text"] as ("text" | "image")[]),
+          getContextSize: vi.fn().mockResolvedValue(4096),
+          getModelStatus: vi.fn().mockResolvedValue(Status.LOADED),
+          getMaxTokens: vi.fn().mockReturnValue(4096),
+        },
+      });
+      const model = new Model(
+        {
+          id: "test-model",
+          aliases: ["test-alias"],
+          tags: [],
+          object: "model",
+          owned_by: "test",
+          created: Date.now(),
+        },
+        server,
+      );
+      const config = await model.toProviderConfig();
+      expect(config.samplingParams).toBeUndefined();
+      expect(config.samplingParamsByThinkingLevel).toBeUndefined();
+    });
+  });
 });

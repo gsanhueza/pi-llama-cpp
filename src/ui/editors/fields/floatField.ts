@@ -52,8 +52,6 @@ export class FloatField extends InputField {
         | undefined;
       if (target) {
         delete target[this.property];
-        if (Object.keys(target).length === 0)
-          delete override[this.target as keyof ModelOverride];
       }
     }
   }
@@ -66,8 +64,6 @@ export class FloatField extends InputField {
     const had = target?.[this.property] !== undefined;
     if (target) {
       delete target[this.property];
-      if (Object.keys(target).length === 0)
-        delete override[this.target as keyof ModelOverride];
     }
     return had;
   }
