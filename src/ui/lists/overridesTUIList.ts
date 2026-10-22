@@ -4,7 +4,7 @@ import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 import { HINTS } from "../strings";
-import type { OverridesTUIListOptions } from "../editors/editorOptions";
+import type { OverridesTUIListOptions } from "./listOptions";
 import { OverrideEntryListEditor } from "../editors/override/entryEditor";
 import { BaseTUIList } from "./baseList";
 

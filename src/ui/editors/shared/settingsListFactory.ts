@@ -4,7 +4,7 @@ import {
   type SettingItem,
   type TUI,
 } from "@earendil-works/pi-tui";
-import { ResettableSettingsList } from "../resettableSettingsList";
+import { ResettableSettingsList } from "../../resettableSettingsList";
 
 /**
  * Factory for creating `SettingsList` instances with the standard

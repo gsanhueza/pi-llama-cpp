@@ -1,8 +1,8 @@
 import type { LlamaServer } from "../../../interfaces/settings";
 import { ServerUrl } from "../../../utils/urls";
 import { FIELDS, type Field } from "../../strings";
-import { SettingField } from "../settingField";
-import { LlamaServerBuilder } from "./builder";
+import { SettingField } from "../shared/settingField";
+import { LlamaServerBuilder } from "./serverBuilder";
 
 /**
  * Base class for one editable field of a server row. `apply` delegates

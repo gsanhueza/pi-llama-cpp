@@ -1,5 +1,5 @@
 import type { SettingItem } from "@earendil-works/pi-tui";
-import type { DialogFactory } from "../dialog/factory";
+import type { DialogFactory } from "../../dialog/factory";
 import type { SettingField } from "./settingField";
 
 /**

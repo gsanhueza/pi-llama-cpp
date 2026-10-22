@@ -1,9 +1,9 @@
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaServer, ModelOverride } from "../../../interfaces/settings";
 import { FIELDS, FieldMessages, HINTS, TITLES } from "../../strings";
-import type { OverridesTUIListOptions } from "../editorOptions";
-import { ListEditor } from "../listEditor";
-import { SettingsListFactory } from "../settingsListFactory";
+import type { OverridesTUIListOptions } from "../../lists/listOptions";
+import { ListEditor } from "../shared/listEditor";
+import { SettingsListFactory } from "../shared/settingsListFactory";
 import { OverrideEntry } from "./entry";
 import { OverrideFields, OverrideSummary } from "./fields/index";
 import { OverrideItemBuilder } from "./itemBuilder";

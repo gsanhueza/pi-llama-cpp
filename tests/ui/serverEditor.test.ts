@@ -8,7 +8,7 @@ import {
   SERVER_STATUS_ICONS,
 } from "../../src/ui/editors/server/utils";
 import { ServersTUIList } from "../../src/ui/lists/serversTUIList";
-import type { ServersTUIListOptions } from "../../src/ui/editors/editorOptions";
+import type { ServersTUIListOptions } from "../../src/ui/lists/listOptions";
 import { createMockTui } from "../mocks/tui";
 import { createMockTheme } from "../mocks/theme";
 

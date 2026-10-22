@@ -3,7 +3,7 @@ import type {
   Focusable,
   SettingsList,
 } from "@earendil-works/pi-tui";
-import type { BaseTUIListOptions } from "../editors/editorOptions";
+import type { BaseTUIListOptions } from "./listOptions";
 
 /**
  * Base class for top-level TUI lists.

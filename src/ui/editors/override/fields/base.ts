@@ -1,5 +1,5 @@
 import type { ModelOverride } from "../../../../interfaces/settings";
-import { SettingField } from "../../settingField";
+import { SettingField } from "../../shared/settingField";
 import { OverrideEntry } from "../entry";
 
 /** Type of a field: "input" for free-text, "finite" for fixed options */

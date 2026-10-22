@@ -1,4 +1,4 @@
-import type { Field } from "../strings";
+import type { Field } from "../../strings";
 
 /**
  * Base class for one editable field of an entry (Template Method): the

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LlamaServer } from "../../../src/interfaces/settings";
-import { ListEditor } from "../../../src/ui/editors/listEditor";
-import type { BaseTUIListOptions } from "../../../src/ui/editors/editorOptions";
+import { ListEditor } from "../../../src/ui/editors/shared/listEditor";
+import type { BaseTUIListOptions } from "../../../src/ui/lists/listOptions";
 import { createMockTui } from "../../mocks/tui";
 import { createMockTheme } from "../../mocks/theme";
 

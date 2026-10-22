@@ -1,11 +1,11 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { SettingsList } from "@earendil-works/pi-tui";
-import type { LlamaServer } from "../../interfaces/settings";
-import { BaseDialog } from "../dialog/base";
-import { DialogFactory } from "../dialog/factory";
-import { HINTS } from "../strings";
-import type { BaseTUIListOptions } from "./editorOptions";
+import type { LlamaServer } from "../../../interfaces/settings";
+import { BaseDialog } from "../../dialog/base";
+import { DialogFactory } from "../../dialog/factory";
+import { HINTS } from "../../strings";
+import type { BaseTUIListOptions } from "../../../ui/lists/listOptions";
 
 // ─── Abstract base class ──────────────────────────────────────────────────
 

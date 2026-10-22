@@ -6,7 +6,7 @@ beforeEach(() => {
 });
 import type { LlamaServer } from "../../src/interfaces/settings";
 import { OverridesTUIList } from "../../src/ui/lists/overridesTUIList";
-import type { OverridesTUIListOptions } from "../../src/ui/editors/editorOptions";
+import type { OverridesTUIListOptions } from "../../src/ui/lists/listOptions";
 import { createMockTui } from "../mocks/tui";
 import { createMockTheme } from "../mocks/theme";
 
