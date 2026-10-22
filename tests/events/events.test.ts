@@ -596,6 +596,10 @@ describe("EventManager.onSessionBeforeSwitch", () => {
     await promise;
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("[pi-llama-cpp]"),
+      "warning",
+    );
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
       expect.stringContaining("Session change detected"),
       "warning",
     );

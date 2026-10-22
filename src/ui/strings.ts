@@ -169,3 +169,14 @@ export const unreachableMessage = (baseUrl: string): string =>
     `Server at '${baseUrl}' is unreachable.`,
     `Check the URL and try again. Run '/models' to retry.`,
   );
+
+/**
+ * Generates a warning message when a session changes during a model load.
+ */
+export const sessionSwitchWarning = (modelName: string): string =>
+  warnUser(
+    `Session change detected while model '${modelName}' was still loading.`,
+    "Model load will continue in the background, but UI might not update.",
+    "",
+    "Verify that your new model is loaded, or use /models to re-select it afterwards.",
+  );

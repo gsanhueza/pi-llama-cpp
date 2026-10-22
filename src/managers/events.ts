@@ -4,6 +4,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME, READABLE_TIMEOUT } from "../constants";
+import { sessionSwitchWarning } from "../ui/strings";
 import { errorMessage } from "../utils/errors";
 import { Status } from "../enums/status";
 import { ModelSelectEvent } from "../interfaces/events";
@@ -108,13 +109,10 @@ export class EventManager {
   async onSessionBeforeSwitch(ctx: ExtensionContext) {
     if (!this.tracker.inflightModel) return;
 
-    const messages = [
-      `Session change detected while model '${this.tracker.inflightModel.name}' was still loading.`,
-      "Model load will continue in the background, but UI might not update.",
-      "",
-      "Verify that your new model is loaded, or use /models to re-select it afterwards.",
-    ];
-    ctx.ui.notify(messages.join("\n"), "warning");
+    ctx.ui.notify(
+      sessionSwitchWarning(this.tracker.inflightModel.name),
+      "warning",
+    );
 
     // Show the notification for a reasonable amount of time
     await new Promise((r) => setTimeout(r, READABLE_TIMEOUT));
