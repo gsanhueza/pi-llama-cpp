@@ -34,6 +34,17 @@ export class ModelsMenu {
    * Runs the interactive model selection menu.
    */
   async show(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+    // Ensure we have the correct models first
+    await this.serverManager.update(pi);
+
+    // Show alerts
+    for (const url of this.serverManager.getFailedUrls())
+      ctx.ui.notify(`${PROVIDER_NAME} unreachable at ${url}`, "error");
+
+    for (const warning of this.serverManager.getWarnings())
+      ctx.ui.notify(warning, "warning");
+
+    // Process the execution
     const event = await this.selectionLoop(
       ctx,
       await this.serverManager.getAllModels(),

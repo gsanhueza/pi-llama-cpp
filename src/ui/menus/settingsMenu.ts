@@ -11,9 +11,9 @@ import type {
 } from "@earendil-works/pi-tui";
 import { SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaSettings } from "../../interfaces/settings";
-import type { SettingsService } from "../settings";
-import { ResettableSettingsList } from "../../ui/resettableSettingsList";
-import { SETTINGS_ITEMS } from "../defaults";
+import type { SettingsService } from "../../settings/settings";
+import { ResettableSettingsList } from "../resettableSettingsList";
+import { SETTINGS_ITEMS } from "../../settings/defaults";
 
 /** Options passed to the settings editor. */
 export interface SettingsEditorOptions {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action } from "../../../src/enums/action";
 import { Mode } from "../../../src/enums/mode";
 import { Status } from "../../../src/enums/status";
-import { ModelsMenu } from "../../../src/managers/command/models";
+import { ModelsMenu } from "../../../src/managers/menus/models";
 import { EventManager } from "../../../src/managers/events";
 import { Model } from "../../../src/models/model";
 import type { ServerManager } from "../../../src/managers/server";
@@ -21,8 +21,8 @@ beforeEach(() => {
     getServer: vi.fn(),
     servers: [],
     update: vi.fn(),
-    getWarnings: vi.fn(),
-    failedUrls: [],
+    getWarnings: vi.fn().mockReturnValue([]),
+    getFailedUrls: vi.fn().mockReturnValue([]),
   } as unknown as ServerManager;
   mockSettings = makeSettingsStub();
   mockEventManager = {

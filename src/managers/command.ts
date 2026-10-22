@@ -3,11 +3,12 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 import { AutocompleteItem } from "@earendil-works/pi-tui";
-import { PROVIDER_NAME } from "../constants";
-import { SettingsEditor } from "../settings/menu/settingsMenu";
-import { OverrideSettingsList } from "../ui/editors/override/overrideList";
-import { ServerSettingsList } from "../ui/editors/server/serverEditor";
-import { ModelsMenu } from "./command/models";
+import { ModelsMenu } from "./menus/models";
+import { SettingsMenu } from "./menus/settings";
+import { InfoMenu } from "./menus/info";
+import { UnloadMenu } from "./menus/unload";
+import { ServersMenu } from "./menus/servers";
+import { OverridesMenu } from "./menus/overrides";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
 import type { SettingsService } from "../settings/settings";
@@ -46,13 +47,23 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
 ];
 
 export class CommandManager {
+  private readonly infoMenu: InfoMenu;
+  private readonly unloadMenu: UnloadMenu;
+  private readonly settingsMenu: SettingsMenu;
+  private readonly serversMenu: ServersMenu;
+  private readonly overridesMenu: OverridesMenu;
   private readonly modelsMenu: ModelsMenu;
 
   constructor(
-    private readonly serverManager: ServerManager,
-    private readonly settings: SettingsService,
+    serverManager: ServerManager,
+    settings: SettingsService,
     eventManager: EventManager,
   ) {
+    this.infoMenu = new InfoMenu(serverManager);
+    this.unloadMenu = new UnloadMenu(serverManager, eventManager);
+    this.settingsMenu = new SettingsMenu(settings);
+    this.serversMenu = new ServersMenu(serverManager, settings);
+    this.overridesMenu = new OverridesMenu(serverManager, settings);
     this.modelsMenu = new ModelsMenu(serverManager, settings, eventManager);
   }
 
@@ -70,140 +81,31 @@ export class CommandManager {
   }
 
   /**
-   * Executes the action for the `/models` command
+   * Executes the action for the `/models` command.
    *
-   * @param args Arguments of the command
+   * @param args Subcommand keyword (e.g. "settings", "servers")
    * @param ctx The context used by Pi
-   * @param pi The Pi extension
+   * @param pi The Pi extension API
    */
   async handleCommand(
     args: string,
     ctx: ExtensionCommandContext,
     pi: ExtensionAPI,
   ) {
-    // Settings menu: no provider re-registration needed (sortBy, timeouts,
-    // etc. don't affect the model registry)
-    if (args === "settings") {
-      await this.runSettingsMenu(ctx);
-      return;
+    switch (args) {
+      case "info":
+        return this.infoMenu.show(ctx, pi);
+      case "unload":
+        return this.unloadMenu.show(ctx, pi);
+      case "settings":
+        return this.settingsMenu.show(ctx);
+      case "servers":
+        return this.serversMenu.show(ctx, pi);
+      case "overrides":
+        return this.overridesMenu.show(ctx, pi);
+      default:
+        // No args: interactive model selection with server status notifications.
+        return this.modelsMenu.show(ctx, pi);
     }
-
-    // Servers editor: re-registers providers after editing so changes
-    // (add / remove / URL / id / name) apply immediately
-    if (args === "servers") {
-      await this.runServersEditor(ctx, pi);
-      return;
-    }
-
-    // Overrides editor: re-registers providers after editing so new
-    // overrides take effect on the next request
-    if (args === "overrides") {
-      await this.runOverridesEditor(ctx, pi);
-      return;
-    }
-
-    // Re-register providers so Pi sees updated model states
-    await this.serverManager.update(pi);
-
-    // Notify about unreachable servers
-    for (const url of this.serverManager.getFailedUrls()) {
-      this.notifyNotFound(ctx, url);
-    }
-
-    // Notify about other warnings (e.g. unauthorized servers)
-    for (const warning of this.serverManager.getWarnings()) {
-      ctx.ui.notify(warning, "warning");
-    }
-
-    if (args === "unload") {
-      ctx.ui.notify(`Unloading ${PROVIDER_NAME} models...`, "info");
-      const models = await this.serverManager.getAllModels();
-      // Fire-and-forget: don't await so the TUI stays responsive.
-      Promise.allSettled(models.map((model) => model.unload())).then(() => {
-        ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
-        this.serverManager.update(pi);
-      });
-      return;
-    }
-
-    if (args === "info") {
-      const models = await this.serverManager.getAllModels();
-      const infos = await Promise.all(models.map((model) => model.getInfo()));
-      ctx.ui.notify(ctx.ui.theme.fg("accent", infos.join("\n")), "info");
-      return;
-    }
-
-    // Interactive menu: show <name> (<server_url>)
-    await this.modelsMenu.show(ctx, pi);
-  }
-
-  /**
-   * Runs the interactive settings menu for the scalar `llamaSettings`
-   * fields. Enter/Space cycles the value under the cursor; Esc closes.
-   */
-  private async runSettingsMenu(ctx: ExtensionCommandContext): Promise<void> {
-    if (ctx.mode !== "tui") {
-      ctx.ui.notify(
-        "/models settings requires an interactive session (TUI)",
-        "warning",
-      );
-      return;
-    }
-
-    await SettingsEditor.show(ctx.ui, this.settings);
-  }
-
-  /**
-   * Runs the interactive servers editor for `llamaSettings.servers`
-   * (see `ServerSettingsList` for the editing semantics). After closing,
-   * providers are re-registered so server changes apply immediately.
-   */
-  private async runServersEditor(
-    ctx: ExtensionCommandContext,
-    pi: ExtensionAPI,
-  ): Promise<void> {
-    if (ctx.mode !== "tui") {
-      ctx.ui.notify(
-        "/models servers requires an interactive session (TUI)",
-        "warning",
-      );
-      return;
-    }
-
-    await ServerSettingsList.show(ctx.ui, this.settings);
-
-    // Re-register providers so the updated server list takes effect
-    await this.serverManager.update(pi);
-  }
-
-  /**
-   * Runs the interactive overrides editor for
-   * `llamaSettings.servers[].overrides` (see `OverrideSettingsList` for
-   * the editing semantics). After closing, providers are re-registered
-   * so new overrides take effect on the next request.
-   */
-  private async runOverridesEditor(
-    ctx: ExtensionCommandContext,
-    pi: ExtensionAPI,
-  ): Promise<void> {
-    if (ctx.mode !== "tui") {
-      ctx.ui.notify(
-        "/models overrides requires an interactive session (TUI)",
-        "warning",
-      );
-      return;
-    }
-
-    await OverrideSettingsList.show(ctx.ui, this.settings);
-
-    // Re-register providers so the updated overrides take effect
-    await this.serverManager.update(pi);
-  }
-
-  /**
-   * Notifies the user that a server is unreachable.
-   */
-  private notifyNotFound(ctx: ExtensionCommandContext, url: string): void {
-    ctx.ui.notify(`${PROVIDER_NAME} unreachable at ${url}`, "error");
   }
 }
