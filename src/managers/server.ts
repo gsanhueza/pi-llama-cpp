@@ -200,14 +200,18 @@ export class ServerManager {
     const fresh: Server[] = [];
     const seenIds = new Set<string>(); // dedupe repeated providerIds
 
-    for (const options of await this.findServerOptions()) {
-      const { server, status } = await this.serverFactory.create(
-        this.settings,
-        options,
-        timeout,
-      );
+    // Create all servers in parallel
+    const serverOptions = await this.findServerOptions();
+    const results = await Promise.all(
+      serverOptions.map(async (opt) => ({
+        options: opt,
+        ...(await this.serverFactory.create(this.settings, opt, timeout)),
+      })),
+    );
 
-      // Handle not-ready status
+    // Process results sequentially
+    const candidates: Server[] = [];
+    for (const { options, server, status } of results) {
       if (!server) {
         const { baseUrl } = options;
 
@@ -232,12 +236,20 @@ export class ServerManager {
 
       if (seenIds.has(server.providerId)) continue;
       seenIds.add(server.providerId);
+      candidates.push(server);
+    }
 
-      try {
-        await server.initialize();
-        fresh.push(server);
-      } catch {
-        this.failedUrls.push(server.baseUrl);
+    // Initialize candidates in parallel
+    const initResults = await Promise.allSettled(
+      candidates.map((server) => server.initialize()),
+    );
+
+    // Post-process initialization results
+    for (let i = 0; i < initResults.length; i++) {
+      if (initResults[i].status === "fulfilled") {
+        fresh.push(candidates[i]);
+      } else {
+        this.failedUrls.push(candidates[i].baseUrl);
       }
     }
 
