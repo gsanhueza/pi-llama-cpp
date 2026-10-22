@@ -163,8 +163,3 @@ export class SettingsService {
     return this.writer.deleteLlamaSetting(key);
   }
 }
-
-/**
- * Creates a new SettingsService instance.
- * Single wiring point for the extension's default collaborators.
- */

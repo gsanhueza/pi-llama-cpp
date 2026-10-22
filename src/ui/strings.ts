@@ -224,3 +224,9 @@ export const sessionSwitchWarning = (modelName: string): string =>
     "",
     "Verify that your new model is loaded, or use /models to re-select it afterwards.",
   );
+
+/**
+ * Generates a warning message when a duplicate url is found at initialization.
+ */
+export const duplicateUrlWarning = (url: string): string =>
+  warnUser(`Duplicate server URL '${url}' — skipping`);

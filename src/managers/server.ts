@@ -15,6 +15,7 @@ import type { SortBy } from "../interfaces/sortBy";
 import { Model } from "../models/model";
 import {
   authRequiredMessage,
+  duplicateUrlWarning,
   timeoutMessage,
   unreachableMessage,
 } from "../ui/strings";
@@ -67,89 +68,58 @@ export class ServerManager {
     this.failedUrls.length = 0;
     this.warnings.length = 0;
 
-    // Surface warnings from strict URL parsing (dropped invalid entries)
-    this.warnings.push(...this.settings.takeWarnings());
-
-    // Re-derive the server list from settings so `/models servers` edits
-    // (add / remove / URL / id / name) apply on the next scan. Fresh
-    // instances every scan: consumers never see a mutated Server.
-    const fresh: Server[] = [];
-    const seenUrls = new Set<string>(); // dedupe repeated URLs
-    const seen = new Set<string>(); // dedupe repeated providerIds
-    for (const options of await this.settings.resolveServerConfigs()) {
-      if (seenUrls.has(options.baseUrl)) {
-        this.warnings.push(
-          `Duplicate server URL '${options.baseUrl}' — skipping`,
-        );
-        continue;
-      }
-      seenUrls.add(options.baseUrl);
-
-      const { server, status } = await this.serverFactory.create(
-        this.settings,
-        options,
-        timeout,
-      );
-
-      // Handle not-ready status
-      if (!server) {
-        const { baseUrl } = options;
-
-        if (status === ServerStatus.TIMEOUT) {
-          this.failedUrls.push(baseUrl);
-          this.warnings.push(timeoutMessage(baseUrl, timeout!));
-        } else if (status === ServerStatus.UNREACHABLE) {
-          this.failedUrls.push(baseUrl);
-          this.warnings.push(unreachableMessage(baseUrl));
-        } else if (status === ServerStatus.UNAUTHORIZED) {
-          // Register a provider with no models, so that it appears in `/login`.
-          const providerId = ServerIds.resolve(baseUrl, options.customId);
-          this.registerEmptyProvider(baseUrl, options, pi);
-
-          // We don't add to failedUrls here because the server is healthy.
-          // We're just unauthorized to use it.
-          seen.add(providerId);
-          this.warnings.push(authRequiredMessage(baseUrl, providerId));
-        }
-        continue;
-      }
-
-      if (seen.has(server.providerId)) continue;
-      seen.add(server.providerId);
-      fresh.push(server);
-    }
-
     // Snapshot the old list before replacing it — the unregister loop
     // below iterates `this.servers` (a getter over serverList), so we
     // need the pre-replacement values.
     const oldServers = [...this.servers];
 
-    // Replace in place so the live `servers` view stays valid
-    this.serverList.length = 0;
-    this.serverList.push(...fresh);
+    // Surface warnings from strict URL parsing (dropped invalid entries)
+    this.warnings.push(...this.settings.takeWarnings());
 
-    // Initialization and registration — run first so a failure leaves old
-    // providers intact (they are still registered below).
+    // Discover, initialize, and filter out failures
+    const { fresh, seenIds } = await this.initializeServers(pi, timeout);
+
+    // Register only initialized servers
+    const registered: Server[] = [];
     for (const server of fresh) {
-      try {
-        await server.initialize();
-        await this.registerProvider(server, pi);
-      } catch {
-        this.failedUrls.push(server.baseUrl);
-        const idx = this.serverList.indexOf(server);
-        if (idx !== -1) this.serverList.splice(idx, 1);
-      }
+      await this.registerProvider(server, pi);
+      registered.push(server);
     }
 
-    // Unregister providers that disappeared (removed or edited away);
-    // `seen` tracks all kept providerIds, so we skip those still present.
-    for (const old of oldServers) {
-      if (seen.has(old.providerId)) continue;
-      pi.unregisterProvider(old.providerId);
-      // Optional chain is intentional despite the non-optional type: `sse`
-      // is undefined until initialize() runs (async-constructor hack — see Server)
-      old.sseManager?.disconnect();
-    }
+    // Swap the final list so the live `servers` view stays valid
+    this.serverList.length = 0;
+    this.serverList.push(...registered);
+
+    // Unregister providers that disappeared (removed or edited away)
+    this.unregisterStaleProviders(pi, oldServers, seenIds);
+  }
+
+  /**
+   * Returns warnings collected during initialization.
+   */
+  getWarnings(): string[] {
+    const warnings = [...this.warnings];
+    this.warnings.length = 0;
+
+    return warnings;
+  }
+
+  /**
+   * Returns URLs of servers that failed to initialize.
+   */
+  getFailedUrls(): readonly string[] {
+    return [...this.failedUrls];
+  }
+
+  /**
+   * Returns the server for a given model.
+   *
+   * @param model - The model to find the server for
+   * @returns The server containing the model, or `undefined` when no
+   * current server matches (e.g. removed while a model was loading)
+   */
+  getServer(model: Model): Server | undefined {
+    return this.servers.find((s) => s.baseUrl === model.serverUrl);
   }
 
   /**
@@ -215,31 +185,106 @@ export class ServerManager {
   }
 
   /**
-   * Returns warnings collected during initialization.
-   */
-  getWarnings(): string[] {
-    const warnings = [...this.warnings];
-    this.warnings.length = 0;
-
-    return warnings;
-  }
-
-  /**
-   * Returns URLs of servers that failed to initialize.
-   */
-  getFailedUrls(): readonly string[] {
-    return [...this.failedUrls];
-  }
-
-  /**
-   * Returns the server for a given model.
+   * Discovers servers from settings, initializes them, and handles
+   * not-ready statuses (TIMEOUT, UNREACHABLE, UNAUTHORIZED).
+   * Returns only servers that initialized successfully.
    *
-   * @param model - The model to find the server for
-   * @returns The server containing the model, or `undefined` when no
-   * current server matches (e.g. removed while a model was loading)
+   * @param pi The Pi extension API
+   * @param timeout Server timeout for factory creation
+   * @returns Initialized server list and the set of seen provider IDs
    */
-  getServer(model: Model): Server | undefined {
-    return this.servers.find((s) => s.baseUrl === model.serverUrl);
+  private async initializeServers(
+    pi: ExtensionAPI,
+    timeout?: number,
+  ): Promise<{ fresh: Server[]; seenIds: Set<string> }> {
+    const fresh: Server[] = [];
+    const seenIds = new Set<string>(); // dedupe repeated providerIds
+
+    for (const options of await this.findServerOptions()) {
+      const { server, status } = await this.serverFactory.create(
+        this.settings,
+        options,
+        timeout,
+      );
+
+      // Handle not-ready status
+      if (!server) {
+        const { baseUrl } = options;
+
+        if (status === ServerStatus.TIMEOUT) {
+          this.failedUrls.push(baseUrl);
+          this.warnings.push(timeoutMessage(baseUrl, timeout!));
+        } else if (status === ServerStatus.UNREACHABLE) {
+          this.failedUrls.push(baseUrl);
+          this.warnings.push(unreachableMessage(baseUrl));
+        } else if (status === ServerStatus.UNAUTHORIZED) {
+          // Register a provider with no models, so that it appears in `/login`.
+          const providerId = ServerIds.resolve(baseUrl, options.customId);
+          this.registerEmptyProvider(baseUrl, options, pi);
+
+          // We don't add to failedUrls here because the server is healthy.
+          // We're just unauthorized to use it.
+          seenIds.add(providerId);
+          this.warnings.push(authRequiredMessage(baseUrl, providerId));
+        }
+        continue;
+      }
+
+      if (seenIds.has(server.providerId)) continue;
+      seenIds.add(server.providerId);
+
+      try {
+        await server.initialize();
+        fresh.push(server);
+      } catch {
+        this.failedUrls.push(server.baseUrl);
+      }
+    }
+
+    return { fresh, seenIds };
+  }
+
+  /**
+   * Unregisters providers that disappeared (removed or edited away) and
+   * disconnects their SSE managers.
+   *
+   * @param oldServers The previous server list snapshot
+   * @param seenIds Set of provider IDs kept in the current scan
+   */
+  private unregisterStaleProviders(
+    pi: ExtensionAPI,
+    oldServers: readonly Server[],
+    seenIds: Set<string>,
+  ): void {
+    for (const old of oldServers) {
+      if (seenIds.has(old.providerId)) continue;
+      pi.unregisterProvider(old.providerId);
+      // Optional chain is intentional despite the non-optional type: `sse`
+      // is undefined until initialize() runs (async-constructor hack — see Server)
+      old.sseManager?.disconnect();
+    }
+  }
+
+  /**
+   * Returns all non-duplicated server configurations
+   *
+   * @returns List of valid configurations
+   */
+  private async findServerOptions(): Promise<ServerOptions[]> {
+    const seenUrls = new Set<string>(); // dedupe repeated URLs
+    const response = [];
+
+    for (const config of await this.settings.resolveServerConfigs()) {
+      if (seenUrls.has(config.baseUrl)) {
+        this.warnings.push(duplicateUrlWarning(config.baseUrl));
+        continue;
+      }
+
+      seenUrls.add(config.baseUrl);
+      response.push(config);
+    }
+
+    return response;
   }
 
   /**
