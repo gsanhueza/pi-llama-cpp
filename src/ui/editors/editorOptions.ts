@@ -4,12 +4,25 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../interfaces/settings";
+import type { SettingsService } from "../../settings/settings";
 
 /**
- * Shared options for SettingsList-based editors that operate on
+ * Options for `SettingsTUIList` — scalar settings list without server CRUD.
+ */
+export interface SettingsTUIListOptions {
+  tui: TUI;
+  theme: Theme;
+  keybindings: KeybindingsManager;
+  settings: SettingsService;
+  done: () => void;
+  onError: (message: string) => void;
+}
+
+/**
+ * Shared options for top-level TUI lists that operate on
  * `LlamaServer[]`. Subtypes add editor-specific fields.
  */
-export interface SettingsListEditorOptions {
+export interface BaseTUIListOptions {
   /** TUI instance, used to request re-renders after async persists */
   tui: TUI;
   /** Theme for dialogs (from the ctx.ui.custom factory) */
@@ -30,9 +43,9 @@ export interface SettingsListEditorOptions {
 }
 
 /**
- * Options for the SettingsList-based server editor.
+ * Options for the ServersTUIList.
  */
-export interface ServerSettingsListOptions extends SettingsListEditorOptions {
+export interface ServersTUIListOptions extends BaseTUIListOptions {
   /** Timeout (ms) for health checks. Defaults to 1000ms if not provided. */
   serverTimeout?: number;
   /** Resolves the API key for a server (used for auth probing). */
@@ -44,9 +57,9 @@ export interface ServerSettingsListOptions extends SettingsListEditorOptions {
 }
 
 /**
- * Options for the SettingsList-based overrides editor.
+ * Options for the OverridesTUIList and its drill-down submenus.
  */
-export interface OverrideSettingsListOptions extends SettingsListEditorOptions {
+export interface OverridesTUIListOptions extends BaseTUIListOptions {
   /** Called after a successful add/edit/delete */
   onChanged: () => void;
 }

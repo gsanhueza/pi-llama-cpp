@@ -1,25 +1,24 @@
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
-import { ApiClient } from "../../../api/client";
-import { API_KEY_PLACEHOLDER } from "../../../constants";
-import { ServerTimeoutSettingsItem } from "../../../settings/items/serverTimeout";
-import { ServerStatus } from "../../../enums/serverStatus";
-import type { LlamaServer } from "../../../interfaces/settings";
-import type { SettingsService } from "../../../settings/settings";
-import { Server } from "../../../servers/server";
-import { ServerIds } from "../../../utils/serverIds";
-import { TITLES, authRequiredMessage } from "../../strings";
-import type { ServerSettingsListOptions } from "../editorOptions";
-import { ListEditor } from "../listEditor";
-import { SettingsListFactory } from "../settingsListFactory";
-import { ServerFields } from "./fields";
-import { ServerItemBuilder } from "./itemBuilder";
-import { ServerDisplay } from "./utils";
-import { ServerWizard } from "./wizard";
+import { ApiClient } from "../../api/client";
+import { API_KEY_PLACEHOLDER } from "../../constants";
+import { ServerTimeoutSettingsItem } from "../../settings/items/serverTimeout";
+import { ServerStatus } from "../../enums/serverStatus";
+import type { LlamaServer } from "../../interfaces/settings";
+import type { SettingsService } from "../../settings/settings";
+import { Server } from "../../servers/server";
+import { ServerIds } from "../../utils/serverIds";
+import { TITLES, authRequiredMessage } from "../strings";
+import type { ServersTUIListOptions } from "../editors/editorOptions";
+import { ListEditor } from "../editors/listEditor";
+import { SettingsListFactory } from "../editors/settingsListFactory";
+import { ServerFields } from "../editors/server/fields";
+import { ServerItemBuilder } from "../editors/server/itemBuilder";
+import { ServerDisplay } from "../editors/server/utils";
+import { ServerWizard } from "../editors/server/wizard";
 
 /**
- * Wrapper around a `SettingsList` of servers that adds `a` (add) and `d`
- * (delete) support at the list level.
+ * Top-level server list editor.
  *
  * - **a** opens the add wizard — a sequence of framed `InputDialog`s
  *   (URL → optional ID → optional name, mirroring `/login`'s sequential
@@ -29,15 +28,14 @@ import { ServerWizard } from "./wizard";
  * - **Enter** on a server row drills into its field-edit submenu.
  * - **Esc** closes the editor.
  */
-export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
+export class ServersTUIList extends ListEditor<ServersTUIListOptions> {
   /**
    * Resolves once the async initial build (health probes, list
-   * construction) completes. Consumers that render immediately after
-   * construction can await this instead of polling internal state.
+   * construction) completes.
    */
   readonly ready: Promise<void>;
 
-  constructor(options: ServerSettingsListOptions) {
+  constructor(options: ServersTUIListOptions) {
     super(options);
     this.ready = this.buildSettingsList().then((list) => {
       this.settingsList = list;
@@ -48,9 +46,7 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
   /**
    * Opens the editor in a modal `ui.custom` dialog seeded with the
    * current `llamaSettings.servers` and resolves when the user closes
-   * it (Esc). Writes go through `settings.setLlamaSettings()`; write
-   * errors are notified via `ui` and the editor stays open with the
-   * pre-mutation list.
+   * it (Esc).
    */
   static async show(
     ui: ExtensionUIContext,
@@ -61,7 +57,7 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
 
     await ui.custom<void>(
       (tui, theme, keybindings, done) =>
-        new ServerSettingsList({
+        new ServersTUIList({
           tui,
           theme,
           keybindings,
@@ -70,14 +66,8 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
           done: () => done(undefined),
           onError: (message) => ui.notify(message, "error"),
           serverTimeout,
-          authResolver: async (server) => {
-            // Mirror Server.getApiKey(): use ServerIds.resolve to get
-            // the provider ID (customId or llama-server=<url>), then
-            // resolve the key from the credential store.
-            return settings.resolveApiKey(
-              ServerIds.resolve(server.url, server.id),
-            );
-          },
+          authResolver: async (server) =>
+            settings.resolveApiKey(ServerIds.resolve(server.url, server.id)),
           resolvePollingInterval: () => settings.resolvePollingInterval(),
           ui,
         }),
@@ -109,8 +99,6 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
         i,
         (field, value) => this.handleFieldChange(field, value),
         probes[i],
-        // Opening delegates input to the submenu; closing flushes a
-        // rebuild deferred by a field commit (see commitFieldChange)
         (open) => this.trackSubmenu(open),
       ),
     );
@@ -132,14 +120,11 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
       : this.options.servers;
 
     this.commitFieldChange(next, idx, () => {
-      // Refresh the row's suffix in place; the full rebuild (row labels
-      // with health emoji, fresh server snapshots for the field submenu)
-      // is deferred until the submenu closes (see commitFieldChange)
-      const updated = next[idx];
-      if (updated) {
+      const updatedServer = next[idx];
+      if (updatedServer) {
         this.settingsList?.updateValue(
           `server-${idx}`,
-          ServerDisplay.suffix(updated),
+          ServerDisplay.suffix(updatedServer),
         );
       }
     });
@@ -187,15 +172,9 @@ export class ServerSettingsList extends ListEditor<ServerSettingsListOptions> {
     await this.persistSnapshot(next, () => {
       void this.rebuildList(next.length - 1);
     });
-
-    // Warn the user if the newly added server requires an API key
     await this.warnIfAuthRequired(server);
   }
 
-  /**
-   * Probes the server to check if it requires an API key. If so, notifies
-   * the user so they know to configure one via `/login` or `auth.json`.
-   */
   private async warnIfAuthRequired(server: LlamaServer): Promise<void> {
     const ui = this.options.ui;
     if (!ui) return;

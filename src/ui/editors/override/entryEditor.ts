@@ -1,7 +1,7 @@
 import type { SettingItem, SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaServer, ModelOverride } from "../../../interfaces/settings";
 import { FIELDS, FieldMessages, HINTS, TITLES } from "../../strings";
-import type { OverrideSettingsListOptions } from "../editorOptions";
+import type { OverridesTUIListOptions } from "../editorOptions";
 import { ListEditor } from "../listEditor";
 import { SettingsListFactory } from "../settingsListFactory";
 import { OverrideEntry } from "./entry";
@@ -11,14 +11,14 @@ import { OverrideItemBuilder } from "./itemBuilder";
 /**
  * The override entries of a single server, as a list view with add/delete.
  */
-export class OverrideEntryListEditor extends ListEditor<OverrideSettingsListOptions> {
+export class OverrideEntryListEditor extends ListEditor<OverridesTUIListOptions> {
   /** Currently open field submenu, so commits can refresh its rows */
   private fieldList: SettingsList | null = null;
 
   constructor(
     /** Shared options object — `persistSnapshot` updates `options.servers`
      * in place so later drill-downs (and sibling editors) see the change */
-    options: OverrideSettingsListOptions,
+    options: OverridesTUIListOptions,
     private readonly serverIndex: number,
     /** Closes this editor (called on Esc in the entry list) */
     private readonly done: () => void,

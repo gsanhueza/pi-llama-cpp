@@ -5,7 +5,7 @@ import type { LlamaServer } from "../../interfaces/settings";
 import { BaseDialog } from "../dialog/base";
 import { DialogFactory } from "../dialog/factory";
 import { HINTS } from "../strings";
-import type { SettingsListEditorOptions } from "./editorOptions";
+import type { BaseTUIListOptions } from "./editorOptions";
 
 // ─── Abstract base class ──────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ import type { SettingsListEditorOptions } from "./editorOptions";
  * - {@link deleteTitle} — dialog title for the delete confirmation
  */
 export abstract class ListEditor<
-  O extends SettingsListEditorOptions = SettingsListEditorOptions,
+  O extends BaseTUIListOptions = BaseTUIListOptions,
 > implements Component {
   protected settingsList: SettingsList | null = null;
   protected isFocused = false;

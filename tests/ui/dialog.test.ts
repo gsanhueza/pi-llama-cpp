@@ -4,8 +4,8 @@ import { API_KEY_PLACEHOLDER } from "../../src/constants";
 import type { LlamaServer } from "../../src/interfaces/settings";
 import { ConfirmDialog } from "../../src/ui/dialog/confirm";
 import { InputDialog } from "../../src/ui/dialog/input";
-import { OverrideSettingsList } from "../../src/ui/editors/override/overrideList";
-import { ServerSettingsList } from "../../src/ui/editors/server/serverEditor";
+import { OverridesTUIList } from "../../src/ui/lists/overridesTUIList";
+import { ServersTUIList } from "../../src/ui/lists/serversTUIList";
 import { createMockKeybindings } from "../mocks/keybindings";
 import { createMockTui } from "../mocks/tui";
 import { createMockTheme } from "../mocks/theme";
@@ -165,12 +165,12 @@ describe("InputDialog error clearing", () => {
   });
 });
 
-describe("ServerSettingsList add wizard", () => {
+describe("ServersTUIList add wizard", () => {
   const buildEditor = (servers: { url: string; id?: string }[] = []) => {
     const persist = vi.fn().mockResolvedValue(undefined);
     const done = vi.fn();
     const onError = vi.fn();
-    const editor = new ServerSettingsList({
+    const editor = new ServersTUIList({
       tui: createMockTui(),
       theme: createMockTheme(),
       keybindings: createMockKeybindings(),
@@ -230,7 +230,7 @@ describe("ServerSettingsList add wizard", () => {
 describe("OverrideEntryListEditor cost re-prefill", () => {
   it("re-entering a cost field prefills the just-saved value", async () => {
     const persist = vi.fn().mockResolvedValue(undefined);
-    const list = new OverrideSettingsList({
+    const list = new OverridesTUIList({
       tui: createMockTui(),
       theme: createMockTheme(),
       keybindings: createMockKeybindings(),
@@ -271,7 +271,7 @@ describe("OverrideEntryListEditor field reset (r)", () => {
 
   const build = () => {
     const persist = vi.fn().mockResolvedValue(undefined);
-    const list = new OverrideSettingsList({
+    const list = new OverridesTUIList({
       tui: createMockTui(),
       theme: createMockTheme(),
       keybindings: createMockKeybindings(),
@@ -290,7 +290,7 @@ describe("OverrideEntryListEditor field reset (r)", () => {
   };
 
   /** Server row → field submenu with the cursor on `cost.input`. */
-  const openCostInput = (list: OverrideSettingsList) => {
+  const openCostInput = (list: OverridesTUIList) => {
     list.handleInput(ENTER); // drill into the server row (entry list)
     list.handleInput(ENTER); // open the field submenu (cursor: pattern)
     list.handleInput(DOWN); // cursor: cost.input
@@ -346,10 +346,10 @@ describe("OverrideEntryListEditor field reset (r)", () => {
   });
 });
 
-describe("OverrideSettingsList escape navigation", () => {
+describe("OverridesTUIList escape navigation", () => {
   const build = () => {
     const done = vi.fn();
-    const list = new OverrideSettingsList({
+    const list = new OverridesTUIList({
       tui: createMockTui(),
       theme: createMockTheme(),
       keybindings: createMockKeybindings(),

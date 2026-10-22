@@ -5,8 +5,8 @@ beforeEach(() => {
   initTheme();
 });
 import type { LlamaServer } from "../../src/interfaces/settings";
-import { OverrideSettingsList } from "../../src/ui/editors/override/overrideList";
-import type { OverrideSettingsListOptions } from "../../src/ui/editors/editorOptions";
+import { OverridesTUIList } from "../../src/ui/lists/overridesTUIList";
+import type { OverridesTUIListOptions } from "../../src/ui/editors/editorOptions";
 import { createMockTui } from "../mocks/tui";
 import { createMockTheme } from "../mocks/theme";
 
@@ -19,8 +19,8 @@ const makeServer = (overrides: Partial<LlamaServer> = {}): LlamaServer =>
   }) as LlamaServer;
 
 const makeOptions = (
-  overrides: Partial<OverrideSettingsListOptions> = {},
-): OverrideSettingsListOptions => ({
+  overrides: Partial<OverridesTUIListOptions> = {},
+): OverridesTUIListOptions => ({
   tui: createMockTui(),
   theme: createMockTheme(),
   keybindings: {} as never,
@@ -32,24 +32,24 @@ const makeOptions = (
   ...overrides,
 });
 
-describe("OverrideSettingsList.invalidate", () => {
+describe("OverridesTUIList.invalidate", () => {
   it("should call invalidate on the settingsList", () => {
     // We can't easily inject a settingsList, so we test via the public API
     // by checking that the method exists and doesn't throw
-    const editor = new OverrideSettingsList(makeOptions());
+    const editor = new OverridesTUIList(makeOptions());
     editor.invalidate();
     // If it didn't throw, the method works (settingsList is non-null after construction)
   });
 });
 
-describe("OverrideSettingsList.focused", () => {
+describe("OverridesTUIList.focused", () => {
   it("should default to false", () => {
-    const editor = new OverrideSettingsList(makeOptions());
+    const editor = new OverridesTUIList(makeOptions());
     expect(editor.focused).toBe(false);
   });
 
   it("should reflect the set value", () => {
-    const editor = new OverrideSettingsList(makeOptions());
+    const editor = new OverridesTUIList(makeOptions());
     editor.focused = true;
     expect(editor.focused).toBe(true);
     editor.focused = false;

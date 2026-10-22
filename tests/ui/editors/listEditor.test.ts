@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LlamaServer } from "../../../src/interfaces/settings";
 import { ListEditor } from "../../../src/ui/editors/listEditor";
-import type { SettingsListEditorOptions } from "../../../src/ui/editors/editorOptions";
+import type { BaseTUIListOptions } from "../../../src/ui/editors/editorOptions";
 import { createMockTui } from "../../mocks/tui";
 import { createMockTheme } from "../../mocks/theme";
 
@@ -14,8 +14,8 @@ const makeServer = (overrides: Partial<LlamaServer> = {}): LlamaServer =>
   }) as LlamaServer;
 
 const makeOptions = (
-  overrides: Partial<SettingsListEditorOptions> = {},
-): SettingsListEditorOptions => ({
+  overrides: Partial<BaseTUIListOptions> = {},
+): BaseTUIListOptions => ({
   tui: createMockTui(),
   theme: createMockTheme(),
   keybindings: {} as never,

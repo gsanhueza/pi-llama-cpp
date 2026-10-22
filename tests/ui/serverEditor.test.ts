@@ -7,8 +7,8 @@ import {
   ServerDisplay,
   SERVER_STATUS_ICONS,
 } from "../../src/ui/editors/server/utils";
-import { ServerSettingsList } from "../../src/ui/editors/server/serverEditor";
-import type { ServerSettingsListOptions } from "../../src/ui/editors/editorOptions";
+import { ServersTUIList } from "../../src/ui/lists/serversTUIList";
+import type { ServersTUIListOptions } from "../../src/ui/editors/editorOptions";
 import { createMockTui } from "../mocks/tui";
 import { createMockTheme } from "../mocks/theme";
 
@@ -21,8 +21,8 @@ const makeServer = (overrides: Partial<LlamaServer> = {}): LlamaServer =>
   }) as LlamaServer;
 
 const makeOptions = (
-  overrides: Partial<ServerSettingsListOptions> = {},
-): ServerSettingsListOptions => ({
+  overrides: Partial<ServersTUIListOptions> = {},
+): ServersTUIListOptions => ({
   tui: createMockTui(),
   theme: createMockTheme(),
   keybindings: {} as never,
@@ -42,14 +42,14 @@ beforeEach(() => {
   );
 });
 
-describe("ServerSettingsList.handleFieldChange", () => {
+describe("ServersTUIList.handleFieldChange", () => {
   it("should update the server url via field apply", async () => {
     const persist = vi.fn().mockResolvedValue(undefined);
     const options = makeOptions({
       servers: [makeServer({ url: "http://old:9931" })],
       persist,
     });
-    const editor = new ServerSettingsList(options);
+    const editor = new ServersTUIList(options);
     await editor.ready;
 
     // Access the protected method via the subclass pattern used in listEditor.test.ts
@@ -61,7 +61,7 @@ describe("ServerSettingsList.handleFieldChange", () => {
   });
 });
 
-describe("ServerSettingsList.warnIfAuthRequired", () => {
+describe("ServersTUIList.warnIfAuthRequired", () => {
   it("should notify when server check returns UNAUTHORIZED", async () => {
     const notify = vi.fn();
     const checkSpy = vi
@@ -72,7 +72,7 @@ describe("ServerSettingsList.warnIfAuthRequired", () => {
       ui: { notify } as never,
       authResolver: vi.fn().mockResolvedValue(""),
     });
-    const editor = new ServerSettingsList(options);
+    const editor = new ServersTUIList(options);
     await editor.ready;
 
     // Access the private method via type assertion
@@ -96,7 +96,7 @@ describe("ServerSettingsList.warnIfAuthRequired", () => {
       ui: { notify } as never,
       authResolver: vi.fn().mockResolvedValue(""),
     });
-    const editor = new ServerSettingsList(options);
+    const editor = new ServersTUIList(options);
     await editor.ready;
 
     await (

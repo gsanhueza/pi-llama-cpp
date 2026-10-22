@@ -1,22 +1,18 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import {
-  Component,
-  Focusable,
-  SettingsList,
-  type SettingItem,
-} from "@earendil-works/pi-tui";
-import type { LlamaServer } from "../../../interfaces/settings";
-import type { SettingsService } from "../../../settings/settings";
-import { HINTS } from "../../strings";
-import type { OverrideSettingsListOptions } from "../editorOptions";
-import { OverrideEntryListEditor } from "./entryEditor";
+import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
+import type { LlamaServer } from "../../interfaces/settings";
+import type { SettingsService } from "../../settings/settings";
+import { HINTS } from "../strings";
+import type { OverridesTUIListOptions } from "../editors/editorOptions";
+import { OverrideEntryListEditor } from "../editors/override/entryEditor";
+import { BaseTUIList } from "./baseList";
 
 /**
  * Top-level overrides editor: one row per server, Enter drills into
  * override entries.
  *
- * Unlike `ServerSettingsList`, this has no add/delete — just drill-down.
+ * Unlike `ServersTUIList`, this has no add/delete — just drill-down.
  * There is deliberately no `r` reset here either: reset lives inside an
  * entry's field submenu (`OverrideEntryListEditor`).
  *
@@ -31,20 +27,15 @@ import { OverrideEntryListEditor } from "./entryEditor";
  *
  * Servers themselves are not managed here — use `/models servers`.
  */
-export class OverrideSettingsList implements Component, Focusable {
-  private settingsList: SettingsList | null = null;
-  private isFocused = false;
-
-  constructor(private readonly options: OverrideSettingsListOptions) {
-    this.settingsList = this.buildSettingsList();
+export class OverridesTUIList extends BaseTUIList<OverridesTUIListOptions> {
+  constructor(options: OverridesTUIListOptions) {
+    super(options);
   }
 
   /**
    * Opens the editor in a modal `ui.custom` dialog seeded with the
    * current `llamaSettings.servers` and resolves when the user closes
-   * it (Esc). Writes go through `settings.setLlamaSettings()`; write
-   * errors are notified via `ui` and the editor stays open with the
-   * pre-mutation list.
+   * it (Esc).
    */
   static async show(
     ui: ExtensionUIContext,
@@ -54,7 +45,7 @@ export class OverrideSettingsList implements Component, Focusable {
 
     await ui.custom<void>(
       (tui, theme, keybindings, done) =>
-        new OverrideSettingsList({
+        new OverridesTUIList({
           tui,
           theme,
           keybindings,
@@ -62,53 +53,29 @@ export class OverrideSettingsList implements Component, Focusable {
           persist: (next) => settings.setLlamaSettings({ servers: next }),
           done: () => done(undefined),
           onError: (message) => ui.notify(message, "error"),
-          onChanged: () => {}, // no per-change notification needed
+          onChanged: () => {},
         }),
     );
   }
 
-  // -- Component -------------------------------------------------------------
-
-  invalidate(): void {
-    this.settingsList?.invalidate();
+  protected override async initialize(): Promise<void> {
+    this.list = this.buildSettingsList();
+    this.options.tui.requestRender();
   }
 
-  handleInput(data: string): void {
-    this.settingsList?.handleInput(data);
-  }
-
-  render(width: number): string[] {
-    if (!this.settingsList) return ["Loading..."];
-    return this.settingsList.render(width);
-  }
-
-  // -- Focusable -------------------------------------------------------------
-
-  get focused(): boolean {
-    return this.isFocused;
-  }
-
-  set focused(value: boolean) {
-    // `SettingsList` has no `focused` flag — the flag is ours alone
-    this.isFocused = value;
-  }
-
-  // -- internal --------------------------------------------------------------
-
-  private buildSettingsList(): SettingsList {
+  protected buildSettingsList(): SettingsList {
     const serverItems: SettingItem[] = this.options.servers.map(
       (server, i) => ({
         id: `server-${i}`,
         label: server.url,
         description: HINTS.overrideServerRow,
-        currentValue: OverrideSettingsList.entriesLabel(server),
+        currentValue: OverridesTUIList.entriesLabel(server),
         submenu: (_cv, done) =>
           new OverrideEntryListEditor(this.options, i, () => {
-            // Entry count may have changed (add/delete/pattern rename)
             const current = this.options.servers[i];
-            this.settingsList?.updateValue(
+            this.list?.updateValue(
               `server-${i}`,
-              OverrideSettingsList.entriesLabel(current),
+              OverridesTUIList.entriesLabel(current),
             );
             done();
           }),
@@ -119,7 +86,7 @@ export class OverrideSettingsList implements Component, Focusable {
       serverItems,
       Math.min(serverItems.length + 2, 15),
       getSettingsListTheme(),
-      () => {}, // no per-item change handler
+      () => {},
       () => this.options.done(),
     );
   }
