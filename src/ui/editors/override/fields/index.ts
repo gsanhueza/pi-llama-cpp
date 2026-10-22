@@ -39,8 +39,8 @@ export class OverrideFields {
     ),
     new CapabilitiesField(),
     new ReasoningField(),
-    new IntField("contextSize", FIELDS.contextSize),
-    new IntField("maxTokens", FIELDS.maxTokens),
+    new IntField(null, "contextSize", FIELDS.contextSize),
+    new IntField(null, "maxTokens", FIELDS.maxTokens),
   ];
 
   static byId(id: string): OverrideField {

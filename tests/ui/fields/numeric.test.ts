@@ -32,7 +32,7 @@ describe("parseNonNegative", () => {
 
 describe("IntField", () => {
   describe("contextSize", () => {
-    const field = new IntField("contextSize", FIELDS.contextSize);
+    const field = new IntField(null, "contextSize", FIELDS.contextSize);
 
     it("defaults to 0 when contextSize is undefined", () => {
       const entry = new OverrideEntry("gpt-*", {});
@@ -85,7 +85,7 @@ describe("IntField", () => {
   });
 
   describe("maxTokens", () => {
-    const field = new IntField("maxTokens", FIELDS.maxTokens);
+    const field = new IntField(null, "maxTokens", FIELDS.maxTokens);
 
     it("defaults to 0 when maxTokens is undefined", () => {
       const entry = new OverrideEntry("gpt-*", {});

@@ -6,6 +6,9 @@ import { OverrideEntry } from "../override/entry";
 /**
  * Generic integer input field for any `ModelOverride` property.
  *
+ * When `target` is null, writes to the top-level override object.
+ * When set, writes to `override[target][property]`.
+ *
  * Subclasses provide their own `validate` and may override `apply`
  * to customize rounding or zero handling.
  */
@@ -14,6 +17,7 @@ export class IntField extends InputField {
   override readonly field: Field;
 
   constructor(
+    readonly target: string | null,
     readonly property: string,
     field: Field,
   ) {
@@ -23,28 +27,67 @@ export class IntField extends InputField {
   }
 
   displayValue(entry: OverrideEntry): string {
-    const val = (entry.override as Record<string, number>)[this.property];
+    const obj = this.target
+      ? entry.override[this.target as keyof ModelOverride]
+      : entry.override;
+    const val = obj?.[this.property as never as keyof {}];
     return String(val ?? 0);
   }
 
-  /** Applies the committed value as a floored integer. */
+  /** Applies the committed value. */
   override apply(override: ModelOverride, value: string): void {
-    const n = Math.floor(Number(value));
-    if (isFinite(n)) (override as Record<string, number>)[this.property] = n;
-    else delete (override as Record<string, number>)[this.property];
+    const n = Number(value);
+    if (isFinite(n)) {
+      const target = this.target
+        ? (override[this.target as keyof ModelOverride] as
+            | Record<string, number>
+            | undefined)
+        : (override as Record<string, number>);
+      if (target) {
+        target[this.property] = n;
+      } else {
+        override[this.target as keyof ModelOverride] = {
+          [this.property]: n,
+        } as never;
+      }
+    } else {
+      const target = this.target
+        ? (override[this.target as keyof ModelOverride] as
+            | Record<string, number>
+            | undefined)
+        : (override as Record<string, number>);
+      if (target) {
+        delete target[this.property];
+      } else {
+        delete (override as Record<string, number>)[this.property];
+      }
+    }
   }
 
   /** Removes the field's key. */
   override remove(override: ModelOverride): boolean {
-    const rec = override as Record<string, number>;
-    const had = rec[this.property] !== undefined;
-    delete rec[this.property];
+    const target = this.target
+      ? (override[this.target as keyof ModelOverride] as
+          | Record<string, number>
+          | undefined)
+      : (override as Record<string, number>);
+    const had = target?.[this.property] !== undefined;
+    if (target) {
+      delete target[this.property];
+    } else {
+      delete (override as Record<string, number>)[this.property];
+    }
     return had;
   }
 
   /** Appears in the summary only when set. */
   override summaryPart(override: ModelOverride): string | null {
-    const value = (override as Record<string, number>)[this.property];
+    const obj = this.target
+      ? (override[this.target as keyof ModelOverride] as
+          | Record<string, number>
+          | undefined)
+      : (override as Record<string, number>);
+    const value = obj?.[this.property as never as keyof {}];
     return value === undefined ? null : `${this.property}: ${value}`;
   }
 }

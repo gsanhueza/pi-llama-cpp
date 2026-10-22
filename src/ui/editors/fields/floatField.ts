@@ -37,7 +37,8 @@ export class FloatField extends InputField {
     const n = Number(value);
     if (isFinite(n)) {
       const target = override[this.target as keyof ModelOverride] as
-        Record<string, number> | undefined;
+        | Record<string, number>
+        | undefined;
       if (target) {
         target[this.property] = n;
       } else {
@@ -47,7 +48,8 @@ export class FloatField extends InputField {
       }
     } else {
       const target = override[this.target as keyof ModelOverride] as
-        Record<string, number> | undefined;
+        | Record<string, number>
+        | undefined;
       if (target) {
         delete target[this.property];
         if (Object.keys(target).length === 0)
@@ -59,7 +61,8 @@ export class FloatField extends InputField {
   /** Removes the field's key. */
   override remove(override: ModelOverride): boolean {
     const target = override[this.target as keyof ModelOverride] as
-      Record<string, number> | undefined;
+      | Record<string, number>
+      | undefined;
     const had = target?.[this.property] !== undefined;
     if (target) {
       delete target[this.property];
@@ -72,7 +75,8 @@ export class FloatField extends InputField {
   /** Appears in the summary only when set. */
   override summaryPart(override: ModelOverride): string | null {
     const target = override[this.target as keyof ModelOverride] as
-      Record<string, number> | undefined;
+      | Record<string, number>
+      | undefined;
     const value = target?.[this.property as never as keyof {}];
     return value === undefined ? null : `${this.property}: ${value}`;
   }
