@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { SettingsTUIList } from "../../ui/lists/settingsTUIList";
+import { SettingsView } from "../../ui/views/settingsView";
 import type { SettingsService } from "../../settings/settings";
 import { BaseMenu } from "./base";
 
@@ -19,6 +19,6 @@ export class SettingsMenu extends BaseMenu {
   async show(ctx: ExtensionCommandContext): Promise<void> {
     if (!this.checkTUIMode(ctx)) return;
 
-    await SettingsTUIList.show(ctx.ui, this.settings);
+    await SettingsView.show(ctx.ui, this.settings);
   }
 }

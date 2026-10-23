@@ -10,8 +10,8 @@ import { ServerManager } from "../../src/managers/server";
 import type { SettingsService } from "../../src/settings/settings";
 import { SETTINGS_ITEMS } from "../../src/settings/defaults";
 import { formatMs } from "../../src/settings/options";
-import { ServersTUIList } from "../../src/ui/lists/serversTUIList";
-import { OverridesTUIList } from "../../src/ui/lists/overridesTUIList";
+import { ServersView } from "../../src/ui/views/serversView";
+import { OverridesView } from "../../src/ui/views/overridesView";
 import { ServerDisplay } from "../../src/ui/editors/server/utils";
 import {
   createMockCtx,
@@ -396,7 +396,7 @@ describe("CommandManager", () => {
         theme: Theme,
         kb: KeybindingsManager,
         done: (result: undefined) => void,
-      ) => ServersTUIList;
+      ) => ServersView;
       const done = vi.fn();
       const editor = factory(
         createMockTui(),
@@ -411,7 +411,7 @@ describe("CommandManager", () => {
         done,
       );
 
-      expect(editor).toBeInstanceOf(ServersTUIList);
+      expect(editor).toBeInstanceOf(ServersView);
       // Wait for async health checks to complete
       await editor.ready;
       // Seeded with the merged snapshot
@@ -462,7 +462,7 @@ describe("CommandManager", () => {
         theme: Theme,
         kb: KeybindingsManager,
         done: (result: undefined) => void,
-      ) => ServersTUIList;
+      ) => ServersView;
       const editor = factory(
         createMockTui(),
         createMockTheme(),
@@ -509,7 +509,7 @@ describe("CommandManager", () => {
         theme: Theme,
         kb: KeybindingsManager,
         done: (result: undefined) => void,
-      ) => ServersTUIList;
+      ) => ServersView;
       const editor = factory(
         createMockTui(),
         createMockTheme(),
@@ -614,7 +614,7 @@ describe("CommandManager", () => {
         theme: Theme,
         kb: KeybindingsManager,
         done: (result: undefined) => void,
-      ) => OverridesTUIList;
+      ) => OverridesView;
       const done = vi.fn();
       const editor = factory(
         createMockTui(),

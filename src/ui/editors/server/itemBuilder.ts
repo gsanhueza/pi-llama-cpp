@@ -1,8 +1,9 @@
+import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { SettingItem } from "@earendil-works/pi-tui";
+import { SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../../interfaces/settings";
 import { FieldMessages, HINTS, TITLES } from "../../strings";
 import { ItemBuilder } from "../itemBuilder";
-import { SettingsListFactory } from "../settingsListFactory";
 import { ServerFields, type ServerField } from "./fields";
 import { ServerDisplay } from "./utils";
 
@@ -36,13 +37,14 @@ export class ServerItemBuilder extends ItemBuilder<LlamaServer, ServerField> {
   /**
    * Builds the `SettingItem` for one server row in the top-level list.
    * Enter drills into the server's field-edit submenu.
+   * @returns The built `SettingItem`.
    */
   buildRow(
     server: LlamaServer,
     index: number,
     onChange: (field: string, value: string) => void,
     healthEmoji: string,
-    onSubmenuChange: (open: boolean) => void,
+    onSubmenuChange: () => void,
   ): SettingItem {
     return {
       id: `server-${index}`,
@@ -51,15 +53,30 @@ export class ServerItemBuilder extends ItemBuilder<LlamaServer, ServerField> {
       currentValue: ServerDisplay.suffix(server),
       submenu: (_cv, done) => {
         // Rebuild the field items on open so they prefill with current values
-        const items = this.buildFieldItems(server);
-        onSubmenuChange(true);
-        return SettingsListFactory.create(
+        const items = this.buildFieldItems(server).map((item) => {
+          const originalSubmenu = item.submenu;
+          if (!originalSubmenu) return item;
+          return {
+            ...item,
+            submenu: (cv: string, done: (selectedValue?: string) => void) => {
+              const component = originalSubmenu(cv, (value) => {
+                if (value !== undefined) onChange(item.id, value);
+                done(value);
+              });
+              return component;
+            },
+          };
+        });
+        onSubmenuChange();
+        return new SettingsList(
           items,
+          Math.min(items.length + 2, 15),
+          getSettingsListTheme(),
+          () => {},
           () => {
-            onSubmenuChange(false);
+            onSubmenuChange();
             done();
           },
-          onChange,
         );
       },
     };

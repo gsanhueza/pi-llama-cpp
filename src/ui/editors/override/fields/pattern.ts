@@ -5,7 +5,7 @@ import { StringField } from "../../fields/stringField";
 
 /**
  * The entry's pattern key. Renames are handled by the editor
- * (`OverrideEntryListEditor.applyFieldChange`), so {@link apply}
+ * (`OverrideEntryView.applyFieldChange`), so {@link apply}
  * inherits the base no-op.
  */
 export class PatternField extends StringField {

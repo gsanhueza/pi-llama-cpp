@@ -1,20 +1,21 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import { SettingsList, type SettingItem } from "@earendil-works/pi-tui";
+import type { SettingItem } from "@earendil-works/pi-tui";
+import { SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaServer } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 import { HINTS } from "../strings";
-import type { OverridesTUIListOptions } from "./listOptions";
-import { OverrideEntryListEditor } from "../editors/override/entryEditor";
-import { BaseTUIList } from "./baseList";
+import type { OverridesViewOptions } from "./listOptions";
+import { OverrideEntryView } from "../editors/override/entryView";
+import { View } from "./view";
 
 /**
  * Top-level overrides editor: one row per server, Enter drills into
  * override entries.
  *
- * Unlike `ServersTUIList`, this has no add/delete — just drill-down.
+ * Unlike `ServersView`, this has no add/delete — just drill-down.
  * There is deliberately no `r` reset here either: reset lives inside an
- * entry's field submenu (`OverrideEntryListEditor`).
+ * entry's field submenu (`OverrideEntryView`).
  *
  * Within a server's entry list: Enter drills into the field-edit submenu;
  * a adds, d deletes (after confirmation). Fields use a mix of finite
@@ -27,11 +28,7 @@ import { BaseTUIList } from "./baseList";
  *
  * Servers themselves are not managed here — use `/models servers`.
  */
-export class OverridesTUIList extends BaseTUIList<OverridesTUIListOptions> {
-  constructor(options: OverridesTUIListOptions) {
-    super(options);
-  }
-
+export class OverridesView extends View {
   /**
    * Opens the editor in a modal `ui.custom` dialog seeded with the
    * current `llamaSettings.servers` and resolves when the user closes
@@ -45,12 +42,12 @@ export class OverridesTUIList extends BaseTUIList<OverridesTUIListOptions> {
 
     await ui.custom<void>(
       (tui, theme, keybindings, done) =>
-        new OverridesTUIList({
+        new OverridesView({
           tui,
           theme,
           keybindings,
           servers,
-          persist: (next) => settings.setLlamaSettings({ servers: next }),
+          settings,
           done: () => done(undefined),
           onError: (message) => ui.notify(message, "error"),
           onChanged: () => {},
@@ -58,24 +55,24 @@ export class OverridesTUIList extends BaseTUIList<OverridesTUIListOptions> {
     );
   }
 
-  protected override async initialize(): Promise<void> {
-    this.list = this.buildSettingsList();
-    this.options.tui.requestRender();
+  constructor(private readonly options: OverridesViewOptions) {
+    super();
+    this.list = this.buildList();
   }
 
-  protected buildSettingsList(): SettingsList {
+  private buildList(): SettingsList {
     const serverItems: SettingItem[] = this.options.servers.map(
       (server, i) => ({
         id: `server-${i}`,
         label: server.url,
         description: HINTS.overrideServerRow,
-        currentValue: OverridesTUIList.entriesLabel(server),
+        currentValue: OverridesView.entriesLabel(server),
         submenu: (_cv, done) =>
-          new OverrideEntryListEditor(this.options, i, () => {
+          new OverrideEntryView(this.options, i, () => {
             const current = this.options.servers[i];
             this.list?.updateValue(
               `server-${i}`,
-              OverridesTUIList.entriesLabel(current),
+              OverridesView.entriesLabel(current),
             );
             done();
           }),

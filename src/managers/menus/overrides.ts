@@ -2,7 +2,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { OverridesTUIList } from "../../ui/lists/overridesTUIList";
+import { OverridesView } from "../../ui/views/overridesView";
 import type { ServerManager } from "../server";
 import type { SettingsService } from "../../settings/settings";
 import { BaseMenu } from "./base";
@@ -25,7 +25,7 @@ export class OverridesMenu extends BaseMenu {
 
   async show(ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
     if (!this.checkTUIMode(ctx)) return;
-    await OverridesTUIList.show(ctx.ui, this.settings);
+    await OverridesView.show(ctx.ui, this.settings);
 
     // Re-register providers so the updated overrides take effect.
     await this.serverManager.update(pi);

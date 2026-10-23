@@ -7,9 +7,9 @@ import type { LlamaServer } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 
 /**
- * Options for `SettingsTUIList` — scalar settings list without server CRUD.
+ * Options for `SettingsView` — scalar settings list without server CRUD.
  */
-export interface SettingsTUIListOptions {
+export interface SettingsViewOptions {
   tui: TUI;
   theme: Theme;
   keybindings: KeybindingsManager;
@@ -19,23 +19,23 @@ export interface SettingsTUIListOptions {
 }
 
 /**
- * Shared options for top-level TUI lists that operate on
+ * Shared options for top-level views that operate on
  * `LlamaServer[]`. Subtypes add editor-specific fields.
  */
-export interface BaseTUIListOptions {
+export interface BaseViewOptions {
   /** TUI instance, used to request re-renders after async persists */
   tui: TUI;
   /** Theme for dialogs (from the ctx.ui.custom factory) */
   theme: Theme;
   /** App keybindings manager (injected by ctx.ui.custom) */
   keybindings: KeybindingsManager;
+  /** Settings service for persistence operations */
+  settings: SettingsService;
   /**
    * Snapshot of the merged `llamaSettings.servers` to edit. Replaced
    * in place (`options.servers = next`) after every successful persist.
    */
   servers: LlamaServer[];
-  /** Persists a new server list; a rejection keeps the current list */
-  persist: (next: LlamaServer[]) => Promise<void>;
   /** Closes the editor (called on Esc in the server list) */
   done: () => void;
   /** Notifies about persistence errors */
@@ -43,9 +43,9 @@ export interface BaseTUIListOptions {
 }
 
 /**
- * Options for the ServersTUIList.
+ * Options for the ServersView.
  */
-export interface ServersTUIListOptions extends BaseTUIListOptions {
+export interface ServersViewOptions extends BaseViewOptions {
   /** Timeout (ms) for health checks. Defaults to 1000ms if not provided. */
   serverTimeout?: number;
   /** Resolves the API key for a server (used for auth probing). */
@@ -57,9 +57,9 @@ export interface ServersTUIListOptions extends BaseTUIListOptions {
 }
 
 /**
- * Options for the OverridesTUIList and its drill-down submenus.
+ * Options for the OverridesView and its drill-down submenus.
  */
-export interface OverridesTUIListOptions extends BaseTUIListOptions {
+export interface OverridesViewOptions extends BaseViewOptions {
   /** Called after a successful add/edit/delete */
   onChanged: () => void;
 }

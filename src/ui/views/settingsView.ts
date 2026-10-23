@@ -1,16 +1,24 @@
-import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import type { SettingsList } from "@earendil-works/pi-tui";
+import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionUIContext,
+  Theme,
+} from "@earendil-works/pi-coding-agent";
+import type {
+  KeybindingsManager,
+  SettingsList,
+  TUI,
+} from "@earendil-works/pi-tui";
 import type { LlamaSettings } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 import { SETTINGS_ITEMS } from "../../settings/defaults";
-import { SettingsListFactory } from "../editors/settingsListFactory";
-import { BaseTUIList } from "./baseList";
-import { SettingsTUIListOptions } from "./listOptions";
+import { ResettableSettingsList } from "../components/resettableSettingsList";
+import { View } from "./view";
 
 /**
- * Interactive settings menu for the scalar `llamaSettings` fields.
+ * Interactive settings menu for scalar `llamaSettings` fields.
  *
- * Enter/Space cycles the value under the cursor; Esc closes.
+ * Uses a `ResettableSettingsList` for `r` (reset), `a` (add), and `d` (delete)
+ * shortcuts. Enter/Space cycles values; Esc closes.
  *
  * Reads from `SettingsService` for the current config and writes
  * via `setLlamaSettings()`; write errors are notified and leave the
@@ -20,7 +28,9 @@ import { SettingsTUIListOptions } from "./listOptions";
  * (`pollingInterval`, `pollingTimeout`, `serverTimeout`) take effect
  * on the next model load.
  */
-export class SettingsTUIList extends BaseTUIList<SettingsTUIListOptions> {
+export class SettingsView extends View {
+  private currentConfig: LlamaSettings | null = null;
+
   /**
    * Opens the editor in a modal `ui.custom` dialog and resolves when the
    * user closes it (Esc).
@@ -30,7 +40,7 @@ export class SettingsTUIList extends BaseTUIList<SettingsTUIListOptions> {
     settings: SettingsService,
   ): Promise<void> {
     await ui.custom<void>((tui, theme, keybindings, done) => {
-      const list = new SettingsTUIList({
+      const list = new SettingsView({
         tui,
         theme,
         keybindings,
@@ -41,9 +51,22 @@ export class SettingsTUIList extends BaseTUIList<SettingsTUIListOptions> {
       return list;
     });
   }
-  private currentConfig: LlamaSettings | null = null;
 
-  protected override async initialize(): Promise<void> {
+  constructor(
+    private readonly options: {
+      tui: TUI;
+      theme: Theme;
+      keybindings: KeybindingsManager;
+      settings: SettingsService;
+      done: () => void;
+      onError: (message: string) => void;
+    },
+  ) {
+    super();
+    void this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
     this.currentConfig = await this.options.settings.getLlamaSettings();
     if (!this.currentConfig) return;
 
@@ -92,10 +115,12 @@ export class SettingsTUIList extends BaseTUIList<SettingsTUIListOptions> {
       }
     };
 
-    return SettingsListFactory.createResettable(
+    return new ResettableSettingsList(
       items,
-      () => this.options.done(),
+      Math.min(items.length + 2, 15),
+      getSettingsListTheme(),
       onChangeFn,
+      () => this.options.done(),
       onResetFn,
       this.options.tui,
     );
