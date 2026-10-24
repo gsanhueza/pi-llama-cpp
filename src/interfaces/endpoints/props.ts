@@ -68,7 +68,7 @@ export interface PropsModelEndpoint {
   cors_proxy_enabled: boolean;
 }
 
-export interface PropsError {
+interface PropsError {
   code: number;
   message: string;
   type: string;

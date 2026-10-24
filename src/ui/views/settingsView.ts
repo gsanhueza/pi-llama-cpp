@@ -1,17 +1,11 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
-import type {
-  ExtensionUIContext,
-  Theme,
-} from "@earendil-works/pi-coding-agent";
-import type {
-  KeybindingsManager,
-  SettingsList,
-  TUI,
-} from "@earendil-works/pi-tui";
+import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import type { SettingsList } from "@earendil-works/pi-tui";
 import type { LlamaSettings } from "../../interfaces/settings";
 import type { SettingsService } from "../../settings/settings";
 import { SETTINGS_ITEMS } from "../../settings/defaults";
 import { ResettableSettingsList } from "../components/resettableSettingsList";
+import type { SettingsViewOptions } from "./listOptions";
 import { View } from "./view";
 
 /**
@@ -52,16 +46,7 @@ export class SettingsView extends View {
     });
   }
 
-  constructor(
-    private readonly options: {
-      tui: TUI;
-      theme: Theme;
-      keybindings: KeybindingsManager;
-      settings: SettingsService;
-      done: () => void;
-      onError: (message: string) => void;
-    },
-  ) {
+  constructor(private readonly options: SettingsViewOptions) {
     super();
     void this.initialize();
   }
