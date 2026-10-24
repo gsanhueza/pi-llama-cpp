@@ -1,7 +1,4 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
-
 import { LLAMA_SERVER_URL } from "../constants";
-import { join } from "node:path";
 
 /**
  * Shared user-facing wording for the UI editors. Centralizing these keeps
@@ -105,7 +102,7 @@ export const FIELDS = {
   },
   samplingParamsTopK: {
     label: "Top-k",
-    description: "Top-k sampling (integer)",
+    description: "Top-k sampling",
     placeholder: "—",
   },
   samplingParamsTopP: {
@@ -176,58 +173,3 @@ export const HINTS = {
   /** Row description for a server in the overrides editor */
   overrideServerRow: "Enter: edit this server's override entries",
 } as const;
-
-/**
- * Wraps one or more lines in the standard warning header.
- */
-export const warnUser = (...lines: string[]): string =>
-  ["[pi-llama-cpp]", ...lines].join("\n");
-
-/**
- * Generates a warning message for servers that require an API key.
- * Centralized so both the runtime manager and the editor wizard use
- * identical wording.
- */
-export const authRequiredMessage = (
-  baseUrl: string,
-  providerId: string,
-): string =>
-  warnUser(
-    `Server at '${baseUrl}' requires a valid API key.`,
-    `Configure the key via '/login ${providerId}' or in '${join(getAgentDir(), "auth.json")}'.`,
-  );
-
-/**
- * Generates a warning message for a server that timed out during initialization.
- */
-export const timeoutMessage = (baseUrl: string, timeout: number): string =>
-  warnUser(
-    `Server initialization for '${baseUrl}' took more than ${timeout} ms, so it has been skipped.`,
-    `Run '/models' to retry without timeout and see all models.`,
-  );
-
-/**
- * Generates a warning message for a server that is unreachable.
- */
-export const unreachableMessage = (baseUrl: string): string =>
-  warnUser(
-    `Server at '${baseUrl}' is unreachable.`,
-    `Check the URL and try again. Run '/models' to retry.`,
-  );
-
-/**
- * Generates a warning message when a session changes during a model load.
- */
-export const sessionSwitchWarning = (modelName: string): string =>
-  warnUser(
-    `Session change detected while model '${modelName}' was still loading.`,
-    "Model load will continue in the background, but UI might not update.",
-    "",
-    "Verify that your new model is loaded, or use /models to re-select it afterwards.",
-  );
-
-/**
- * Generates a warning message when a duplicate url is found at initialization.
- */
-export const duplicateUrlWarning = (url: string): string =>
-  warnUser(`Duplicate server URL '${url}' — skipping`);

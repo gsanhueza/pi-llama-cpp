@@ -2,7 +2,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { PROVIDER_NAME } from "../../constants";
+import { unloadingAllModels, unloadedAllModels } from "../../ui/notifyMessages";
 import type { EventManager } from "../events";
 import type { ServerManager } from "../server";
 import { BaseMenu } from "./base";
@@ -26,12 +26,12 @@ export class UnloadMenu extends BaseMenu {
     // Ensure we have the correct models first
     await this.serverManager.update(pi);
 
-    ctx.ui.notify(`Unloading ${PROVIDER_NAME} models...`, "info");
+    ctx.ui.notify(unloadingAllModels(), "info");
     const models = await this.serverManager.getAllModels();
 
     // Fire-and-forget: don't await so the TUI stays responsive.
     Promise.allSettled(models.map((model) => model.unload())).then(() => {
-      ctx.ui.notify(`Unloaded all ${PROVIDER_NAME} models`, "info");
+      ctx.ui.notify(unloadedAllModels(), "info");
       this.serverManager.update(pi);
     });
   }

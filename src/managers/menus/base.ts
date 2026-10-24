@@ -1,4 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { tuiRequired } from "../../ui/notifyMessages";
 
 /**
  * Base class for /models subcommand menus.
@@ -19,10 +20,7 @@ export abstract class BaseMenu {
    */
   protected checkTUIMode(ctx: ExtensionCommandContext): boolean {
     if (ctx.mode !== "tui") {
-      ctx.ui.notify(
-        `/models ${this.label} requires an interactive session (TUI)`,
-        "warning",
-      );
+      ctx.ui.notify(tuiRequired(this.label), "warning");
       return false;
     }
     return true;

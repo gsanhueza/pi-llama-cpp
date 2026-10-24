@@ -3,6 +3,7 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME } from "../../constants";
+import { providerUnreachable, modelReady } from "../../ui/notifyMessages";
 import { Action } from "../../enums/action";
 import { Mode } from "../../enums/mode";
 import { Status } from "../../enums/status";
@@ -39,7 +40,7 @@ export class ModelsMenu {
 
     // Show alerts
     for (const url of this.serverManager.getFailedUrls())
-      ctx.ui.notify(`${PROVIDER_NAME} unreachable at ${url}`, "error");
+      ctx.ui.notify(providerUnreachable(url), "error");
 
     for (const warning of this.serverManager.getWarnings())
       ctx.ui.notify(warning, "warning");
@@ -77,7 +78,7 @@ export class ModelsMenu {
         throw new Error(`Cannot find model ${model.name} in pi registry`);
 
       await pi.setModel(piModel);
-      ctx.ui.notify(`Model ${model.name} ready`, "info");
+      ctx.ui.notify(modelReady(model.name), "info");
       return;
     }
 

@@ -18,7 +18,7 @@ import {
   duplicateUrlWarning,
   timeoutMessage,
   unreachableMessage,
-} from "../ui/strings";
+} from "../ui/notifyMessages";
 import { createLoginPrompt, resolveApiKey } from "../utils/authBuilder";
 import { ServerFactory } from "../servers/serverFactory";
 import type { SettingsService } from "../settings/settings";

@@ -4,8 +4,16 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME, READABLE_TIMEOUT } from "../constants";
-import { sessionSwitchWarning } from "../ui/strings";
-import { errorMessage } from "../utils/errors";
+import {
+  sessionSwitchWarning,
+  errorMessage,
+  unloadingModel,
+  unloadedModel,
+  loadingModel,
+  loadingModelProgress,
+  modelReady,
+} from "../ui/notifyMessages";
+
 import { Status } from "../enums/status";
 import { ModelSelectEvent } from "../interfaces/events";
 import type { SettingsService } from "../settings/settings";
@@ -87,11 +95,11 @@ export class EventManager {
     ctx: ExtensionContext,
     pi: ExtensionAPI,
   ): Promise<void> {
-    ctx.ui.notify(`Unloading ${model.name}...`, "info");
+    ctx.ui.notify(unloadingModel(model.name), "info");
 
     try {
       await model.unload();
-      ctx.ui.notify(`Unloaded ${model.name}`, "info");
+      ctx.ui.notify(unloadedModel(model.name), "info");
     } catch (err) {
       ctx.ui.notify(errorMessage(err), "error");
     } finally {
@@ -178,7 +186,7 @@ export class EventManager {
     ctx: ExtensionContext,
     pi: ExtensionAPI,
   ): Promise<void> {
-    ctx.ui.notify(`Loading ${model.name}...`, "info");
+    ctx.ui.notify(loadingModel(model.name), "info");
     this.tracker.inflightModel = model;
 
     // Subscribe to SSE progress when available
@@ -188,9 +196,8 @@ export class EventManager {
       cleanupProgress = server.sseManager.subscribeToProgress(
         model.id,
         (percentage, stage) => {
-          const stageText = stage ? ` (${stage})` : "";
           ctx.ui.notify(
-            `Loading ${model.name}... [${percentage}%${stageText}]`,
+            loadingModelProgress(model.name, percentage, stage),
             "info",
           );
         },
@@ -201,7 +208,7 @@ export class EventManager {
     const loadPromise = (async () => {
       await model.load();
 
-      ctx.ui.notify(`Model ${model.name} ready`, "info");
+      ctx.ui.notify(modelReady(model.name), "info");
 
       // Switch the loaded model in Pi's registry
       const { serverId } = model;

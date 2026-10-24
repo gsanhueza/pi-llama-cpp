@@ -317,7 +317,7 @@ describe("CommandManager", () => {
 
       expect(ctx.ui.custom).not.toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith(
-        "/models settings requires an interactive session (TUI)",
+        "[pi-llama-cpp]\n/models settings requires an interactive session (TUI)",
         "warning",
       );
     });
@@ -368,7 +368,7 @@ describe("CommandManager", () => {
 
       expect(ctx.ui.custom).not.toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith(
-        "/models servers requires an interactive session (TUI)",
+        "[pi-llama-cpp]\n/models servers requires an interactive session (TUI)",
         "warning",
       );
     });
@@ -582,7 +582,7 @@ describe("CommandManager", () => {
 
       expect(ctx.ui.custom).not.toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith(
-        "/models overrides requires an interactive session (TUI)",
+        "[pi-llama-cpp]\n/models overrides requires an interactive session (TUI)",
         "warning",
       );
     });

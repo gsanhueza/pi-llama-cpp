@@ -4,7 +4,7 @@ import { ApiClient } from "../../api/client";
 import { Server } from "../../servers/server";
 import { ServerStatus } from "../../enums/serverStatus";
 import { ServerIds } from "../../utils/serverIds";
-import { authRequiredMessage } from "../strings";
+import { authRequiredMessage } from "../notifyMessages";
 import { DialogFactory } from "../dialog/factory";
 
 import type { ServersViewOptions } from "../views/listOptions";
