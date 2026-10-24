@@ -1,6 +1,7 @@
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import { LLAMA_SERVER_URL } from "../constants";
+import { join } from "node:path";
 
 /**
  * Shared user-facing wording for the UI editors. Centralizing these keeps
@@ -193,7 +194,7 @@ export const authRequiredMessage = (
 ): string =>
   warnUser(
     `Server at '${baseUrl}' requires a valid API key.`,
-    `Configure the key via '/login ${providerId}' or in '${getAgentDir()}/auth.json'.`,
+    `Configure the key via '/login ${providerId}' or in '${join(getAgentDir(), "auth.json")}'.`,
   );
 
 /**
