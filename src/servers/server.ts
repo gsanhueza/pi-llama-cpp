@@ -4,7 +4,6 @@ import {
   ENDPOINT_PREFIX,
   PROVIDER_NAME,
 } from "../constants";
-import { resolveApiKey } from "../utils/authBuilder";
 import { Mode } from "../enums/mode";
 import { ServerStatus } from "../enums/serverStatus";
 import { Status } from "../enums/status";
@@ -19,8 +18,6 @@ import type {
   ServerSettingsResolver,
 } from "../interfaces/server";
 import type { ModelOverride } from "../interfaces/settings";
-import type { ProviderAuth } from "@earendil-works/pi-ai";
-import { createLoginPrompt } from "../utils/authBuilder";
 import { Model } from "../models/model";
 import { SSEManager } from "../sse/manager";
 import { detectMode } from "../utils/detectMode";
@@ -388,25 +385,5 @@ export abstract class Server {
       err instanceof Error &&
       (err.name === "TimeoutError" || err.name === "AbortError")
     );
-  }
-
-  /**
-   * Builds the auth object the Provider needs.
-   */
-  toProviderAuth(): ProviderAuth {
-    return {
-      apiKey: {
-        name: `${PROVIDER_NAME} API key`,
-        login: createLoginPrompt(),
-        check: async (_input) => {
-          const timeout = await this.resolver.resolveServerTimeout();
-          const status = await Server.check(this.apiClient, timeout);
-          if (status === ServerStatus.READY)
-            return { type: "api_key", source: "server reachable" };
-        },
-        resolve: async (input) =>
-          resolveApiKey({ ...input, settingsKey: this.apiKey }),
-      },
-    };
   }
 }

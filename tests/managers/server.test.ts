@@ -58,16 +58,24 @@ describe("ServerManager", () => {
 
     expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "llama-server=http://127.0.0.1:9931",
+      "llama-server=http://127.0.0.1:9931",
+      {
+        name: "Llama.cpp (http://127.0.0.1:9931)",
         baseUrl: "http://127.0.0.1:9931/v1",
-      }),
+        api: "openai-completions",
+        apiKey: "key-1",
+        models: [{ id: "test-model" }],
+      },
     );
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "llama-server=http://127.0.0.1:8081",
+      "llama-server=http://127.0.0.1:8081",
+      {
+        name: "Llama.cpp (http://127.0.0.1:8081)",
         baseUrl: "http://127.0.0.1:8081/v1",
-      }),
+        api: "openai-completions",
+        apiKey: "key-2",
+        models: [{ id: "test-model" }],
+      },
     );
   });
 
@@ -121,10 +129,8 @@ describe("ServerManager", () => {
       await manager.update(mockPi);
 
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:8081",
-          baseUrl: "http://127.0.0.1:8081/v1",
-        }),
+        "llama-server=http://127.0.0.1:8081",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081/v1" }),
       );
       expect(manager.servers).toHaveLength(2);
       const models = await manager.getAllModels();
@@ -205,10 +211,8 @@ describe("ServerManager", () => {
         "llama-server=http://127.0.0.1:9931",
       );
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:9090",
-          baseUrl: "http://127.0.0.1:9090/v1",
-        }),
+        "llama-server=http://127.0.0.1:9090",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:9090/v1" }),
       );
       expect(manager.servers[0]?.providerId).toBe(
         "llama-server=http://127.0.0.1:9090",
@@ -238,10 +242,8 @@ describe("ServerManager", () => {
 
       expect(mockPi.unregisterProvider).not.toHaveBeenCalled();
       expect(vi.mocked(mockPi.registerProvider).mock.calls.at(-1)).toEqual([
-        expect.objectContaining({
-          id: "my-custom-id",
-          name: "Llama.cpp (B)",
-        }),
+        "my-custom-id",
+        expect.objectContaining({ name: "Llama.cpp (B)" }),
       ]);
       expect(manager.servers[0]?.providerId).toBe("my-custom-id");
     });
@@ -320,10 +322,8 @@ describe("ServerManager", () => {
 
       expect(mockPi.registerProvider).toHaveBeenCalledTimes(1);
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:8081",
-          baseUrl: "http://127.0.0.1:8081/v1",
-        }),
+        "llama-server=http://127.0.0.1:8081",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081/v1" }),
       );
       expect(manager.getFailedUrls()).toContain("http://127.0.0.1:9931");
       expect(manager.getWarnings()).toHaveLength(1);
@@ -335,10 +335,8 @@ describe("ServerManager", () => {
 
       expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:9931",
-          baseUrl: "http://127.0.0.1:9931/v1",
-        }),
+        "llama-server=http://127.0.0.1:9931",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:9931/v1" }),
       );
     });
 
@@ -373,10 +371,8 @@ describe("ServerManager", () => {
 
       expect(mockPi.registerProvider).toHaveBeenCalledTimes(1);
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:8081",
-          baseUrl: "http://127.0.0.1:8081/v1",
-        }),
+        "llama-server=http://127.0.0.1:8081",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:8081/v1" }),
       );
       expect(manager.getFailedUrls()).toContain("http://127.0.0.1:9931");
       expect(manager.getWarnings()).toHaveLength(1);
@@ -388,10 +384,8 @@ describe("ServerManager", () => {
 
       expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:9931",
-          baseUrl: "http://127.0.0.1:9931/v1",
-        }),
+        "llama-server=http://127.0.0.1:9931",
+        expect.objectContaining({ baseUrl: "http://127.0.0.1:9931/v1" }),
       );
     });
   });
@@ -462,16 +456,13 @@ describe("ServerManager", () => {
 
       expect(manager.getFailedUrls()).not.toContain("http://127.0.0.1:9931");
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
+        "llama-server=http://127.0.0.1:9931",
         expect.objectContaining({
-          id: "llama-server=http://127.0.0.1:9931",
+          name: "Llama.cpp (http://127.0.0.1:9931)",
           baseUrl: "http://127.0.0.1:9931/v1",
+          models: [],
         }),
       );
-      expect(
-        (
-          vi.mocked(mockPi.registerProvider).mock.calls.at(-1)?.[0] as any
-        ).getModels(),
-      ).toEqual([]);
       const warnings = manager.getWarnings();
       expect(warnings).toHaveLength(1);
       expect(warnings[0]).toContain("http://127.0.0.1:9931");
@@ -494,17 +485,13 @@ describe("ServerManager", () => {
       await manager.update(mockPi);
 
       expect(mockPi.registerProvider).toHaveBeenCalledWith(
+        "my-server",
         expect.objectContaining({
-          id: "my-server",
           name: "Llama.cpp (Test)",
           baseUrl: "http://127.0.0.1:9931/v1",
+          models: [],
         }),
       );
-      expect(
-        (
-          vi.mocked(mockPi.registerProvider).mock.calls.at(-1)?.[0] as any
-        ).getModels(),
-      ).toEqual([]);
     });
   });
 
