@@ -1,7 +1,7 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SettingItem, TUI } from "@earendil-works/pi-tui";
-import { SettingsList } from "@earendil-works/pi-tui";
+import { SettingsList, truncateToWidth } from "@earendil-works/pi-tui";
 import { ApiClient } from "../../api/client";
 import { ServerTimeoutSettingsItem } from "../../settings/items/serverTimeout";
 import type { SettingsService } from "../../settings/settings";
@@ -11,6 +11,7 @@ import type { ServersViewOptions } from "./listOptions";
 import { ServerItemBuilder } from "../editors/server/itemBuilder";
 import { ServerDisplay } from "../editors/server/utils";
 import { ServerWizard } from "../editors/server/wizard";
+import { HINTS } from "../strings";
 import { View } from "./view";
 import {
   ServersController,
@@ -187,6 +188,7 @@ export class ServersView extends View implements ServersViewHandle {
 
   /**
    * Delegates to the active dialog if open, otherwise renders the list.
+   * Shows the "(a) add server" hint when the list is empty.
    */
   override render(width: number): string[] {
     // Delegate to active dialog if one is open
@@ -194,7 +196,21 @@ export class ServersView extends View implements ServersViewHandle {
     if (dialog) {
       return dialog.render(width);
     }
-    return super.render(width);
+    const lines = super.render(width);
+    // Replace the generic hint when there are no servers
+    if (this.controller.options.servers.length === 0) {
+      const hint = truncateToWidth(
+        getSettingsListTheme().hint(HINTS.emptyServers),
+        width,
+      );
+      const last = lines[lines.length - 1];
+      if (last && last.includes("Esc to cancel")) {
+        lines[lines.length - 1] = hint;
+      } else {
+        lines.push(hint);
+      }
+    }
+    return lines;
   }
 
   /** Invalidates both the list and the active dialog. */
