@@ -1,4 +1,8 @@
-import type { Component } from "@earendil-works/pi-tui";
+import type {
+  Component,
+  TuiMouseEvent,
+  TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
 import type { SettingsList } from "@earendil-works/pi-tui";
 
 /**
@@ -16,6 +20,10 @@ export abstract class View implements Component {
 
   handleInput(data: string): void {
     this.list?.handleInput(data);
+  }
+
+  handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+    return this.list?.handleMouse(event);
   }
 
   invalidate(): void {
