@@ -71,10 +71,11 @@ describe("CommandManager", () => {
   describe("getArgumentCompletions", () => {
     it("should provide completions for /models", () => {
       const completions = commandManager.getArgumentCompletions("");
-      expect(completions).toHaveLength(5);
+      expect(completions).toHaveLength(6);
       expect(completions?.map((c) => c.value)).toEqual([
         "info",
         "unload",
+        "reload",
         "settings",
         "servers",
         "overrides",

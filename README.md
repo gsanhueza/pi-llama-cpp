@@ -315,6 +315,7 @@ For env ref formats, you can also store the variable value alongside the key usi
 | `/models`           | Browse your models with live status. Select a model to load, switch, or unload it.      |
 | `/models info`      | Show detailed information for all available models at once.                             |
 | `/models unload`    | Unload all loaded models at once.                                                       |
+| `/models reload`    | Reload all loaded and sleeping models (unload → load).                                  |
 | `/models settings`  | Open a menu to edit the scalar `llamaSettings` fields.                                  |
 | `/models servers`   | Add, edit or remove llama.cpp server URLs via a TUI editor.                             |
 | `/models overrides` | Edit per-server model overrides (`llamaSettings.servers[].overrides`) via a TUI editor. |

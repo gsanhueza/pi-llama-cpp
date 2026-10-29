@@ -152,3 +152,21 @@ export const unloadingAllModels = (): string =>
  */
 export const unloadedAllModels = (): string =>
   logInfo(`Unloaded all ${PROVIDER_NAME} models`);
+
+/**
+ * Generates an info message when all provider models start reloading.
+ */
+export const reloadingAllModels = (): string =>
+  logInfo(`Reloading currently-loaded ${PROVIDER_NAME} models...`);
+
+/**
+ * Generates an info message when all provider models have finished reloading.
+ */
+export const reloadedAllModels = (): string =>
+  logInfo(`Reloaded all previously-loaded ${PROVIDER_NAME} models`);
+
+/**
+ * Generates an info message when there are no loaded or sleeping models to reload.
+ */
+export const noModelsToReload = (): string =>
+  logInfo(`No loaded or sleeping models to reload`);

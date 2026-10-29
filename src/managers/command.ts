@@ -7,6 +7,7 @@ import { ModelsMenu } from "./menus/models";
 import { SettingsMenu } from "./menus/settings";
 import { InfoMenu } from "./menus/info";
 import { UnloadMenu } from "./menus/unload";
+import { ReloadMenu } from "./menus/reload";
 import { ServersMenu } from "./menus/servers";
 import { OverridesMenu } from "./menus/overrides";
 import { EventManager } from "./events";
@@ -30,6 +31,11 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
     description: "Unload all models",
   },
   {
+    value: "reload",
+    label: "reload",
+    description: "Reload all loaded/sleeping models",
+  },
+  {
     value: "settings",
     label: "settings",
     description: "Configure llamaSettings",
@@ -48,6 +54,7 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
 
 export class CommandManager {
   private readonly infoMenu: InfoMenu;
+  private readonly reloadMenu: ReloadMenu;
   private readonly unloadMenu: UnloadMenu;
   private readonly settingsMenu: SettingsMenu;
   private readonly serversMenu: ServersMenu;
@@ -61,6 +68,7 @@ export class CommandManager {
   ) {
     this.infoMenu = new InfoMenu(serverManager);
     this.unloadMenu = new UnloadMenu(serverManager, eventManager);
+    this.reloadMenu = new ReloadMenu(serverManager);
     this.settingsMenu = new SettingsMenu(settings);
     this.serversMenu = new ServersMenu(serverManager, settings);
     this.overridesMenu = new OverridesMenu(serverManager, settings);
@@ -97,6 +105,8 @@ export class CommandManager {
         return this.infoMenu.show(ctx, pi);
       case "unload":
         return this.unloadMenu.show(ctx, pi);
+      case "reload":
+        return this.reloadMenu.show(ctx, pi);
       case "settings":
         return this.settingsMenu.show(ctx);
       case "servers":
