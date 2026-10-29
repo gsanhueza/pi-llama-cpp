@@ -19,13 +19,13 @@ import { ModelSelectEvent } from "../interfaces/events";
 import type { SettingsService } from "../settings/settings";
 import { Model } from "../models/model";
 import { ServerManager } from "./server";
-import { InflightTracker, inflightTracker } from "./inflightTracker";
+import { InflightTracker } from "./inflightTracker";
 
 export class EventManager {
   constructor(
     private readonly serverManager: ServerManager,
     private readonly settings: SettingsService,
-    private readonly tracker: InflightTracker = inflightTracker,
+    private readonly inflightTracker: InflightTracker,
   ) {}
 
   /**
@@ -76,8 +76,11 @@ export class EventManager {
     }
 
     // If the model is already loading (e.g. from /models), wait for it.
-    if (status === Status.LOADING && this.tracker.inflightModel === model) {
-      await this.tracker.inflightPromise;
+    if (
+      status === Status.LOADING &&
+      this.inflightTracker.inflightModel === model
+    ) {
+      await this.inflightTracker.inflightPromise;
     }
   }
 
@@ -115,10 +118,10 @@ export class EventManager {
    * @param ctx Pi context
    */
   async onSessionBeforeSwitch(ctx: ExtensionContext) {
-    if (!this.tracker.inflightModel) return;
+    if (!this.inflightTracker.inflightModel) return;
 
     ctx.ui.notify(
-      sessionSwitchWarning(this.tracker.inflightModel.name),
+      sessionSwitchWarning(this.inflightTracker.inflightModel.name),
       "warning",
     );
 
@@ -215,7 +218,7 @@ export class EventManager {
     pi: ExtensionAPI,
   ): Promise<void> {
     ctx.ui.notify(loadingModel(model.name), "info");
-    this.tracker.inflightModel = model;
+    this.inflightTracker.inflightModel = model;
 
     // Subscribe to SSE progress when available
     const server = this.serverManager.getServer(model);
@@ -244,7 +247,7 @@ export class EventManager {
       if (piModel) await pi.setModel(piModel);
     })();
 
-    this.tracker.inflightPromise = loadPromise;
+    this.inflightTracker.inflightPromise = loadPromise;
 
     try {
       await loadPromise;
@@ -252,8 +255,8 @@ export class EventManager {
       ctx.ui.notify(errorMessage(err), "error");
     } finally {
       cleanupProgress();
-      this.tracker.reset();
-      this.tracker.inflightPromise = null;
+      this.inflightTracker.reset();
+      this.inflightTracker.inflightPromise = null;
 
       // Re-scan providers so the model registry reflects the new state
       await this.serverManager.update(pi);

@@ -60,7 +60,7 @@ export class ModelsMenu {
     // Action: Info
     if (action === Action.INFO) {
       const info = await model.getInfo();
-      ctx.ui.notify(`${info}`, "info");
+      ctx.ui.notify(info, "info");
       return;
     }
 

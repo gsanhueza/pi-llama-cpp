@@ -24,6 +24,3 @@ export class InflightTracker {
     this.inflightPromise = promise;
   }
 }
-
-/** Shared singleton */
-export const inflightTracker = new InflightTracker();

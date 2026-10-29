@@ -6,6 +6,7 @@ import { Action } from "../../src/enums/action";
 import { ServerStatus } from "../../src/enums/serverStatus";
 import { CommandManager } from "../../src/managers/command";
 import { EventManager } from "../../src/managers/events";
+import { InflightTracker } from "../../src/managers/inflightTracker";
 import { ServerManager } from "../../src/managers/server";
 import type { SettingsService } from "../../src/settings/settings";
 import { SETTINGS_ITEMS } from "../../src/settings/defaults";
@@ -47,7 +48,12 @@ afterEach(() => {
 const createMockEventManager = (
   serverManager: ServerManager,
   settingsStub: SettingsService,
-) => new EventManager(serverManager, settingsStub);
+) =>
+  new EventManager(
+    serverManager,
+    settingsStub,
+    new InflightTracker(),
+  );
 
 describe("CommandManager", () => {
   let serverManager: ServerManager;

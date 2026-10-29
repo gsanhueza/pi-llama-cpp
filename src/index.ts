@@ -10,14 +10,21 @@ import { PROVIDER_NAME } from "./constants";
 import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
+import { InflightTracker } from "./managers/inflightTracker";
 import { ServerFactory } from "./servers/serverFactory";
 import { SettingsService } from "./settings/settings";
 import { ServerManager } from "./managers/server";
 
 export default async function (pi: ExtensionAPI) {
+  const inflightTracker = new InflightTracker();
+
   const settings = SettingsService.create();
   const serverManager = new ServerManager(settings, new ServerFactory());
-  const eventManager = new EventManager(serverManager, settings);
+  const eventManager = new EventManager(
+    serverManager,
+    settings,
+    inflightTracker,
+  );
   const commandManager = new CommandManager(
     serverManager,
     settings,
