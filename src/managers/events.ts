@@ -170,6 +170,34 @@ export class EventManager {
   }
 
   /**
+   * Reloads a model: unloads it first, then loads with full feedback.
+   *
+   * Non-blocking internally (fire-and-forget). Callers may `await` the
+   * returned promise if they need to block until the load completes.
+   *
+   * @param model The model to reload
+   * @param ctx Pi context
+   * @param pi Pi extension API (for model switching and provider re-scan)
+   */
+  async reloadModel(
+    model: Model,
+    ctx: ExtensionContext,
+    pi: ExtensionAPI,
+  ): Promise<void> {
+    ctx.ui.notify(unloadingModel(model.name), "info");
+
+    try {
+      await model.unload();
+      ctx.ui.notify(unloadedModel(model.name), "info");
+    } catch (err) {
+      ctx.ui.notify(errorMessage(err), "error");
+      return;
+    }
+
+    await this.loadWithFeedback(model, ctx, pi);
+  }
+
+  /**
    * Loads a model with full feedback: loading notification, SSE progress
    * (when available), inflight tracking, ready/error notifications,
    * model switch, provider re-scan, and status bar refresh.

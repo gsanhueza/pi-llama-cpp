@@ -339,6 +339,7 @@ When browsing models via the `/models` command, you can:
 - **Load & switch** — Load an unloaded model and switch to it
 - **Switch model** — Switch to a model that is already loaded
 - **Unload** — Unload a loaded model to free memory
+- **Reload** — Reload a loaded or sleeping model (unload → load)
 - **Retry** — Retry loading a failed model
 - **Info** — View model details (ID, capabilities, context size)
 - **Cancel** — Cancel the current operation

@@ -28,6 +28,7 @@ beforeEach(() => {
   mockEventManager = {
     loadWithFeedback: vi.fn(),
     unloadModel: vi.fn(),
+    reloadModel: vi.fn(),
   } as unknown as EventManager;
   menu = new ModelsMenu(mockServerManager, mockSettings, mockEventManager);
 });
@@ -201,6 +202,51 @@ describe("ModelsMenu.show - Unload action", () => {
     expect(selectModelSpy).toHaveBeenCalled();
     expect(selectActionSpy).toHaveBeenCalled();
     expect(mockEventManager.unloadModel).toHaveBeenCalledWith(
+      mockModel,
+      expect.any(Object),
+      mockPi,
+    );
+  });
+});
+
+describe("ModelsMenu.show - Reload action", () => {
+  it("should call reloadModel for RELOAD action", async () => {
+    const mockModel = {
+      name: "test-model",
+      id: "test-model-id",
+      serverId: "test-provider",
+      serverUrl: "http://127.0.0.1:9931",
+      server: { mode: Mode.ROUTER },
+      getStatus: vi.fn().mockResolvedValue(Status.LOADED),
+      getInfo: vi.fn().mockResolvedValue("test info"),
+      getLabel: vi.fn().mockResolvedValue("test-model"),
+      unload: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Model;
+    const mockPi = createMockPi();
+    const mockCtx = {
+      ui: {
+        notify: vi.fn(),
+        select: vi.fn(),
+      },
+      modelRegistry: {
+        find: vi.fn().mockReturnValue({ id: "pi-model-id" }),
+      },
+    } as never;
+
+    const selectModelSpy = vi
+      .spyOn(menu as any, "selectModel")
+      .mockResolvedValue(mockModel);
+    const selectActionSpy = vi
+      .spyOn(menu as any, "selectAction")
+      .mockResolvedValue(Action.RELOAD);
+
+    vi.spyOn(mockServerManager, "getAllModels").mockResolvedValue([mockModel]);
+
+    await menu.show(mockCtx, mockPi);
+
+    expect(selectModelSpy).toHaveBeenCalled();
+    expect(selectActionSpy).toHaveBeenCalled();
+    expect(mockEventManager.reloadModel).toHaveBeenCalledWith(
       mockModel,
       expect.any(Object),
       mockPi,

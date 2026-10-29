@@ -4,6 +4,7 @@ export enum Action {
   SWITCH = "Switch model",
   LOAD = "Load only",
   UNLOAD = "Unload",
+  RELOAD = "Reload",
   RETRY = "Retry",
   INFO = "Info",
   CANCEL = "Cancel",

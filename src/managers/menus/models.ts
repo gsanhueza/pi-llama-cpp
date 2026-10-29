@@ -70,6 +70,12 @@ export class ModelsMenu {
       return;
     }
 
+    // Action: Reload
+    if (action === Action.RELOAD) {
+      this.eventManager.reloadModel(model, ctx, pi);
+      return;
+    }
+
     // Action: Switch
     if (action === Action.SWITCH) {
       const { serverId } = model;
@@ -171,14 +177,14 @@ export class ModelsMenu {
 
     const actions: Record<Status, Array<Action>> = {
       [Status.LOADED]: [Mode.ROUTER, Mode.LLAMASWAP].includes(model.server.mode)
-        ? [Action.SWITCH, Action.UNLOAD, ...base]
-        : [Action.SWITCH, ...base],
+        ? [Action.SWITCH, Action.UNLOAD, Action.RELOAD, ...base]
+        : [Action.SWITCH, Action.RELOAD, ...base],
       [Status.LOADING]: [...base],
       [Status.FAILED]: [Action.RETRY, ...base],
       [Status.SLEEPING]:
         model.server.mode === Mode.ROUTER
-          ? [Action.SWITCH, Action.UNLOAD, ...base]
-          : [Action.SWITCH, ...base],
+          ? [Action.SWITCH, Action.UNLOAD, Action.RELOAD, ...base]
+          : [Action.SWITCH, Action.RELOAD, ...base],
       [Status.UNLOADED]: [Action.LOAD_AND_SWITCH, Action.LOAD, ...base],
       [Status.UNMANAGED]: [Action.SWITCH, ...base],
     };
