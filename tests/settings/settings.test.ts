@@ -16,6 +16,7 @@ import { SettingsService } from "../../src/settings/settings";
 import { SettingsReader } from "../../src/settings/reader";
 import { SettingsWriter } from "../../src/settings/writer";
 import { CredentialResolver } from "../../src/utils/credentialResolver";
+import { ShellResolver } from "../../src/utils/shellResolver";
 import { SettingsStore } from "../../src/settings/store";
 import { SingleServer } from "../../src/servers/singleServer";
 import { createMockApiClient } from "../mocks/apiClient";
@@ -729,7 +730,7 @@ describe("setLlamaSettings", () => {
   it("should construct the manager with reader and writer injected", () => {
     const reader = new SettingsReader(
       mockSettingsManager as unknown as SettingsManager,
-      new CredentialResolver(),
+      new CredentialResolver(new ShellResolver()),
     );
     const writer = new SettingsWriter(
       mockSettingsManager as unknown as SettingsManager,

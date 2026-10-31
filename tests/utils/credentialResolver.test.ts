@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { API_KEY_PLACEHOLDER } from "../../src/constants";
 import { CredentialResolver } from "../../src/utils/credentialResolver";
+import { ShellResolver } from "../../src/utils/shellResolver";
 
 const mockExecSync = vi.hoisted(() => vi.fn());
 
@@ -9,7 +10,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 describe("CredentialResolver", () => {
-  const resolver = new CredentialResolver();
+  const resolver = new CredentialResolver(new ShellResolver());
 
   describe("resolve", () => {
     it("returns placeholder for empty key", () => {

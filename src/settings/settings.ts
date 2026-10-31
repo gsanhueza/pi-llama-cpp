@@ -9,6 +9,7 @@ import type {
   ModelOverride,
 } from "../interfaces/settings";
 import { CredentialResolver } from "../utils/credentialResolver";
+import { ShellResolver } from "../utils/shellResolver";
 import { SettingsStore } from "./store";
 import { SettingsReader } from "./reader";
 import { SettingsWriter } from "./writer";
@@ -36,7 +37,8 @@ export class SettingsService {
     const projectStore = new SettingsStore(
       join(process.cwd(), ".pi", "settings.json"),
     );
-    const credentialResolver = new CredentialResolver();
+    const shellResolver = new ShellResolver();
+    const credentialResolver = new CredentialResolver(shellResolver);
 
     const reader = new SettingsReader(sm, credentialResolver);
     const writer = new SettingsWriter(sm, globalStore, projectStore);
