@@ -33,6 +33,22 @@ export enum RequestPolicy {
 }
 
 /**
+ * Options for constructing an {@link ApiClient}.
+ */
+export interface ApiClientOptions {
+  /** Base URL of the llama-server */
+  baseUrl: string;
+  /** Fraction of polling interval used as cache TTL (default: 0.8). */
+  ttlRatio?: number;
+  /** Resolves the API key for authentication at request time */
+  getApiKey: () => string;
+  /** Resolves the current polling interval for cache TTL derivation. */
+  getPollingInterval?: () => Promise<number>;
+  /** Custom fetch implementation (for testing). */
+  fetchFn?: typeof globalThis.fetch;
+}
+
+/**
  * Internal options passed to {@link ApiClient.execute}.
  */
 interface ExecuteOptions {
@@ -60,23 +76,37 @@ export class ApiClient {
    * The key is resolved per request via `getApiKey`, so a client built once
    * picks up key changes (settings edits) without being rebuilt.
    *
-   * @param baseUrl The base URL of the llama-server
-   * @param getApiKey Resolves the API key for authentication at request time
-   * @param getPollingInterval Resolves the current polling interval, which
-   *   the cache TTL is derived from (ratio × interval) at each request
-   * @param fetchFn Optional custom fetch implementation (for testing)
-   * @param ttlRatio Fraction of the polling interval used as cache TTL
-   *   (default: 0.8). A higher value keeps cache longer; a lower value
-   *   refreshes more aggressively.
+   * @param options Configuration options for the client
    */
-  constructor(
-    private readonly baseUrl: string,
-    private readonly getApiKey: () => string,
-    private readonly getPollingInterval: () => Promise<number> = async () =>
-      PollingIntervalSettingsItem.defaultValue,
-    private readonly fetchFn: typeof globalThis.fetch = fetch,
-    private readonly ttlRatio: number = 0.8,
-  ) {}
+  constructor(private readonly options: ApiClientOptions) {}
+
+  /** Base URL of the llama-server */
+  private get baseUrl(): string {
+    return this.options.baseUrl;
+  }
+
+  /** Fraction of polling interval used as cache TTL */
+  private get ttlRatio(): number {
+    return this.options.ttlRatio ?? 0.8;
+  }
+
+  /** Resolves the API key for authentication at request time */
+  private get getApiKey(): () => string {
+    return this.options.getApiKey;
+  }
+
+  /** Resolves the current polling interval for cache TTL derivation */
+  private get getPollingInterval(): () => Promise<number> {
+    return (
+      this.options.getPollingInterval ??
+      (() => Promise.resolve(PollingIntervalSettingsItem.defaultValue))
+    );
+  }
+
+  /** Custom fetch implementation */
+  private get fetchFn(): typeof globalThis.fetch {
+    return this.options.fetchFn ?? fetch;
+  }
 
   /**
    * Opens a raw GET at the given endpoint with auth headers.
@@ -206,7 +236,7 @@ export class ApiClient {
     if (cached !== undefined) return cached;
 
     return this.dedupe(key, async () => {
-      const ttl = (await this.getPollingInterval()) * this.ttlRatio;
+      const ttl = (await this.getPollingInterval()) * this.ttlRatio; // getter resolves default if unset
       const data = await fn();
       this.cacheSet(key, data, ttl);
       return data;

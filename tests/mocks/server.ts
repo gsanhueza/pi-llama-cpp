@@ -68,9 +68,9 @@ export const createMockServer = (
   const effectiveResolver = resolver ?? defaultResolver;
 
   const effectiveFetch = fetchFn ?? guardFetch();
-  const apiClient = new ApiClient(
-    options?.baseUrl ?? defaultBaseUrl(),
-    () =>
+  const apiClient = new ApiClient({
+    baseUrl: options?.baseUrl ?? defaultBaseUrl(),
+    getApiKey: () =>
       effectiveResolver.resolveApiKey(
         options?.customId ??
           ServerIds.resolve(
@@ -78,9 +78,9 @@ export const createMockServer = (
             options?.customId,
           ),
       ),
-    () => effectiveResolver.resolvePollingInterval(),
-    effectiveFetch,
-  );
+    getPollingInterval: () => effectiveResolver.resolvePollingInterval(),
+    fetchFn: effectiveFetch,
+  });
 
   const server = new SingleServer(
     effectiveResolver,

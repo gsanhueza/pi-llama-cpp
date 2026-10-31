@@ -12,9 +12,9 @@ export const createMockApiClient = (
   baseUrl: string,
   fetchFn?: typeof globalThis.fetch,
 ): ApiClient =>
-  new ApiClient(
+  new ApiClient({
     baseUrl,
-    () => API_KEY_PLACEHOLDER,
-    async () => PollingIntervalSettingsItem.defaultValue,
+    getApiKey: () => API_KEY_PLACEHOLDER,
+    getPollingInterval: async () => PollingIntervalSettingsItem.defaultValue,
     fetchFn,
-  );
+  });

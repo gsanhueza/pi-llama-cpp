@@ -25,12 +25,12 @@ const createManager = (
     options: { baseUrl: "http://127.0.0.1:9931" },
   });
   const apiClient = fetchFn
-    ? new ApiClient(
-        "http://127.0.0.1:9931",
-        () => "",
-        async () => 500,
+    ? new ApiClient({
+        baseUrl: "http://127.0.0.1:9931",
+        getApiKey: () => "",
+        getPollingInterval: async () => 500,
         fetchFn,
-      )
+      })
     : createMockApiClient("http://127.0.0.1:9931");
   return new SSEManager(
     server,

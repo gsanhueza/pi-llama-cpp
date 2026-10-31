@@ -98,12 +98,13 @@ export class ServersView extends View implements ServersViewHandle {
       this.controller.options.servers.map(async (server) => {
         const resolver = this.controller.options.authResolver;
         const apiKey = resolver ? await resolver(server) : "placeholder";
-        const client = new ApiClient(
-          server.url,
-          () => apiKey,
-          this.controller.options.resolvePollingInterval ??
+        const client = new ApiClient({
+          baseUrl: server.url,
+          getApiKey: () => apiKey,
+          getPollingInterval:
+            this.controller.options.resolvePollingInterval ??
             (() => Promise.resolve(ServerTimeoutSettingsItem.defaultValue)),
-        );
+        });
         return ServerDisplay.healthEmoji(client, serverTimeout);
       }),
     );

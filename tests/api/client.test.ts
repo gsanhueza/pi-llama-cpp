@@ -8,24 +8,24 @@ const makeClient = (
   baseUrl = "http://127.0.0.1:9931",
   apiKey = "sk-test",
 ): ApiClient =>
-  new ApiClient(
+  new ApiClient({
     baseUrl,
-    () => apiKey,
-    async () => 10_000,
-    fetchMock as typeof globalThis.fetch,
-  );
+    getApiKey: () => apiKey,
+    getPollingInterval: async () => 10_000,
+    fetchFn: fetchMock as typeof globalThis.fetch,
+  });
 
 /** Helper: build an ApiClient with a custom polling interval */
 const makeClientWithPolling = (
   fetchMock: ReturnType<typeof vi.fn>,
   pollingInterval: number,
 ): ApiClient =>
-  new ApiClient(
-    "http://127.0.0.1:9931",
-    () => "sk-test",
-    async () => pollingInterval,
-    fetchMock as typeof globalThis.fetch,
-  );
+  new ApiClient({
+    baseUrl: "http://127.0.0.1:9931",
+    getApiKey: () => "sk-test",
+    getPollingInterval: async () => pollingInterval,
+    fetchFn: fetchMock as typeof globalThis.fetch,
+  });
 
 describe("ApiClient", () => {
   describe("GET caching", () => {

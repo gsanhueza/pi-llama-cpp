@@ -58,15 +58,15 @@ export class ServerFactory {
     timeout?: number,
     fetchFn?: typeof globalThis.fetch,
   ): Promise<ServerCreationResult> {
-    const apiClient = new ApiClient(
-      options.baseUrl,
-      () =>
+    const apiClient = new ApiClient({
+      baseUrl: options.baseUrl,
+      getApiKey: () =>
         resolver.resolveApiKey(
           ServerIds.resolve(options.baseUrl, options.customId),
         ),
-      () => resolver.resolvePollingInterval(),
+      getPollingInterval: () => resolver.resolvePollingInterval(),
       fetchFn,
-    );
+    });
 
     const [health, auth, props] = await Promise.allSettled([
       apiClient.get<number>("/health", timeout, RequestPolicy.Status),

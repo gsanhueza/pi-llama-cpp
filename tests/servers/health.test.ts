@@ -24,12 +24,12 @@ const makeClient = (
   fetchMock: ReturnType<typeof stubFetch>,
   key: string = "",
 ): ApiClient =>
-  new ApiClient(
-    URL_,
-    () => key,
-    async () => 500,
-    fetchMock,
-  );
+  new ApiClient({
+    baseUrl: URL_,
+    getApiKey: () => key,
+    getPollingInterval: async () => 500,
+    fetchFn: fetchMock,
+  });
 
 describe("Server.check", () => {
   it("should return READY when health and auth succeed", async () => {

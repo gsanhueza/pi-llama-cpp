@@ -47,11 +47,11 @@ export class RushMenu extends BaseMenu {
     track: CompletionInfo,
   ): Promise<{ success: boolean; message?: string }> {
     const apiKey = this.settings.resolveApiKey(track.providerId);
-    const client = new ApiClient(
-      track.serverUrl,
-      () => apiKey,
-      () => this.settings.resolvePollingInterval(),
-    );
+    const client = new ApiClient({
+      baseUrl: track.serverUrl,
+      getApiKey: () => apiKey,
+      getPollingInterval: () => this.settings.resolvePollingInterval(),
+    });
 
     try {
       const endpoint = "/v1/chat/completions/control";

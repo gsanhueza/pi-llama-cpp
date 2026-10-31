@@ -174,12 +174,13 @@ export class ServersController extends BaseListController {
     const serverTimeout = this.options.serverTimeout ?? 1000;
     const resolver = this.options.authResolver;
     const apiKey = resolver ? await resolver(server) : "placeholder";
-    const client = new ApiClient(
-      server.url,
-      () => apiKey,
-      this.options.resolvePollingInterval ??
+    const client = new ApiClient({
+      baseUrl: server.url,
+      getApiKey: () => apiKey,
+      getPollingInterval:
+        this.options.resolvePollingInterval ??
         (() => Promise.resolve(serverTimeout)),
-    );
+    });
 
     if (
       (await Server.check(client, serverTimeout)) === ServerStatus.UNAUTHORIZED
