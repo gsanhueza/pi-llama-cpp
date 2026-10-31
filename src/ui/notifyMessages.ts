@@ -57,7 +57,7 @@ export const timeoutMessage = (baseUrl: string, timeout: number): string =>
  */
 export const sessionSwitchWarning = (modelName: string): string =>
   warnUser(
-    `Session change detected while model '${modelName}' was still loading.`,
+    `Session change detected while '${modelName}' was still loading.`,
     "Model load will continue in the background, but UI might not update.",
     "",
     "Verify that your new model is loaded, or use /models to re-select it afterwards.",

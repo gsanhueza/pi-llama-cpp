@@ -8,6 +8,7 @@ import {
   noModelsToReload,
 } from "../../ui/notifyMessages";
 import type { ServerManager } from "../server";
+import type { EventManager } from "../events";
 import { BaseMenu } from "./base";
 import { Status } from "../../enums/status";
 
@@ -19,7 +20,10 @@ import { Status } from "../../enums/status";
 export class ReloadMenu extends BaseMenu {
   protected label = "reload";
 
-  constructor(private readonly serverManager: ServerManager) {
+  constructor(
+    private readonly serverManager: ServerManager,
+    private readonly eventManager: EventManager,
+  ) {
     super();
   }
 
@@ -49,12 +53,16 @@ export class ReloadMenu extends BaseMenu {
       return;
     }
 
-    // Fire-and-forget: unload all, then load all
-    Promise.allSettled(reloadable.map((m) => m.unload()))
-      .then(() => Promise.allSettled(reloadable.map((m) => m.load())))
-      .then(() => {
-        ctx.ui.notify(reloadedAllModels(), "info");
-        this.serverManager.update(pi);
-      });
+    // Pre-populate the batch inflight set so the session switch guard
+    // blocks until every model finishes (even before the first load starts).
+    reloadable.forEach((m) => this.eventManager.inflightTracker.add(m));
+
+    // Fire-and-forget: reload all (unload + load via EventManager)
+    Promise.allSettled(
+      reloadable.map((m) => this.eventManager.reloadModel(m, ctx, pi)),
+    ).then(() => {
+      ctx.ui.notify(reloadedAllModels(), "info");
+      this.serverManager.update(pi);
+    });
   }
 }

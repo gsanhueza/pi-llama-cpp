@@ -77,7 +77,7 @@ export class CommandManager {
   ) {
     this.infoMenu = new InfoMenu(serverManager);
     this.unloadMenu = new UnloadMenu(serverManager, eventManager);
-    this.reloadMenu = new ReloadMenu(serverManager);
+    this.reloadMenu = new ReloadMenu(serverManager, eventManager);
     this.rushMenu = new RushMenu(settings, completionTracker);
     this.settingsMenu = new SettingsMenu(settings);
     this.serversMenu = new ServersMenu(serverManager, settings);

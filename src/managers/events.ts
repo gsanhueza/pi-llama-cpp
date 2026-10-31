@@ -27,7 +27,7 @@ export class EventManager {
   constructor(
     private readonly serverManager: ServerManager,
     private readonly settings: SettingsService,
-    private readonly inflightTracker: InflightTracker,
+    public readonly inflightTracker: InflightTracker,
     private readonly completionTracker: CompletionTracker,
   ) {}
 
@@ -121,10 +121,17 @@ export class EventManager {
    * @param ctx Pi context
    */
   async onSessionBeforeSwitch(ctx: ExtensionContext) {
-    if (!this.inflightTracker.inflightModel) return;
+    if (
+      !this.inflightTracker.inflightModel &&
+      this.inflightTracker.inflightModels.size === 0
+    )
+      return;
 
+    const name = this.inflightTracker.inflightModel?.name;
     ctx.ui.notify(
-      sessionSwitchWarning(this.inflightTracker.inflightModel.name),
+      name
+        ? sessionSwitchWarning(name)
+        : sessionSwitchWarning("<batch reload>"),
       "warning",
     );
 
@@ -228,6 +235,7 @@ export class EventManager {
   ): Promise<void> {
     ctx.ui.notify(loadingModel(model.name), "info");
     this.inflightTracker.inflightModel = model;
+    this.inflightTracker.inflightModels.add(model);
 
     // Subscribe to SSE progress when available
     const server = this.serverManager.getServer(model);
@@ -264,6 +272,7 @@ export class EventManager {
       ctx.ui.notify(errorMessage(err), "error");
     } finally {
       cleanupProgress();
+      this.inflightTracker.inflightModels.delete(model);
       this.inflightTracker.reset();
       this.inflightTracker.inflightPromise = null;
 
