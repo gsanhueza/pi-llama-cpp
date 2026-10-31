@@ -316,6 +316,7 @@ For env ref formats, you can also store the variable value alongside the key usi
 | `/models info`      | Show detailed information for all available models at once.                             |
 | `/models unload`    | Unload all loaded models at once.                                                       |
 | `/models reload`    | Reload all loaded and sleeping models (unload → load).                                  |
+| `/models rush`      | Skip thinking process for loaded reasoning models with an active completion.            |
 | `/models settings`  | Open a menu to edit the scalar `llamaSettings` fields.                                  |
 | `/models servers`   | Add, edit or remove llama.cpp server URLs via a TUI editor.                             |
 | `/models overrides` | Edit per-server model overrides (`llamaSettings.servers[].overrides`) via a TUI editor. |
@@ -378,6 +379,18 @@ User-defined budgets can override the defaults by adding a `thinkingBudgets` obj
 
 Only `minimal`, `low`, `medium`, `high` and `xhigh` are configurable — `off` (0) and `max` (-1, unlimited) are fixed.
 The extension automatically injects the appropriate `thinking_budget_tokens` into each request payload based on the selected level.
+
+### Reasoning Control
+
+For reasoning models, the extension automatically arms the llama.cpp **reasoning-budget sampler** (`reasoning_control: true`), which allows you to force-end the reasoning block mid-generation using:
+
+```
+/models rush
+```
+
+This sends a `reasoning_end` control request to the server, which immediately switches the model from its thinking phase to the final answer. The command works on all loaded reasoning models that have an active completion in flight.
+
+> **Note:** This feature only works for `llama.cpp` servers, because the server needs to have an `/v1/chat/completions/control` endpoint available.
 
 ### Model Overrides
 

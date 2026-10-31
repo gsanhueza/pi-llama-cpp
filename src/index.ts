@@ -1,8 +1,9 @@
 import {
   type BeforeProviderRequestEvent,
-  ExtensionAPI,
+  type ExtensionAPI,
   type ExtensionCommandContext,
   type ExtensionContext,
+  type ProviderStreamEvent,
   type SessionBeforeSwitchEvent,
   type SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
@@ -11,12 +12,14 @@ import { ModelSelectEvent } from "./interfaces/events";
 import { CommandManager } from "./managers/command";
 import { EventManager } from "./managers/events";
 import { InflightTracker } from "./managers/inflightTracker";
+import { CompletionTracker } from "./managers/completionTracker";
 import { ServerFactory } from "./servers/serverFactory";
 import { SettingsService } from "./settings/settings";
 import { ServerManager } from "./managers/server";
 
 export default async function (pi: ExtensionAPI) {
   const inflightTracker = new InflightTracker();
+  const completionTracker = new CompletionTracker();
 
   const settings = SettingsService.create();
   const serverManager = new ServerManager(settings, new ServerFactory());
@@ -24,11 +27,13 @@ export default async function (pi: ExtensionAPI) {
     serverManager,
     settings,
     inflightTracker,
+    completionTracker,
   );
   const commandManager = new CommandManager(
     serverManager,
     settings,
     eventManager,
+    completionTracker,
   );
 
   // Register providers once at startup
@@ -68,4 +73,11 @@ export default async function (pi: ExtensionAPI) {
     async (_: SessionBeforeSwitchEvent, ctx: ExtensionContext) =>
       await eventManager.onSessionBeforeSwitch(ctx),
   );
+
+  // Track completion IDs from streaming chat responses
+  pi.on("provider_stream_event", (event: ProviderStreamEvent) =>
+    eventManager.onProviderStreamEvent(event),
+  );
+  // Clear tracked completions when the agent finishes
+  pi.on("message_end", () => eventManager.onMessageEnd());
 }

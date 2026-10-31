@@ -170,3 +170,21 @@ export const reloadedAllModels = (): string =>
  */
 export const noModelsToReload = (): string =>
   logInfo(`No loaded or sleeping models to reload`);
+
+/**
+ * Generates an info message when there are no reasoning models with active completions.
+ */
+export const skipThinkingUnavailable = (): string =>
+  logInfo(`No reasoning models with active completions`);
+
+/**
+ * Generates an info message when a reasoning end is forced.
+ */
+export const skipThinkingSuccess = (): string =>
+  logInfo(`Skipped thinking process`);
+
+/**
+ * Generates an info message when a reasoning end fails.
+ */
+export const skipThinkingFail = (message: string): string =>
+  logInfo(`Thinking couldn't be skipped: ${message}`);

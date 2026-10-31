@@ -14,6 +14,7 @@ import { EventManager } from "../../src/managers/events";
 import { Model } from "../../src/models/model";
 import { ServerManager } from "../../src/managers/server";
 import { InflightTracker } from "../../src/managers/inflightTracker";
+import { CompletionTracker } from "../../src/managers/completionTracker";
 import type { Server } from "../../src/servers/server";
 import { createMockModel } from "../mocks/model";
 import { createMockPi } from "../mocks/context";
@@ -28,7 +29,8 @@ import { makeSettingsStub } from "../mocks/settings";
 let settingsStub = makeSettingsStub();
 let mockPi = createMockPi();
 /** Fresh per test — injected into EventManager, so no singleton reset. */
-let tracker = new InflightTracker();
+let inflightTracker = new InflightTracker();
+let completionTracker = new CompletionTracker();
 
 /**
  * Builds an EventManager on a ServerManager stub exposing `servers` and
@@ -44,11 +46,16 @@ const createStubServerManager = (servers: Server[]): ServerManager =>
   }) as Partial<ServerManager> as ServerManager;
 
 const createEventManager = (...servers: Server[]) =>
-  new EventManager(createStubServerManager(servers), settingsStub, tracker);
+  new EventManager(
+    createStubServerManager(servers),
+    settingsStub,
+    inflightTracker,
+    completionTracker,
+  );
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  tracker = new InflightTracker();
+  inflightTracker = new InflightTracker();
   settingsStub = makeSettingsStub();
   mockPi = createMockPi();
 });
@@ -290,7 +297,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
       vi.mocked(settingsStub.resolveThinkingLevel).mockReturnValue("max");
       vi.mocked(settingsStub.resolveThinkingBudgets).mockReturnValue({
         ...THINKING_BUDGETS,
-        max: 1,
+        max: -1,
       });
 
       const server = createMockServer({
@@ -305,8 +312,11 @@ describe("EventManager.onBeforeProviderRequest", () => {
         mockPi,
       )) as Record<string, unknown>;
 
-      expect(result).toEqual(createPayload("model-a"));
-      expect(result).not.toHaveProperty("thinking_budget_tokens");
+      expect(result).toEqual({
+        ...createPayload("model-a"),
+        reasoning_control: true,
+        thinking_budget_tokens: -1,
+      });
     });
 
     it("should handle empty user budgets gracefully", async () => {
@@ -482,7 +492,7 @@ describe("EventManager.autoLoadIfNeeded (via onBeforeProviderRequest)", () => {
     });
 
     // Simulate a prior /models load: set inflightModel and inflightPromise
-    tracker.setInflight(model, loadPromise);
+    inflightTracker.setInflight(model, loadPromise);
 
     const server = createTestServer(defaultBaseUrl(), [model]);
     const eventManager = createEventManager(server);
@@ -583,7 +593,7 @@ describe("EventManager.onSessionBeforeSwitch", () => {
     const eventManager = createEventManager(server);
 
     // Simulate an inflight model
-    tracker.setInflight(
+    inflightTracker.setInflight(
       server.models[0],
       new Promise(() => {}), // never resolves
     );
@@ -643,7 +653,12 @@ describe("EventManager with a live ServerManager", () => {
     } as Partial<ExtensionAPI> as ExtensionAPI;
     await serverManager.update(mockPi);
 
-    const eventManager = new EventManager(serverManager, settingsStub, tracker);
+    const eventManager = new EventManager(
+      serverManager,
+      settingsStub,
+      inflightTracker,
+      completionTracker,
+    );
 
     // Second scan adds the 8081 server — no manager re-construction
     vi.mocked(settingsStub.resolveServerConfigs).mockResolvedValue([

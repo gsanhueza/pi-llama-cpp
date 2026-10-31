@@ -2,7 +2,9 @@ import {
   type BeforeProviderRequestEvent,
   type ExtensionAPI,
   type ExtensionContext,
+  type ProviderStreamEvent,
 } from "@earendil-works/pi-coding-agent";
+import type { CompletionTracker } from "./completionTracker";
 import { PROVIDER_NAME, READABLE_TIMEOUT } from "../constants";
 import {
   sessionSwitchWarning,
@@ -26,6 +28,7 @@ export class EventManager {
     private readonly serverManager: ServerManager,
     private readonly settings: SettingsService,
     private readonly inflightTracker: InflightTracker,
+    private readonly completionTracker: CompletionTracker,
   ) {}
 
   /**
@@ -167,6 +170,12 @@ export class EventManager {
     if (level === "off")
       return { ...payload, chat_template_kwargs: { enable_thinking: false } };
 
+    // Arm the llama.cpp reasoning-budget sampler for reasoning models,
+    // so the user can end reasoning mid-stream via the control endpoint.
+    if (serverModel.reasoning) {
+      return { ...payload, thinking_budget_tokens, reasoning_control: true };
+    }
+
     if (level === "max") return payload;
 
     return { ...payload, thinking_budget_tokens };
@@ -264,5 +273,36 @@ export class EventManager {
       ctx.ui.setStatus(PROVIDER_NAME, " ");
       ctx.ui.setStatus(PROVIDER_NAME, undefined);
     }
+  }
+
+  /**
+   * Captures the latest completion ID from streaming chat responses.
+   *
+   * Only tracks completions from our own providers.
+   */
+  onProviderStreamEvent(event: ProviderStreamEvent): void {
+    // Only track our own provider's completions — find in one pass
+    const server = this.serverManager.servers.find(
+      (s) => s.providerId === event.provider,
+    );
+    if (!server) return;
+
+    // Chat completion chunks have an `id` field
+    const data = event.data as { id?: string } | undefined;
+    if (!data?.id) return;
+
+    this.completionTracker.set({
+      modelId: event.model,
+      serverUrl: server.baseUrl,
+      completionId: data.id,
+      providerId: server.providerId,
+    });
+  }
+
+  /**
+   * Clears the tracked completion ID when the agent finishes.
+   */
+  onMessageEnd(): void {
+    this.completionTracker.reset();
   }
 }

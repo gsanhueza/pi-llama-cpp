@@ -178,7 +178,12 @@ export class ApiClient {
         ) as T;
 
       case RequestPolicy.Raw:
-        const response = await this.fetchResponse(method, endpoint, body, timeout);
+        const response = await this.fetchResponse(
+          method,
+          endpoint,
+          body,
+          timeout,
+        );
         return response as unknown as T;
     }
   }

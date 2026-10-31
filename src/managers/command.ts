@@ -10,8 +10,10 @@ import { UnloadMenu } from "./menus/unload";
 import { ReloadMenu } from "./menus/reload";
 import { ServersMenu } from "./menus/servers";
 import { OverridesMenu } from "./menus/overrides";
+import { RushMenu } from "./menus/rush";
 import { EventManager } from "./events";
 import { ServerManager } from "./server";
+import type { CompletionTracker } from "./completionTracker";
 import type { SettingsService } from "../settings/settings";
 
 /**
@@ -36,6 +38,11 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
     description: "Reload all loaded/sleeping models",
   },
   {
+    value: "rush",
+    label: "rush",
+    description: "Force-end reasoning for active completions",
+  },
+  {
     value: "settings",
     label: "settings",
     description: "Configure llamaSettings",
@@ -54,8 +61,9 @@ const ARGUMENT_COMPLETIONS: AutocompleteItem[] = [
 
 export class CommandManager {
   private readonly infoMenu: InfoMenu;
-  private readonly reloadMenu: ReloadMenu;
   private readonly unloadMenu: UnloadMenu;
+  private readonly reloadMenu: ReloadMenu;
+  private readonly rushMenu: RushMenu;
   private readonly settingsMenu: SettingsMenu;
   private readonly serversMenu: ServersMenu;
   private readonly overridesMenu: OverridesMenu;
@@ -65,10 +73,12 @@ export class CommandManager {
     serverManager: ServerManager,
     settings: SettingsService,
     eventManager: EventManager,
+    completionTracker: CompletionTracker,
   ) {
     this.infoMenu = new InfoMenu(serverManager);
     this.unloadMenu = new UnloadMenu(serverManager, eventManager);
     this.reloadMenu = new ReloadMenu(serverManager);
+    this.rushMenu = new RushMenu(settings, completionTracker);
     this.settingsMenu = new SettingsMenu(settings);
     this.serversMenu = new ServersMenu(serverManager, settings);
     this.overridesMenu = new OverridesMenu(serverManager, settings);
@@ -107,6 +117,8 @@ export class CommandManager {
         return this.unloadMenu.show(ctx, pi);
       case "reload":
         return this.reloadMenu.show(ctx, pi);
+      case "rush":
+        return this.rushMenu.show(ctx);
       case "settings":
         return this.settingsMenu.show(ctx);
       case "servers":

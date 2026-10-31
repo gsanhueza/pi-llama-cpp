@@ -6,7 +6,7 @@ import { Action } from "../../src/enums/action";
 import { ServerStatus } from "../../src/enums/serverStatus";
 import { CommandManager } from "../../src/managers/command";
 import { EventManager } from "../../src/managers/events";
-import { InflightTracker } from "../../src/managers/inflightTracker";
+import { CompletionTracker } from "../../src/managers/completionTracker";
 import { ServerManager } from "../../src/managers/server";
 import type { SettingsService } from "../../src/settings/settings";
 import { SETTINGS_ITEMS } from "../../src/settings/defaults";
@@ -26,6 +26,7 @@ import { mockResolver, mockServerOptions } from "../mocks/server";
 import { createServerFactory } from "../mocks/serverFactory";
 import { makeSettingsStub } from "../mocks/settings";
 import { createMockRpc } from "../mocks/mockRpc";
+import { InflightTracker } from "../../src/managers/inflightTracker";
 
 /** Per-file isolated mock RPC. */
 const mockRpc = createMockRpc();
@@ -53,6 +54,7 @@ const createMockEventManager = (
     serverManager,
     settingsStub,
     new InflightTracker(),
+    new CompletionTracker(),
   );
 
 describe("CommandManager", () => {
@@ -71,17 +73,19 @@ describe("CommandManager", () => {
       serverManager,
       settingsStub,
       eventManager,
+      new CompletionTracker(),
     );
   });
 
   describe("getArgumentCompletions", () => {
     it("should provide completions for /models", () => {
       const completions = commandManager.getArgumentCompletions("");
-      expect(completions).toHaveLength(6);
+      expect(completions).toHaveLength(7);
       expect(completions?.map((c) => c.value)).toEqual([
         "info",
         "unload",
         "reload",
+        "rush",
         "settings",
         "servers",
         "overrides",
@@ -134,6 +138,7 @@ describe("CommandManager", () => {
         serverManager,
         unloadSettings,
         unloadEventManager,
+        new CompletionTracker(),
       );
 
       const ctx = createMockCtx(() => null);
@@ -179,6 +184,7 @@ describe("CommandManager", () => {
         serverManager,
         infoSettings,
         infoEventManager,
+        new CompletionTracker(),
       );
 
       const ctx = createMockCtx(() => null);
@@ -392,6 +398,7 @@ describe("CommandManager", () => {
         serverManager,
         editorSettings,
         wireEventManager,
+        new CompletionTracker(),
       );
       const ctx = createMockCtx(() => null);
 
@@ -459,6 +466,7 @@ describe("CommandManager", () => {
         serverManager,
         editorSettings,
         cancelledEventManager,
+        new CompletionTracker(),
       );
       const ctx = createMockCtx(() => null);
 
@@ -506,6 +514,7 @@ describe("CommandManager", () => {
         serverManager,
         editorSettings,
         doomedEventManager,
+        new CompletionTracker(),
       );
       const ctx = createMockCtx(() => null);
 
@@ -611,6 +620,7 @@ describe("CommandManager", () => {
         serverManager,
         editorSettings,
         overridesEventManager,
+        new CompletionTracker(),
       );
       const ctx = createMockCtx(() => null);
 
@@ -670,6 +680,7 @@ describe("CommandManager", () => {
           serverManager,
           settingsStub,
           factoryEventManager,
+          new CompletionTracker(),
         ),
         serverManager,
         settingsStub,
@@ -817,6 +828,7 @@ describe("CommandManager", () => {
         serverManager,
         settingsStub,
         urlEventManager,
+        new CompletionTracker(),
       );
 
       const ctx = createMockCtx((prompt, options) => {
@@ -858,6 +870,7 @@ describe("CommandManager", () => {
         serverManager,
         settingsStub,
         showUrlEventManager,
+        new CompletionTracker(),
       );
 
       const ctx = createMockCtx((prompt, options) => {
