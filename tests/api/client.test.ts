@@ -12,6 +12,7 @@ const makeClient = (
     baseUrl,
     getApiKey: () => apiKey,
     getPollingInterval: async () => 10_000,
+    getHeaders: () => ({}),
     fetchFn: fetchMock as typeof globalThis.fetch,
   });
 
@@ -24,6 +25,7 @@ const makeClientWithPolling = (
     baseUrl: "http://127.0.0.1:9931",
     getApiKey: () => "sk-test",
     getPollingInterval: async () => pollingInterval,
+    getHeaders: () => ({}),
     fetchFn: fetchMock as typeof globalThis.fetch,
   });
 
@@ -295,6 +297,88 @@ describe("ApiClient", () => {
           }),
         }),
       );
+    });
+  });
+
+  describe("Custom headers", () => {
+    it("sends extra headers on GET", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({ data: [] }), { status: 200 }),
+      );
+      const client = new ApiClient({
+        baseUrl: "http://127.0.0.1:9931",
+        getApiKey: () => "my-key",
+        getPollingInterval: async () => 10_000,
+        fetchFn: fetchMock as typeof globalThis.fetch,
+        getHeaders: () => ({ "X-Custom": "value" }),
+      });
+
+      await client.get<{ data: unknown[] }>("/v1/models");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://127.0.0.1:9931/v1/models",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer my-key",
+            "X-Custom": "value",
+          }),
+        }),
+      );
+    });
+
+    it("custom headers take precedence over Authorization on POST", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({ data: [] }), { status: 200 }),
+      );
+      const client = new ApiClient({
+        baseUrl: "http://127.0.0.1:9931",
+        getApiKey: () => "my-key",
+        getPollingInterval: async () => 10_000,
+        fetchFn: fetchMock as typeof globalThis.fetch,
+        getHeaders: () => ({ Authorization: "Bearer custom" }),
+      });
+
+      await client.post<{ data: unknown[] }>("/models/unload", { model: "m1" });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://127.0.0.1:9931/models/unload",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer custom",
+          }),
+        }),
+      );
+    });
+
+    it("sends no extra headers when getHeaders returns an empty object", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({ data: [] }), { status: 200 }),
+      );
+      const client = new ApiClient({
+        baseUrl: "http://127.0.0.1:9931",
+        getApiKey: () => "my-key",
+        getPollingInterval: async () => 10_000,
+        getHeaders: () => ({}),
+        fetchFn: fetchMock as typeof globalThis.fetch,
+      });
+
+      await client.get<{ data: unknown[] }>("/v1/models");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://127.0.0.1:9931/v1/models",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer my-key",
+          }),
+        }),
+      );
+      // Should not have any extra custom headers
+      const [_, init] = fetchMock.mock.calls[0] as unknown as [
+        string,
+        RequestInit,
+      ];
+      const headerKeys = Object.keys(init.headers as Record<string, string>);
+      expect(headerKeys).toEqual(["Authorization"]);
     });
   });
 

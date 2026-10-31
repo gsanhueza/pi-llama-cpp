@@ -16,5 +16,6 @@ export const createMockApiClient = (
     baseUrl,
     getApiKey: () => API_KEY_PLACEHOLDER,
     getPollingInterval: async () => PollingIntervalSettingsItem.defaultValue,
+    getHeaders: () => ({}),
     fetchFn,
   });

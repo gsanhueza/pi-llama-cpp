@@ -28,6 +28,7 @@ const makeClient = (
     baseUrl: URL_,
     getApiKey: () => key,
     getPollingInterval: async () => 500,
+    getHeaders: () => ({}),
     fetchFn: fetchMock,
   });
 

@@ -59,23 +59,48 @@ describe("ServerManager", () => {
     expect(mockPi.registerProvider).toHaveBeenCalledTimes(2);
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
       "llama-server=http://127.0.0.1:9931",
-      {
+      expect.objectContaining({
         name: "Llama.cpp (http://127.0.0.1:9931)",
         baseUrl: "http://127.0.0.1:9931/v1",
         api: "openai-completions",
         apiKey: "key-1",
         models: [{ id: "test-model" }],
-      },
+      }),
     );
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
       "llama-server=http://127.0.0.1:8081",
-      {
+      expect.objectContaining({
         name: "Llama.cpp (http://127.0.0.1:8081)",
         baseUrl: "http://127.0.0.1:8081/v1",
         api: "openai-completions",
         apiKey: "key-2",
         models: [{ id: "test-model" }],
-      },
+      }),
+    );
+  });
+
+  it("should register the resolved custom headers with the provider", async () => {
+    const mockModel = createMockModel("test-model", {
+      toProviderConfig: vi.fn().mockResolvedValue({ id: "test-model" }),
+    });
+    const headers = { "CF-Access-Client-Id": "$CF_ID" };
+    vi.mocked(settingsStub.resolveHeaders).mockReturnValue({
+      "CF-Access-Client-Id": "resolved-id",
+    });
+    const manager = new ServerManager(
+      settingsStub,
+      createSeededServerFactory({ "http://127.0.0.1:9931": [mockModel] }),
+    );
+    vi.mocked(settingsStub.resolveServerConfigs).mockResolvedValue([
+      configOf("http://127.0.0.1:9931", { headers }),
+    ]);
+    await manager.update(mockPi);
+
+    expect(mockPi.registerProvider).toHaveBeenCalledWith(
+      "llama-server=http://127.0.0.1:9931",
+      expect.objectContaining({
+        headers: { "CF-Access-Client-Id": "resolved-id" },
+      }),
     );
   });
 

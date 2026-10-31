@@ -66,6 +66,11 @@ export class ServerFactory {
         ),
       getPollingInterval: () => resolver.resolvePollingInterval(),
       fetchFn,
+      getHeaders: () =>
+        resolver.resolveHeaders(
+          ServerIds.resolve(options.baseUrl, options.customId),
+          options.headers,
+        ),
     });
 
     const [health, auth, props] = await Promise.allSettled([

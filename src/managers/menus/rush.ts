@@ -51,6 +51,8 @@ export class RushMenu extends BaseMenu {
       baseUrl: track.serverUrl,
       getApiKey: () => apiKey,
       getPollingInterval: () => this.settings.resolvePollingInterval(),
+      getHeaders: () =>
+        this.settings.resolveHeaders(track.providerId, undefined),
     });
 
     try {

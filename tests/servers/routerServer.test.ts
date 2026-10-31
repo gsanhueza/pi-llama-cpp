@@ -23,6 +23,7 @@ const createServer = (overrides = {}) => {
     resolvePollingInterval: vi.fn(async () => 500),
     resolvePollingTimeout: vi.fn(async () => 30000),
     resolveApiKey: vi.fn(() => "test-key"),
+    resolveHeaders: vi.fn(() => ({})),
     resolveEnableSSE: vi.fn(async () => true),
   };
   const server = new RouterServer(

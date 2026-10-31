@@ -12,6 +12,7 @@ A [Pi Coding Agent](https://pi.dev/) extension that connects to multiple [llama.
 - **Image capabilities detection** — detects multimodal models automatically
 - **Flexible configuration** — via `llamaSettings`, environment variable, or legacy `llamaServerUrl`
 - **Auth support** — login into servers secured with an API key
+- **Custom headers** — send per-server HTTP headers for reverse proxies or access gateways
 - **Llama-swap support** — auto-detects and provides integration with [llama-swap](https://github.com/mostlygeek/llama-swap) gateways
 - **Thinking budget support** — configurable token budgets for model reasoning/thinking, mapped to Pi's thinking levels
 - **Real-time progress tracking** — live loading progress via SSE (falls back to polling)
@@ -137,7 +138,12 @@ Add this to your `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (g
       },
       {
         "url": "http://10.0.0.5:9931",
-        "name": "Remote Server"
+        "name": "Remote Server",
+        "headers": {
+          "X-Forwarded-Api-Key": "$FORWARD_API_KEY",
+          "X-Access-Token": "static-token-value",
+          "X-Secret": "!cat ~/.secrets/gateway-secret"
+        }
       }
     ],
     "reactToModelSelect": true,
@@ -156,11 +162,12 @@ With this config, the servers will appear in Pi as **Llama.cpp (Local Server)** 
 
 #### Server Options
 
-| Option | Type   | Required | Description                                                                  |
-| ------ | ------ | -------- | ---------------------------------------------------------------------------- |
-| `url`  | string | Yes      | The URL of the llama.cpp server                                              |
-| `id`   | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>` |
-| `name` | string | No       | Display name for the server in the UI (shown as `Llama.cpp (<name>)`)        |
+| Option    | Type   | Required | Description                                                                        |
+| --------- | ------ | -------- | ---------------------------------------------------------------------------------- |
+| `url`     | string | Yes      | The URL of the llama.cpp server                                                    |
+| `id`      | string | No       | Custom provider ID (used for API key auth). Defaults to `llama-server=<url>`       |
+| `name`    | string | No       | Display name for the server in the UI (shown as `Llama.cpp (<name>)`)              |
+| `headers` | object | No       | Extra HTTP headers sent with every request (see [Custom headers](#custom-headers)) |
 
 > **Note:** If you set a custom `id`, you can use it in `~/.pi/agent/auth.json`. The extension will also fall back to the URL-based ID if no key is found for the custom `id`.
 
@@ -259,6 +266,8 @@ Each server gets its own provider (e.g., **Llama.cpp (http://127.0.0.1:9931)**) 
 
 If your llama.cpp server requires authentication, use `/login` in Pi, select the "API key" option, and choose the provider from the list that correlates with the server needing the API key.
 
+> **Note:** This is for llama-server's own `--api-key`. If a reverse proxy or access gateway in front of the server needs credentials, see [Custom headers](#custom-headers).
+
 Alternatively, configure the API key in `~/.pi/agent/auth.json`:
 Use the provider ID `llama-server=<url>` (or your custom `id` if you set one in `llamaSettings.servers`).
 
@@ -305,6 +314,45 @@ For env ref formats, you can also store the variable value alongside the key usi
   }
 }
 ```
+
+### Custom headers
+
+If your llama.cpp server sits behind a reverse proxy or access gateway, that proxy may require credentials in HTTP headers before a request reaches the server. Add them as `headers` on the server entry:
+
+Reference a variable instead of writing the secret in the settings file:
+
+```json
+{
+  "llamaSettings": {
+    "servers": [
+      {
+        "url": "https://llama.example.com",
+        "headers": {
+          "X-Forwarded-Api-Key": "$FORWARD_API_KEY",
+          "X-Access-Token": "static-token-value",
+          "X-Secret": "!cat ~/.secrets/gateway-secret"
+        }
+      }
+    ]
+  }
+}
+```
+
+Then the extension picks it up using `process.env`.
+
+You can also store a variable in `~/.pi/agent/auth.json` (the same place as an API key) using the credential's `env` object:
+
+```json
+{
+  "llama-server=https://llama.example.com": {
+    "type": "api_key",
+    "key": "none",
+    "env": { "FORWARD_API_KEY": "<your key>" }
+  }
+}
+```
+
+> **Note:** Environment variable values are resolved as-is. String interpolation is not supported.
 
 ## Usage
 

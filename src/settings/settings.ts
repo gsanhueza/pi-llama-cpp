@@ -96,6 +96,16 @@ export class SettingsService {
   }
 
   /**
+   * Resolves the values of a server's custom headers.
+   */
+  resolveHeaders(
+    providerId: string,
+    headers?: Record<string, string>,
+  ): Record<string, string> | undefined {
+    return this.reader.resolveHeaders(providerId, headers);
+  }
+
+  /**
    * Resolves the current thinking level from Pi.
    */
   resolveThinkingLevel(): ModelThinkingLevel | undefined {

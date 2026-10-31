@@ -133,6 +133,7 @@ export class ServerManager {
       baseUrl: server.apiBaseUrl,
       api: API_TYPE,
       apiKey: server.apiKey,
+      headers: server.headers,
       models: modelConfigs,
     });
   }

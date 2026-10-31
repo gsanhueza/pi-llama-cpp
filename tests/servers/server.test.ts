@@ -64,6 +64,29 @@ describe("Server providerName", () => {
   });
 });
 
+describe("Server headers", () => {
+  it("returns empty object when no headers are set", () => {
+    const server = createMockServer({
+      options: { baseUrl: "http://127.0.0.1:9931" },
+    });
+    expect(server.headers).toEqual({});
+  });
+
+  it("returns resolved headers from resolver", () => {
+    const resolver = makeResolverStub({
+      resolveHeaders: vi.fn(() => ({ "X-Custom": "value" })),
+    });
+    const server = createMockServer({
+      resolver,
+      options: {
+        baseUrl: "http://127.0.0.1:9931",
+        headers: { "X-Raw": "raw" },
+      },
+    });
+    expect(server.headers).toEqual({ "X-Custom": "value" });
+  });
+});
+
 describe("Server apiKey", () => {
   it("should use key from customId resolver", () => {
     const customResolver = makeResolverStub({
@@ -452,6 +475,7 @@ describe("Server pollModelStatus timeout", () => {
         resolvePollingInterval: vi.fn(async () => 5),
         resolvePollingTimeout: vi.fn(async () => 10),
         resolveApiKey: vi.fn(() => "test-key"),
+        resolveHeaders: vi.fn(() => ({})),
         resolveEnableSSE: vi.fn(async () => true),
       },
     });

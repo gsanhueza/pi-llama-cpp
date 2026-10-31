@@ -29,6 +29,7 @@ const createManager = (
         baseUrl: "http://127.0.0.1:9931",
         getApiKey: () => "",
         getPollingInterval: async () => 500,
+        getHeaders: () => ({}),
         fetchFn,
       })
     : createMockApiClient("http://127.0.0.1:9931");

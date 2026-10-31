@@ -180,6 +180,11 @@ export class ServersController extends BaseListController {
       getPollingInterval:
         this.options.resolvePollingInterval ??
         (() => Promise.resolve(serverTimeout)),
+      getHeaders: () =>
+        this.options.settings.resolveHeaders(
+          ServerIds.resolve(server.url, server.id),
+          server.headers,
+        ),
     });
 
     if (

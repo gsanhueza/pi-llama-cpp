@@ -113,6 +113,14 @@ export abstract class Server {
   }
 
   /**
+   * Resolves the server's custom headers (`llamaSettings.servers[].headers`)
+   * through the injected settings resolver. `undefined` when none are set.
+   */
+  get headers(): Record<string, string> | undefined {
+    return this.resolver.resolveHeaders(this.providerId, this.options.headers);
+  }
+
+  /**
    * Fetches models from the server and populates {@link models}.
    */
   async initialize(): Promise<void> {

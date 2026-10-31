@@ -15,6 +15,7 @@ import { SingleServer } from "../../src/servers/singleServer";
 /** Default resolver stub — omit the resolver argument to use this. */
 const defaultResolver = makeResolverStub({
   resolveApiKey: vi.fn(() => API_KEY_PLACEHOLDER),
+  resolveHeaders: vi.fn(() => ({})),
   resolvePollingTimeout: vi.fn(
     async () => PollingTimeoutSettingsItem.defaultValue,
   ),
@@ -79,6 +80,8 @@ export const createMockServer = (
           ),
       ),
     getPollingInterval: () => effectiveResolver.resolvePollingInterval(),
+    getHeaders: () =>
+      effectiveResolver.resolveHeaders("test-server", undefined),
     fetchFn: effectiveFetch,
   });
 
@@ -88,6 +91,7 @@ export const createMockServer = (
       baseUrl: options?.baseUrl ?? defaultBaseUrl(),
       customId: options?.customId,
       customName: options?.customName,
+      headers: options?.headers,
       overrides: options?.overrides,
     },
     apiClient,

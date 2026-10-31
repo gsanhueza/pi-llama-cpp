@@ -32,6 +32,21 @@ export class CredentialResolver {
   }
 
   /**
+   * Reads the `env` object stored with a provider's credential in
+   * `auth.json`. `$VAR` references resolve against it before `process.env`,
+   * so secrets can live in the credential store instead of the settings.
+   *
+   * @param providerId - The provider ID the credential is stored under.
+   * @returns The stored `env` map, or `undefined` when there is none.
+   */
+  readEnv(providerId: string): Record<string, string> | undefined {
+    const credential = readStoredCredential(providerId) as
+      | ApiKeyCredential
+      | undefined;
+    return credential?.env;
+  }
+
+  /**
    * Resolves a credential key to its actual value.
    *
    * @param key - The raw key string from the credential.

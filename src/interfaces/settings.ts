@@ -70,6 +70,19 @@ export interface LlamaServer {
    */
   name?: string;
   /**
+   * Extra HTTP headers sent with every request to this server, e.g. for
+   * authentication with a reverse proxy or access gateway. Values accept
+   * the same formats as the `key` of a credential entry: a literal,
+   * `$VAR` / `${VAR}`, or `!command`. `$VAR` resolves against the `env`
+   * stored with this server's credential first, then `process.env` — keep
+   * secrets there rather than writing them in the settings file.
+   * Headers whose value can't be resolved are omitted.
+   *
+   * These take precedence over the headers the extension sets itself,
+   * including `Authorization`.
+   */
+  headers?: Record<string, string>;
+  /**
    * Per-model overrides for this server. Keys are **prefix filters** —
    * a model ID matches if it starts with the key. When multiple patterns
    * match, the **longest (most specific) match wins**.

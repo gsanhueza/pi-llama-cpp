@@ -16,6 +16,7 @@ describe("ServerFactory.create", () => {
           ? "my-secret-key"
           : "placeholder",
       ),
+      resolveHeaders: vi.fn(() => ({})),
     });
 
     const factory = new ServerFactory();
@@ -50,6 +51,7 @@ describe("ServerFactory.create", () => {
       resolveApiKey: vi.fn((id) =>
         id === "my-custom-id" ? "custom-key" : "placeholder",
       ),
+      resolveHeaders: vi.fn(() => ({})),
     });
 
     const factory = new ServerFactory();

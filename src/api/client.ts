@@ -42,6 +42,8 @@ export interface ApiClientOptions {
   ttlRatio?: number;
   /** Resolves the API key for authentication at request time */
   getApiKey: () => string;
+  /** Resolves extra headers at request time. */
+  getHeaders: () => Record<string, string> | undefined;
   /** Resolves the current polling interval for cache TTL derivation. */
   getPollingInterval?: () => Promise<number>;
   /** Custom fetch implementation (for testing). */
@@ -95,6 +97,11 @@ export class ApiClient {
     return this.options.getApiKey;
   }
 
+  /** Resolves extra headers at request time */
+  private get getHeaders(): () => Record<string, string> | undefined {
+    return this.options.getHeaders;
+  }
+
   /** Resolves the current polling interval for cache TTL derivation */
   private get getPollingInterval(): () => Promise<number> {
     return (
@@ -126,7 +133,10 @@ export class ApiClient {
       : `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
     const response = await this.fetchFn(url, {
       method: "GET",
-      headers: { Authorization: `Bearer ${this.getApiKey()}` },
+      headers: {
+        Authorization: `Bearer ${this.getApiKey()}`,
+        ...this.getHeaders(),
+      },
       signal,
     });
 
@@ -362,6 +372,7 @@ export class ApiClient {
           ? { "Content-Type": "application/json" }
           : undefined),
         Authorization: `Bearer ${this.getApiKey()}`,
+        ...this.getHeaders(),
       },
       ...(body ? { body: JSON.stringify(body) } : undefined),
     });

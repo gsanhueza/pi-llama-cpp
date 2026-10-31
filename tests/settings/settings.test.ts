@@ -21,6 +21,12 @@ import { SettingsStore } from "../../src/settings/store";
 import { SingleServer } from "../../src/servers/singleServer";
 import { createMockApiClient } from "../mocks/apiClient";
 
+const mockExecSync = vi.hoisted(() => vi.fn());
+
+vi.mock("node:child_process", () => ({
+  execSync: mockExecSync,
+}));
+
 let manager: SettingsService;
 
 // Hoisted mock instances
@@ -979,6 +985,31 @@ describe("resolveServerConfigs passes overrides", () => {
     });
     expect(result[1].overrides).toEqual({});
   });
+
+  it("should pass headers from llamaSettings.servers to ServerOptions", async () => {
+    mockGetProjectSettings.mockReturnValue({
+      llamaSettings: {
+        servers: [
+          {
+            url: "http://headers-server:9090",
+            headers: { "X-Proxy": "token", "X-Empty": "$UNSET_VAR" },
+          },
+          {
+            url: "http://no-headers-server:9090",
+          },
+        ],
+      },
+    });
+
+    const result = await manager.resolveServerConfigs();
+
+    expect(result).toHaveLength(2);
+    expect(result[0].headers).toEqual({
+      "X-Proxy": "token",
+      "X-Empty": "$UNSET_VAR",
+    });
+    expect(result[1].headers).toBeUndefined();
+  });
 });
 
 describe("Server.findOverrideForModel", () => {
@@ -1310,6 +1341,101 @@ describe("resolveEnableSSE", () => {
     });
 
     expect(await manager.resolveEnableSSE()).toBe(false);
+  });
+});
+
+describe("resolveHeaders", () => {
+  const mockGetAgentDir = vi.mocked(getAgentDir);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAgentDir.mockReturnValue("/fake/agent/dir");
+    mockReadStoredCredential.mockReturnValue(undefined);
+    manager = SettingsService.create();
+  });
+
+  it("returns undefined when headers are not set", () => {
+    expect(manager.resolveHeaders("test")).toBeUndefined();
+  });
+
+  it("returns undefined when headers is empty object", () => {
+    expect(manager.resolveHeaders("test", {})).toBeUndefined();
+  });
+
+  it("resolves a literal header value", () => {
+    const result = manager.resolveHeaders("test", {
+      "X-Static": "static-token",
+    });
+    expect(result).toEqual({ "X-Static": "static-token" });
+  });
+
+  it("resolves a $VAR header from process.env", () => {
+    process.env.HEADER_VAR = "env-header-value";
+    const result = manager.resolveHeaders("test", { "X-Var": "$HEADER_VAR" });
+    expect(result).toEqual({ "X-Var": "env-header-value" });
+    delete process.env.HEADER_VAR;
+  });
+
+  it("resolves a ${VAR} header from process.env", () => {
+    process.env.HEADER_BRACED = "braced-value";
+    const result = manager.resolveHeaders("test", {
+      "X-Braced": "${HEADER_BRACED}",
+    });
+    expect(result).toEqual({ "X-Braced": "braced-value" });
+    delete process.env.HEADER_BRACED;
+  });
+
+  it("omits headers with unset env vars", () => {
+    const result = manager.resolveHeaders("test", {
+      "X-Valid": "keep-me",
+      "X-Unset": "$NONEXISTENT_VAR",
+    });
+    expect(result).toEqual({ "X-Valid": "keep-me" });
+  });
+
+  it("omits non-string header values", () => {
+    // @ts-expect-error — testing non-string handling
+    const result = manager.resolveHeaders("test", { "X-Number": 42 });
+    expect(result).toBeUndefined();
+  });
+
+  it("executes a shell command for header values", () => {
+    mockExecSync.mockReturnValue("  shell-secret  ");
+    const result = manager.resolveHeaders("test", {
+      "X-Command": "!echo shell-secret",
+    });
+    expect(result).toEqual({ "X-Command": "shell-secret" });
+  });
+
+  it("omits headers with failed shell commands", () => {
+    mockExecSync.mockImplementation(() => {
+      throw new Error("command not found");
+    });
+    const result = manager.resolveHeaders("test", {
+      "X-Valid": "keep-me",
+      "X-Bad": "!invalid-cmd",
+    });
+    expect(result).toEqual({ "X-Valid": "keep-me" });
+  });
+
+  it("resolves header values from credential env first", () => {
+    mockReadStoredCredential.mockReturnValue({
+      env: { CRED_VAR: "cred-value" },
+    });
+    const result = manager.resolveHeaders("test-server", {
+      "X-Cred": "$CRED_VAR",
+    });
+    expect(result).toEqual({ "X-Cred": "cred-value" });
+  });
+
+  it("falls back to process.env when credential env var is missing", () => {
+    mockReadStoredCredential.mockReturnValue({ env: { OTHER: "other" } });
+    process.env.HEADER_FALLBACK = "fallback-value";
+    const result = manager.resolveHeaders("test-server", {
+      "X-Fallback": "$HEADER_FALLBACK",
+    });
+    expect(result).toEqual({ "X-Fallback": "fallback-value" });
+    delete process.env.HEADER_FALLBACK;
   });
 });
 

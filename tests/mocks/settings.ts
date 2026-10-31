@@ -40,6 +40,7 @@ export const makeSettingsStub = (
       async () => ShowServerUrlsSettingsItem.defaultValue,
     ),
     resolveApiKey: vi.fn(() => API_KEY_PLACEHOLDER),
+    resolveHeaders: vi.fn(() => ({})),
     resolveReactToModelSelect: vi.fn(
       async () => ReactToModelSelectSettingsItem.defaultValue,
     ),
@@ -68,6 +69,7 @@ export const makeResolverStub = (
     resolvePollingInterval: vi.fn(async () => 10),
     resolvePollingTimeout: vi.fn(async () => 5000),
     resolveApiKey: vi.fn(() => API_KEY_PLACEHOLDER),
+    resolveHeaders: vi.fn(() => ({})),
     resolveEnableSSE: vi.fn(async () => true),
     ...overrides,
   }) as ServerSettingsResolver;
