@@ -112,12 +112,13 @@ export const unloadedModel = (name: string): string =>
   logInfo(`Unloaded ${name}`);
 
 /**
- * Generates an info message when a model starts loading.
+ * Generates an info message when a model starts loading or during polling.
  *
  * @param name The name of the model being loaded.
+ * @param elapsed Seconds elapsed since the load started.
  */
-export const loadingModel = (name: string): string =>
-  logInfo(`Loading ${name}...`);
+export const loadingModelPolling = (name: string, elapsed: number): string =>
+  logInfo(`Loading ${name}... (${elapsed}s elapsed)`);
 
 /**
  * Generates an info message for model load progress.

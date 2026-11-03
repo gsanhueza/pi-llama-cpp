@@ -359,7 +359,10 @@ describe("EventManager.onModelSelect", () => {
 
     await eventManager.onModelSelect(event, ctx, mockPi);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Loading model-a...", "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      "Loading model-a... (0s elapsed)",
+      "info",
+    );
   });
 
   it("should return early when reactToModelSelect is false", async () => {
@@ -413,7 +416,10 @@ describe("EventManager.autoLoadIfNeeded (via onBeforeProviderRequest)", () => {
     );
 
     expect(server.models[0].load).toHaveBeenCalled();
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Loading model-a...", "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      "Loading model-a... (0s elapsed)",
+      "info",
+    );
   });
 
   it("should not load the model when autoloadOnMessage is false", async () => {
@@ -504,7 +510,10 @@ describe("EventManager.loadWithFeedback with SSE", () => {
     );
 
     // loadWithFeedback fires immediately with the loading notification
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Loading model-a...", "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      "Loading model-a... (0s elapsed)",
+      "info",
+    );
   });
 });
 
@@ -647,7 +656,7 @@ describe("EventManager with a live ServerManager", () => {
       mockPi,
     );
     expect(selectCtx.ui.notify).toHaveBeenCalledWith(
-      "Loading model-b...",
+      "Loading model-b... (0s elapsed)",
       "info",
     );
   });
