@@ -73,17 +73,11 @@ export class EventManager {
     if (!(await this.settings.resolveAutoloadOnMessage())) return;
 
     const status = await model.getStatus();
-    if (status === Status.UNLOADED) {
-      await this.loadWithFeedback(model, ctx, pi);
-      return;
-    }
 
-    // If the model is already loading (e.g. from /models), wait for it.
-    if (
-      status === Status.LOADING &&
-      this.inflightTracker.inflightModel === model
-    ) {
-      await this.inflightTracker.inflightPromise;
+    // UNLOADED: need to load it.
+    // LOADING: wait for an external load (our own load() is idempotent).
+    if (status === Status.UNLOADED || status === Status.LOADING) {
+      return await this.loadWithFeedback(model, ctx, pi);
     }
   }
 

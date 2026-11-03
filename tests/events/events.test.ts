@@ -478,44 +478,6 @@ describe("EventManager.autoLoadIfNeeded (via onBeforeProviderRequest)", () => {
 
     expect(server.models[0].load).not.toHaveBeenCalled();
   });
-
-  it("should wait for an in-flight load when model is LOADING", async () => {
-    vi.mocked(settingsStub.resolveAutoloadOnMessage).mockResolvedValue(true);
-
-    let loadResolve!: () => void;
-    const loadPromise = new Promise<void>((resolve) => {
-      loadResolve = resolve;
-    });
-    const model = createMockModel("model-a", {
-      getStatus: vi.fn().mockResolvedValue(Status.LOADING),
-      load: vi.fn().mockReturnValue(loadPromise),
-    });
-
-    // Simulate a prior /models load: set inflightModel and inflightPromise
-    inflightTracker.setInflight(model, loadPromise);
-
-    const server = createTestServer(defaultBaseUrl(), [model]);
-    const eventManager = createEventManager(server);
-    const ctx = createMockCtx();
-
-    const before = Date.now();
-    const requestPromise = eventManager.onBeforeProviderRequest(
-      createBeforeProviderRequestEvent(createPayload("model-a")),
-      ctx,
-      mockPi,
-    );
-
-    // Delay resolving the in-flight load so we can measure the wait
-    setTimeout(() => loadResolve!(), 50);
-
-    await requestPromise;
-    const elapsed = Date.now() - before;
-
-    // Should NOT call load again (it was already in-flight)
-    expect(model.load).not.toHaveBeenCalled();
-    // Should have waited for the inflight load to complete
-    expect(elapsed).toBeGreaterThanOrEqual(40);
-  });
 });
 
 describe("EventManager.loadWithFeedback with SSE", () => {
