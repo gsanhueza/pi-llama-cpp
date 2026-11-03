@@ -11,7 +11,7 @@ import {
   errorMessage,
   unloadingModel,
   unloadedModel,
-  loadingModel,
+  loadingModelPolling,
   loadingModelProgress,
   modelReady,
 } from "../ui/notifyMessages";
@@ -227,14 +227,17 @@ export class EventManager {
     ctx: ExtensionContext,
     pi: ExtensionAPI,
   ): Promise<void> {
-    ctx.ui.notify(loadingModel(model.name), "info");
     this.inflightTracker.inflightModel = model;
     this.inflightTracker.inflightModels.add(model);
 
-    // Subscribe to SSE progress when available
     const server = this.serverManager.getServer(model);
+    const hasSSE = server?.sseManager && (await server.sseManager.probeSSE());
     let cleanupProgress = () => {};
-    if (server?.sseManager && (await server.sseManager.probeSSE())) {
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+
+    if (hasSSE) {
+      // Initial notification + SSE progress events
+      ctx.ui.notify(loadingModelPolling(model.name, 0), "info");
       cleanupProgress = server.sseManager.subscribeToProgress(
         model.id,
         (percentage, stage) => {
@@ -244,6 +247,15 @@ export class EventManager {
           );
         },
       );
+    } else {
+      // Fallback: periodic elapsed-time updates when SSE progress is unavailable
+      const startedAt = Date.now();
+      const interval = await this.settings.resolvePollingInterval();
+      ctx.ui.notify(loadingModelPolling(model.name, 0), "info");
+      heartbeat = setInterval(() => {
+        const seconds = Math.round((Date.now() - startedAt) / 1000);
+        ctx.ui.notify(loadingModelPolling(model.name, seconds), "info");
+      }, interval);
     }
 
     // Execute the loading process
@@ -265,6 +277,7 @@ export class EventManager {
     } catch (err) {
       ctx.ui.notify(errorMessage(err), "error");
     } finally {
+      clearInterval(heartbeat ?? 0);
       cleanupProgress();
       this.inflightTracker.inflightModels.delete(model);
       this.inflightTracker.reset();
