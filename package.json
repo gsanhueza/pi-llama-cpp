@@ -1,6 +1,6 @@
 {
   "name": "pi-llama-cpp",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "Pi extension for llama.cpp integration. Supports multiple router/single/legacy/llama-swap servers.",
   "keywords": [
     "pi",
@@ -43,8 +43,8 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "prettier-plugin-organize-imports": "^4.3.0",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
