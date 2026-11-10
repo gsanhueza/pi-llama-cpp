@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { ServerOptions } from "../../src/interfaces/server";
 import { ServerStatus } from "../../src/enums/serverStatus";
 import { ServerManager } from "../../src/managers/server";
+import { Server } from "../../src/servers/server";
 import { createMockModel } from "../mocks/model";
 import { createMockServer } from "../mocks/server";
 import { createSeededServerFactory } from "../mocks/serverFactory";
@@ -198,13 +199,16 @@ describe("ServerManager", () => {
       ]);
       await manager.update(mockPi);
 
+      // Only the removed server's provider is unregistered — the kept one
+      // stays registered (re-registering the same provider mid-use can cause
+      // "Unknown provider" errors in pi's registry).
+      // Both SSE managers are disconnected because the Server objects are replaced.
       expect(mockPi.unregisterProvider).toHaveBeenCalledTimes(1);
       expect(mockPi.unregisterProvider).toHaveBeenCalledWith(
         "llama-server=http://127.0.0.1:8081",
       );
       expect(disconnectRemoved).toHaveBeenCalledTimes(1);
-      // Surviving providers keep their SSE manager connected (today's behavior)
-      expect(disconnectKept).not.toHaveBeenCalled();
+      expect(disconnectKept).toHaveBeenCalledTimes(1);
       expect((await manager.getAllModels()).map((m) => m.id)).toEqual([
         "model-1",
       ]);
@@ -265,6 +269,9 @@ describe("ServerManager", () => {
       ]);
       await manager.update(mockPi);
 
+      // Provider is NOT unregistered when the ID survived the scan —
+      // re-registering the same provider while in use can cause
+      // "Unknown provider" errors in pi's registry.
       expect(mockPi.unregisterProvider).not.toHaveBeenCalled();
       expect(vi.mocked(mockPi.registerProvider).mock.calls.at(-1)).toEqual([
         "my-custom-id",
@@ -718,5 +725,99 @@ describe("initialize", () => {
     expect(mockPi.registerProvider).not.toHaveBeenCalled();
     // update was called with the server timeout
     expect(settingsStub.resolveTimeouts).toHaveBeenCalled();
+  });
+
+  describe("unregisterStaleProviders", () => {
+    it("should disconnect SSE managers for ALL old servers, including ones that survived the scan", async () => {
+      const disconnect1 = vi.fn();
+      const disconnect2 = vi.fn();
+
+      const server1 = createMockServer({
+        options: { baseUrl: "http://127.0.0.1:9931" },
+        sse: { disconnect: disconnect1 },
+      });
+      const server2 = createMockServer({
+        options: { baseUrl: "http://127.0.0.1:8081" },
+        sse: { disconnect: disconnect2 },
+      });
+
+      const manager = new ServerManager(
+        settingsStub,
+        createSeededServerFactory({
+          "http://127.0.0.1:9931": [],
+          "http://127.0.0.1:8081": [],
+        }),
+      );
+
+      // Pre-populate the server list so update() has old servers to tear down
+      (manager["serverList"] as Server[]).push(server1, server2);
+
+      vi.mocked(settingsStub.resolveServerConfigs).mockResolvedValue([
+        configOf("http://127.0.0.1:9931"),
+        configOf("http://127.0.0.1:8081"),
+      ]);
+
+      await manager.update(mockPi);
+
+      // Both old servers' SSE managers should be disconnected —
+      // even though their provider IDs survived the scan,
+      // the Server objects themselves were replaced.
+      expect(disconnect1).toHaveBeenCalled();
+      expect(disconnect2).toHaveBeenCalled();
+    });
+
+    it("should unregister providers for servers that disappeared", async () => {
+      const server1 = createMockServer({
+        options: { baseUrl: "http://127.0.0.1:9931" },
+      });
+
+      const manager = new ServerManager(
+        settingsStub,
+        createSeededServerFactory({
+          "http://127.0.0.1:9931": [],
+        }),
+      );
+
+      // Pre-populate with a server that will disappear
+      (manager["serverList"] as Server[]).push(server1);
+
+      // Config now only has a different server
+      vi.mocked(settingsStub.resolveServerConfigs).mockResolvedValue([
+        configOf("http://127.0.0.1:8081"),
+      ]);
+
+      await manager.update(mockPi);
+
+      // The old server's provider should be unregistered (ID disappeared)
+      expect(mockPi.unregisterProvider).toHaveBeenCalledWith(
+        server1.providerId,
+      );
+    });
+
+    it("should NOT unregister providers whose IDs survived the scan", async () => {
+      const server1 = createMockServer({
+        options: { baseUrl: "http://127.0.0.1:9931" },
+      });
+
+      const manager = new ServerManager(
+        settingsStub,
+        createSeededServerFactory({
+          "http://127.0.0.1:9931": [],
+        }),
+      );
+
+      // Pre-populate with a server
+      (manager["serverList"] as Server[]).push(server1);
+
+      // Config still has the same server — ID survived
+      vi.mocked(settingsStub.resolveServerConfigs).mockResolvedValue([
+        configOf("http://127.0.0.1:9931"),
+      ]);
+
+      await manager.update(mockPi);
+
+      // Provider should NOT be unregistered when the ID survived
+      expect(mockPi.unregisterProvider).not.toHaveBeenCalled();
+    });
   });
 });
