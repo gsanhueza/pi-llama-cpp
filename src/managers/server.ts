@@ -70,7 +70,7 @@ export class ServerManager {
     this.warnings.push(...this.settings.takeWarnings());
 
     // Discover, initialize, and filter out failures
-    const { fresh, seenIds } = await this.initializeServers(pi, timeout);
+    const { fresh } = await this.initializeServers(pi, timeout);
 
     // Register only initialized servers
     const registered: Server[] = [];
@@ -83,8 +83,8 @@ export class ServerManager {
     this.serverList.length = 0;
     this.serverList.push(...registered);
 
-    // Unregister providers that disappeared (removed or edited away)
-    this.unregisterStaleProviders(pi, oldServers, seenIds);
+    // Unregister all old providers and disconnect their SSE managers.
+    this.unregisterStaleProviders(pi, oldServers);
   }
 
   /**
@@ -236,22 +236,26 @@ export class ServerManager {
   }
 
   /**
-   * Unregisters providers that disappeared (removed or edited away) and
-   * disconnects their SSE managers.
+   * Unregisters providers whose IDs disappeared and disconnects SSE managers
+   * for ALL old servers (even ones whose IDs survived, since the Server
+   * objects themselves are replaced by the scan).
    *
+   * @param pi The Pi extension API
    * @param oldServers The previous server list snapshot
-   * @param seenIds Set of provider IDs kept in the current scan
    */
   private unregisterStaleProviders(
     pi: ExtensionAPI,
     oldServers: readonly Server[],
-    seenIds: Set<string>,
   ): void {
     for (const old of oldServers) {
-      if (seenIds.has(old.providerId)) continue;
-      pi.unregisterProvider(old.providerId);
-      // Optional chain is intentional despite the non-optional type: `sse`
-      // is undefined until initialize() runs (async-constructor hack — see Server)
+      // Only unregister the provider if its ID is gone — re-registering the
+      // same provider while it's in use can cause "Unknown provider" errors
+      // in pi's registry (a brief unregister/re-register window is not safe).
+      if (!this.serverList.some((s) => s.providerId === old.providerId)) {
+        pi.unregisterProvider(old.providerId);
+      }
+      // Always disconnect the SSE manager — the Server object is replaced
+      // even if the provider ID survived the scan.
       old.sseManager?.disconnect();
     }
   }

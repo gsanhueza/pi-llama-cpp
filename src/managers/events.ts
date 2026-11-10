@@ -22,6 +22,7 @@ import type { SettingsService } from "../settings/settings";
 import { Model } from "../models/model";
 import { ServerManager } from "./server";
 import { InflightTracker } from "./inflightTracker";
+import { SSEClient } from "../sse/client";
 
 export class EventManager {
   constructor(
@@ -106,6 +107,15 @@ export class EventManager {
       // Re-scan providers so the model registry reflects the new state
       await this.serverManager.update(pi);
     }
+  }
+
+  /**
+   * Disconnects all SSE clients on session shutdown.
+   * Covers orphaned clients from re-scans that the ServerManager
+   * no longer tracks.
+   */
+  onSessionShutdown(): void {
+    SSEClient.disconnectAll();
   }
 
   /**

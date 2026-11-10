@@ -14,6 +14,8 @@ import type { SSECallback, SSECleanup, SSEEvent } from "./types";
  * Handles reconnection by re-subscribing all callbacks.
  */
 export class SSEClient {
+  private static liveClients = new Set<SSEClient>();
+
   private abortController: AbortController | null = null;
   private disposed: boolean = false;
   subscribers: Map<string, SSECallback> = new Map();
@@ -33,7 +35,14 @@ export class SSEClient {
   constructor(
     private readonly sseEndpoint: string,
     private readonly client: ApiClient,
-  ) {}
+  ) {
+    SSEClient.liveClients.add(this);
+  }
+
+  /** Disconnect every SSE client that is still live. */
+  static disconnectAll(): void {
+    for (const client of SSEClient.liveClients) client.disconnect();
+  }
 
   /**
    * Waits the given amount of time (used between reconnection attempts).
@@ -200,6 +209,7 @@ export class SSEClient {
    */
   disconnect(): void {
     this.disposed = true;
+    SSEClient.liveClients.delete(this);
     this.abortController?.abort();
     this.abortController = null;
     this.connected = false;

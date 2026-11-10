@@ -61,6 +61,9 @@ export class SSEManager {
       this.sseSupported =
         response.ok &&
         !!response.headers.get("content-type")?.includes("text/event-stream");
+      // Consume the body so the server knows we're done — prevents a lingering
+      // unread stream on the wire (the SSEClient path consumes the body normally).
+      await response.body?.cancel();
     } catch {
       this.sseSupported = false;
     }

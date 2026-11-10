@@ -74,6 +74,8 @@ export default async function (pi: ExtensionAPI) {
       await eventManager.onSessionBeforeSwitch(ctx),
   );
 
+  pi.on("session_shutdown", () => eventManager.onSessionShutdown());
+
   // Track completion IDs from streaming chat responses
   pi.on("provider_stream_event", (event: ProviderStreamEvent) =>
     eventManager.onProviderStreamEvent(event),
