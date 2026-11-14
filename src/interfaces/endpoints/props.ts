@@ -7,10 +7,12 @@ export interface PropsEndpoint {
   models_autoload: boolean;
   model_alias: string;
   model_path: string;
+  model_ftype?: string;
   default_generation_settings: Record<string, any>;
   ui_settings: Record<string, any>;
   build_info: string;
   cors_proxy_enabled: boolean;
+  connect_code?: string;
 }
 
 /**
@@ -38,6 +40,7 @@ export interface PropsModelEndpoint {
   };
   total_slots: number;
   model_alias: string;
+  model_ftype?: string;
   model_path: string;
   modalities: {
     vision: boolean;
@@ -51,6 +54,7 @@ export interface PropsModelEndpoint {
   ui: boolean;
   ui_settings: Record<string, any>;
   chat_template: string;
+  chat_template_tool_use?: string;
   chat_template_caps: {
     supports_object_arguments: boolean;
     supports_parallel_tool_calls: boolean;
@@ -60,12 +64,15 @@ export interface PropsModelEndpoint {
     supports_tool_calls: boolean;
     supports_tools: boolean;
     supports_typed_content: boolean;
+    supports_reasoning_effort: boolean;
+    reasoning_effort_levels: string[];
   };
   bos_token: string;
   eos_token: string;
   build_info: string;
   is_sleeping: boolean;
   cors_proxy_enabled: boolean;
+  connect_code?: string;
 }
 
 interface PropsError {
