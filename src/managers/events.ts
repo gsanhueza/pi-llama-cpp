@@ -189,23 +189,20 @@ export class EventManager {
     const reasoning_effort = effortMap[level] ?? "medium";
 
     // Setup payload
-    if (level === "off")
+    // Non-reasoning model — no reasoning at all.
+    if (level === "off" || !serverModel.reasoning)
       return { ...payload, chat_template_kwargs: { enable_thinking: false } };
 
-    // Arm the llama.cpp reasoning-budget sampler for reasoning models,
-    // so the user can end reasoning mid-stream via the control endpoint.
-    if (serverModel.reasoning) {
-      return {
-        ...payload,
-        thinking_budget_tokens,
-        reasoning_control: true,
-        reasoning_effort,
-      };
-    }
+    // Reasoning model: arm the budget sampler so /models rush can
+    // force-end reasoning mid-stream at any level.
+    const reasoning_control = true;
 
-    if (level === "max") return { ...payload, reasoning_effort };
-
-    return { ...payload, thinking_budget_tokens, reasoning_effort };
+    return {
+      ...payload,
+      thinking_budget_tokens,
+      reasoning_control,
+      reasoning_effort,
+    };
   }
 
   /**

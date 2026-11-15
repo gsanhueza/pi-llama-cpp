@@ -148,6 +148,27 @@ describe("EventManager.onBeforeProviderRequest", () => {
       },
     );
 
+    it("should not send reasoning_control or reasoning_effort for non-reasoning models", async () => {
+      vi.mocked(settingsStub.resolveThinkingLevel).mockReturnValue("high");
+
+      const server = createMockServer({
+        models: ["model-a"].map((id) =>
+          createMockModel(id, { reasoning: false }),
+        ),
+      });
+      const eventManager = createEventManager(server);
+
+      const ctx = createMockCtx("high");
+      const result = (await eventManager.onBeforeProviderRequest(
+        createBeforeProviderRequestEvent(createPayload("model-a")),
+        ctx,
+        mockPi,
+      )) as Record<string, unknown>;
+
+      expect(result.reasoning_control).toBeUndefined();
+      expect(result.reasoning_effort).toBeUndefined();
+    });
+
     it("should preserve original payload fields alongside new ones", async () => {
       vi.mocked(settingsStub.resolveThinkingLevel).mockReturnValue("low");
 
