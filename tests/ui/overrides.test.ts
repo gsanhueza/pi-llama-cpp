@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FALLBACK_CTX } from "../../src/constants";
 import type { ModelOverride } from "../../src/interfaces/settings";
 import { Model } from "../../src/models/model";
@@ -113,6 +113,15 @@ describe("Model capabilities override (via toProviderConfig)", () => {
 
     const model = createModel({
       test: { capabilities: ["text", "image"], contextSize: 8192 },
+    });
+    // Stub getThinkingLevelMap so it doesn't trigger a /props call
+    model.server.getThinkingLevelMap = vi.fn().mockResolvedValue({
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max",
     });
     const { input } = await model.toProviderConfig();
 

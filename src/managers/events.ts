@@ -177,6 +177,17 @@ export class EventManager {
     const budgets = this.settings.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 
+    // Map Pi's level to llama.cpp's reasoning_effort string.
+    const effortMap: Record<string, string> = {
+      minimal: "low",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "high",
+      max: "high",
+    };
+    const reasoning_effort = effortMap[level] ?? "medium";
+
     // Setup payload
     if (level === "off")
       return { ...payload, chat_template_kwargs: { enable_thinking: false } };
@@ -184,12 +195,17 @@ export class EventManager {
     // Arm the llama.cpp reasoning-budget sampler for reasoning models,
     // so the user can end reasoning mid-stream via the control endpoint.
     if (serverModel.reasoning) {
-      return { ...payload, thinking_budget_tokens, reasoning_control: true };
+      return {
+        ...payload,
+        thinking_budget_tokens,
+        reasoning_control: true,
+        reasoning_effort,
+      };
     }
 
-    if (level === "max") return payload;
+    if (level === "max") return { ...payload, reasoning_effort };
 
-    return { ...payload, thinking_budget_tokens };
+    return { ...payload, thinking_budget_tokens, reasoning_effort };
   }
 
   /**

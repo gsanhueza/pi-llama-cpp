@@ -178,6 +178,63 @@ describe("Server fetchModelProps", () => {
   });
 });
 
+describe("Server getThinkingLevelMap", () => {
+  it("should return all levels as supported when /props fails", async () => {
+    mockRpc.mockRejectedValueOnce(new Error("props error"));
+
+    const server = createRpcServer();
+    const result = await server.getThinkingLevelMap("test-model");
+
+    expect(result).toEqual({
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max",
+    });
+  });
+
+  it("should return all levels as supported when effort not supported", async () => {
+    mockRpc.mockResolvedValueOnce({
+      chat_template_caps: { supports_reasoning_effort: false },
+    });
+
+    const server = createRpcServer();
+    const result = await server.getThinkingLevelMap("test-model");
+
+    expect(result).toEqual({
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max",
+    });
+  });
+
+  it("should mark unsupported levels as null when effort is supported", async () => {
+    mockRpc.mockResolvedValueOnce({
+      chat_template_caps: {
+        supports_reasoning_effort: true,
+        reasoning_effort_levels: ["low", "medium", "high"],
+      },
+    });
+
+    const server = createRpcServer();
+    const result = await server.getThinkingLevelMap("test-model");
+
+    expect(result).toEqual({
+      minimal: null,
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: null,
+      max: null,
+    });
+  });
+});
+
 describe("Server mode detection (via initialize)", () => {
   it("should detect LLAMASWAP mode when /props returns src", async () => {
     // initialize() calls fetchModels() first, then fetchServerProps()
