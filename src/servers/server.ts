@@ -230,6 +230,36 @@ export abstract class Server {
   abstract getContextSize(modelId: string): Promise<number>;
 
   /**
+   * Thinking level map, as reported by llama.cpp's server
+   *
+   * @param modelId — The model ID to check.
+   * @returns The thinking level map, as supported by the model (falls back to all options)
+   */
+  async getThinkingLevelMap(
+    modelId: string,
+  ): Promise<Record<string, string | null>> {
+    const levels = ["minimal", "low", "medium", "high", "xhigh", "max"];
+    let supported = [...levels];
+
+    try {
+      // Check if the model supports specific efforts
+      const { chat_template_caps } = await this.fetchModelProps(modelId);
+      if (chat_template_caps.supports_reasoning_effort) {
+        supported = chat_template_caps.reasoning_effort_levels;
+      }
+    } catch {
+      // Fallback to every level
+    }
+
+    const mapBuilder = (acc: Record<string, string | null>, curr: string) => {
+      acc[curr] = supported.includes(curr) ? curr : null;
+      return acc;
+    };
+
+    return levels.reduce(mapBuilder, {});
+  }
+
+  /**
    * Mode-aware max tokens resolution.
    *
    * @param modelId — The model ID.

@@ -115,19 +115,13 @@ export class Model {
         ? override.contextSize
         : await this.getContextSize();
     const maxTokens = this.getMaxTokens(contextWindow);
+    const thinkingLevelMap = await this.getThinkingLevelMap();
 
     const response: ChatModelConfig = {
       id: this.id,
       name: this.name,
       reasoning: this.reasoning,
-      thinkingLevelMap: {
-        minimal: "minimal",
-        low: "low",
-        medium: "medium",
-        high: "high",
-        xhigh: "xhigh",
-        max: "max",
-      },
+      thinkingLevelMap,
       input,
       contextWindow,
       cost,
@@ -146,6 +140,11 @@ export class Model {
     }
 
     return response;
+  }
+
+  /** Thinking level map for the model */
+  private async getThinkingLevelMap(): Promise<Record<string, string | null>> {
+    return this.server.getThinkingLevelMap(this.id);
   }
 
   /** Maximum number of tokens the model can generate. */

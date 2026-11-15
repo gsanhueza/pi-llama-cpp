@@ -14,7 +14,7 @@ export interface ChatModelConfig {
   id: string;
   name: string;
   reasoning: boolean;
-  thinkingLevelMap: Record<string, string>;
+  thinkingLevelMap: Record<string, string | null>;
   input: ("text" | "image")[];
   contextWindow: number;
   cost: ModelCost;
