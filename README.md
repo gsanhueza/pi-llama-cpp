@@ -15,7 +15,7 @@ A [Pi Coding Agent](https://pi.dev/) extension that connects to multiple [llama.
 - **Custom headers** — send per-server HTTP headers for reverse proxies or access gateways
 - **Llama-swap support** — auto-detects and provides integration with [llama-swap](https://github.com/mostlygeek/llama-swap) gateways
 - **Thinking budget support** — configurable token budgets for model reasoning/thinking, mapped to Pi's thinking levels
-- **Reasoning effort** — maps Pi's thinking levels to llama.cpp's effort levels (low, medium, high) so the chat template adjusts reasoning depth
+- **Reasoning effort** — maps Pi's thinking levels to llama.cpp's effort levels so the chat template adjusts reasoning depth
 - **Real-time progress tracking** — live loading progress via SSE (falls back to polling)
 
 ## Installation
@@ -431,19 +431,7 @@ The extension automatically injects the appropriate `thinking_budget_tokens` int
 
 #### Reasoning Effort
 
-The extension maps Pi's thinking levels to llama.cpp's `reasoning_effort` strings, which tell the chat template how deeply to reason:
-
-| Pi level  | → llama.cpp effort    |
-| --------- | --------------------- |
-| `off`     | _(thinking disabled)_ |
-| `minimal` | `low`                 |
-| `low`     | `low`                 |
-| `medium`  | `medium`              |
-| `high`    | `high`                |
-| `xhigh`   | `high`                |
-| `max`     | `high`                |
-
-Effort levels are determined by the server's `chat_template_caps.reasoning_effort_levels` — if the model only supports a subset (e.g. `low`, `medium`, `high`), unsupported levels are silently skipped.
+Pi's thinking levels use the same names as llama.cpp's `reasoning_effort` (`minimal`, `low`, `medium`, `high`, `xhigh`, `max`), so the extension passes the level directly as the effort value. The server's `chat_template_caps.reasoning_effort_levels` reports which levels the model's template actually supports — unsupported levels are silently skipped by the UI.
 
 ### Reasoning Control
 

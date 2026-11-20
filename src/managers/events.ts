@@ -177,16 +177,8 @@ export class EventManager {
     const budgets = this.settings.resolveThinkingBudgets();
     const thinking_budget_tokens = budgets[level];
 
-    // Map Pi's level to llama.cpp's reasoning_effort string.
-    const effortMap: Record<string, string> = {
-      minimal: "low",
-      low: "low",
-      medium: "medium",
-      high: "high",
-      xhigh: "high",
-      max: "high",
-    };
-    const reasoning_effort = effortMap[level] ?? "medium";
+    // llama.cpp uses the same effort names as Pi (minimal, low, medium, high, xhigh, max).
+    const reasoning_effort = level;
 
     // Setup payload
     // Non-reasoning model — no reasoning at all.

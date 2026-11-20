@@ -98,16 +98,6 @@ const createMockCtx = (thinkingLevel?: ThinkingLevel): ExtensionContext =>
 
 describe("EventManager.onBeforeProviderRequest", () => {
   describe("normal usage — each thinking level", () => {
-    const effortMap: Record<string, string> = {
-      off: "medium",
-      minimal: "low",
-      low: "low",
-      medium: "medium",
-      high: "high",
-      xhigh: "high",
-      max: "high",
-    };
-
     it.each([
       {
         level: "off",
@@ -143,7 +133,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
 
         // reasoning_effort is always present (except for "off")
         if (level !== "off") {
-          expect(result.reasoning_effort).toBe(effortMap[level]);
+          expect(result.reasoning_effort).toBe(level);
         }
       },
     );
@@ -352,7 +342,7 @@ describe("EventManager.onBeforeProviderRequest", () => {
         ...createPayload("model-a"),
         reasoning_control: true,
         thinking_budget_tokens: -1,
-        reasoning_effort: "high",
+        reasoning_effort: "max",
       });
     });
 
