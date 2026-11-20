@@ -65,7 +65,7 @@ export interface PropsModelEndpoint {
     supports_tools: boolean;
     supports_typed_content: boolean;
     supports_reasoning_effort: boolean;
-    reasoning_effort_levels: string[];
+    reasoning_effort_levels?: string[];
   };
   bos_token: string;
   eos_token: string;

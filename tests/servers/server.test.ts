@@ -233,6 +233,47 @@ describe("Server getThinkingLevelMap", () => {
       max: null,
     });
   });
+
+  it("should fall back to all levels when reasoning_effort_levels is empty", async () => {
+    mockRpc.mockResolvedValueOnce({
+      chat_template_caps: {
+        supports_reasoning_effort: true,
+        reasoning_effort_levels: [],
+      },
+    });
+
+    const server = createRpcServer();
+    const result = await server.getThinkingLevelMap("test-model");
+
+    expect(result).toEqual({
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max",
+    });
+  });
+
+  it("should fall back to all levels when reasoning_effort_levels is absent", async () => {
+    mockRpc.mockResolvedValueOnce({
+      chat_template_caps: {
+        supports_reasoning_effort: true,
+      },
+    });
+
+    const server = createRpcServer();
+    const result = await server.getThinkingLevelMap("test-model");
+
+    expect(result).toEqual({
+      minimal: "minimal",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      xhigh: "xhigh",
+      max: "max",
+    });
+  });
 });
 
 describe("Server mode detection (via initialize)", () => {
